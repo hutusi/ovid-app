@@ -17,6 +17,8 @@
   width: 0;
   min-width: 0;
   border-right-color: transparent;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .sidebar-header {
@@ -105,7 +107,8 @@
     background 0.15s;
 }
 
-.sidebar-dir-row:hover .sidebar-dir-action {
+.sidebar-dir-row:hover .sidebar-dir-action,
+.sidebar-dir-row:focus-within .sidebar-dir-action {
   opacity: 1;
 }
 
@@ -185,7 +188,8 @@
     background 0.15s;
 }
 
-.sidebar-file-row:hover .sidebar-delete-btn {
+.sidebar-file-row:hover .sidebar-delete-btn,
+.sidebar-file-row:focus-within .sidebar-delete-btn {
   opacity: 1;
 }
 

@@ -60,14 +60,19 @@ export function useWorkspace({
 
   const handleOpenWorkspace = useCallback(async () => {
     await flushPendingSave();
-    const result = await invoke<WorkspaceResult | null>("open_workspace");
-    if (result) {
-      setTree(result.tree);
-      setWorkspaceName(result.name);
-      setWorkspaceRoot(result.treeRoot);
-      resetFileState();
+    try {
+      const result = await invoke<WorkspaceResult | null>("open_workspace");
+      if (result) {
+        setTree(result.tree);
+        setWorkspaceName(result.name);
+        setWorkspaceRoot(result.treeRoot);
+        resetFileState();
+      }
+    } catch (err) {
+      console.error("Failed to open workspace:", err);
+      showToast(`Failed to open workspace: ${err}`);
     }
-  }, [flushPendingSave, resetFileState]);
+  }, [flushPendingSave, resetFileState, showToast]);
 
   async function handleNewFile(dirPath: string, filename: string) {
     const slug = filename.replace(/\.md$/, "");
@@ -109,6 +114,9 @@ export function useWorkspace({
   async function handleDelete(node: FileNode) {
     const confirmed = window.confirm(`Move "${node.name}" to Trash?`);
     if (!confirmed) return;
+    if (selectedFile?.path === node.path) {
+      await flushPendingSave();
+    }
     try {
       await invoke("trash_file", { path: node.path });
       if (selectedFile?.path === node.path) await handleCloseFile();

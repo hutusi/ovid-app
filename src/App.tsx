@@ -68,6 +68,13 @@ function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!e.metaKey && !e.ctrlKey) return;
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      )
+        return;
       switch (e.key) {
         case "\\":
           e.preventDefault();

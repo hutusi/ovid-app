@@ -72,6 +72,8 @@ function EditableValue({ fieldKey, value, onSave }: EditableValueProps) {
             .filter(Boolean)
         : [];
       onSave(arr);
+    } else if (typeof value === "boolean") {
+      onSave(trimmed === "true" ? true : trimmed === "false" ? false : value);
     } else if (typeof value === "number") {
       const num = Number(trimmed);
       onSave(Number.isNaN(num) ? value : num);
