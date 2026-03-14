@@ -63,14 +63,13 @@ Aesthetic:
 - **Typora-style WYSIWYG** — markdown renders inline as you type; no split pane
 - **Typography-first** — Georgia serif for prose, generous line height, 680px max-width
 - **Minimal chrome** — sidebar collapses, no toolbar cluttering the editor
-- **Keyboard-first** (goal) — all primary actions reachable without mouse
+- **Keyboard-first** (goal) — primary actions are prioritized for keyboard use; every action must have a keyboard path, mouse is optional
 
 Product (non-negotiable):
 - **Writing first** — every feature must justify itself against the cost of distraction it adds
 - **Files stay plain** — on-disk format is always valid `.md`; no app-specific syntax or metadata bleed
 - **Amytis-native** — frontmatter, content types, and publish workflow are first-class, not afterthoughts
 - **Graceful degradation** — features requiring git, Rust tools, or network access fail silently and informatively
-- **Keyboard reachable** — every action must have a keyboard path; mouse is optional
 
 ## Key Design Decisions
 
@@ -80,7 +79,7 @@ Product (non-negotiable):
 - **Bun** as runtime and package manager — consistent with the TUI sibling project
 - **No shared code** with the TUI (`ovid`) — different runtime APIs; reference TUI for domain logic only
 - File I/O goes through **Tauri FS plugin** (`@tauri-apps/plugin-fs`) or Rust commands — never direct Node/Bun APIs
-- **All frontend state lives in `App.tsx`** — no external state library (no Zustand, Redux, etc.)
+- **Global UI state in `App.tsx`** — workspace and editor state live in `App.tsx`; theme state is managed by the `useTheme` hook; no external state library (no Zustand, Redux, etc.)
 - **No editor toolbar** — keyboard-first design; don't add toolbars or button bars to the editor
 
 ## Amytis Workspace
