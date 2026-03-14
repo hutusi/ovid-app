@@ -24,6 +24,16 @@
   flex-direction: column;
   overflow: hidden;
   user-select: none;
+  transition:
+    width 0.2s ease,
+    min-width 0.2s ease,
+    border-right-color 0.2s ease;
+}
+
+.sidebar.hidden {
+  width: 0;
+  min-width: 0;
+  border-right-color: transparent;
 }
 
 .sidebar-header {
@@ -74,12 +84,24 @@
   align-items: center;
   gap: 5px;
   padding: 4px 0;
+  width: 100%;
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  cursor: default;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.sidebar-dir:hover {
+  background: var(--color-bg-hover);
+}
+
+.sidebar-chevron {
+  font-size: 9px;
+  transition: none;
 }
 
 .sidebar-file {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { FileNode } from "../lib/types";
 
 interface SidebarProps {
@@ -6,6 +7,7 @@ interface SidebarProps {
   onSelect: (node: FileNode) => void;
   onOpenWorkspace: () => void;
   workspaceName: string | null;
+  visible: boolean;
 }
 
 interface FileItemProps {
@@ -16,25 +18,32 @@ interface FileItemProps {
 }
 
 function FileItem({ node, depth, selectedPath, onSelect }: FileItemProps) {
+  const [expanded, setExpanded] = useState(true);
   const isSelected = node.path === selectedPath;
   const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
 
   if (node.isDirectory) {
     return (
       <div>
-        <div className="sidebar-dir" style={{ paddingLeft: `${12 + depth * 14}px` }}>
-          <span className="sidebar-icon">▸</span>
+        <button
+          type="button"
+          className="sidebar-dir"
+          style={{ paddingLeft: `${12 + depth * 14}px` }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <span className="sidebar-icon sidebar-chevron">{expanded ? "▾" : "▸"}</span>
           {node.name}
-        </div>
-        {node.children?.map((child) => (
-          <FileItem
-            key={child.path}
-            node={child}
-            depth={depth + 1}
-            selectedPath={selectedPath}
-            onSelect={onSelect}
-          />
-        ))}
+        </button>
+        {expanded &&
+          node.children?.map((child) => (
+            <FileItem
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+            />
+          ))}
       </div>
     );
   }
@@ -60,9 +69,10 @@ export function Sidebar({
   onSelect,
   onOpenWorkspace,
   workspaceName,
+  visible,
 }: SidebarProps) {
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${visible ? "" : "hidden"}`}>
       <div className="sidebar-header">
         <span className="sidebar-workspace-name">{workspaceName ?? "No workspace"}</span>
         <button

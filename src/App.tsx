@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { Sidebar } from "./components/Sidebar";
@@ -22,6 +22,7 @@ interface WorkspaceResult {
 }
 
 const SAVE_DELAY_MS = 750;
+const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
@@ -32,6 +33,9 @@ function App() {
   const [wordCount, setWordCount] = useState(0);
   const [parsedFrontmatter, setParsedFrontmatter] = useState<ParsedFrontmatter>({});
   const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(
+    () => localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "false"
+  );
 
   const frontmatterRef = useRef<string>("");
   const selectedPathRef = useRef<string | null>(null);
@@ -45,7 +49,7 @@ function App() {
     };
   }, []);
 
-  async function flushPendingSave() {
+  const flushPendingSave = useCallback(async () => {
     if (!saveTimerRef.current) return;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
@@ -61,7 +65,51 @@ function App() {
     } catch (err) {
       console.error("Failed to flush pending save:", err);
     }
-  }
+  }, []);
+
+  const handleCloseFile = useCallback(async () => {
+    await flushPendingSave();
+    setSelectedFile(null);
+    setFileContent("");
+    setWordCount(0);
+    setParsedFrontmatter({});
+    frontmatterRef.current = "";
+    selectedPathRef.current = null;
+    pendingMarkdownRef.current = null;
+  }, [flushPendingSave]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.metaKey) return;
+      switch (e.key) {
+        case "\\":
+          e.preventDefault();
+          setSidebarVisible((v) => {
+            const next = !v;
+            localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next));
+            return next;
+          });
+          break;
+        case "P":
+          if (e.shiftKey) {
+            e.preventDefault();
+            setPropertiesOpen((v) => !v);
+          }
+          break;
+        case "s":
+          e.preventDefault();
+          void flushPendingSave();
+          break;
+        case "w":
+          e.preventDefault();
+          void handleCloseFile();
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [flushPendingSave, handleCloseFile]);
 
   async function handleOpenWorkspace() {
     await flushPendingSave();
@@ -137,6 +185,7 @@ function App() {
           onSelect={handleSelectFile}
           onOpenWorkspace={handleOpenWorkspace}
           workspaceName={workspaceName}
+          visible={sidebarVisible}
         />
         <div className="editor-column">
           {selectedFile && hasFrontmatter && (
