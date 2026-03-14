@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { joinFrontmatter, parseFrontmatter, parseYamlFrontmatter } from "./frontmatter";
+import {
+  createTypedFrontmatter,
+  joinFrontmatter,
+  parseFrontmatter,
+  parseYamlFrontmatter,
+} from "./frontmatter";
 
 // ---------------------------------------------------------------------------
 // parseFrontmatter
@@ -112,5 +117,42 @@ describe("parseYamlFrontmatter", () => {
   it("returns empty object when YAML root is not an object", () => {
     const raw = "---\n- item1\n- item2\n---\n";
     expect(parseYamlFrontmatter(raw)).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createTypedFrontmatter
+// ---------------------------------------------------------------------------
+
+describe("createTypedFrontmatter", () => {
+  it("produces valid fenced frontmatter", () => {
+    const result = createTypedFrontmatter("my-post", "post");
+    expect(result.startsWith("---\n")).toBe(true);
+    expect(result.endsWith("---\n")).toBe(true);
+  });
+
+  it("includes the provided content type", () => {
+    const result = createTypedFrontmatter("my-post", "note");
+    expect(result).toContain("type: note");
+  });
+
+  it("converts slug to title case for the title field", () => {
+    const result = createTypedFrontmatter("hello-world", "post");
+    expect(result).toContain('title: "Hello World"');
+  });
+
+  it("converts underscores in slug to spaces in title", () => {
+    const result = createTypedFrontmatter("hello_world", "page");
+    expect(result).toContain('title: "Hello World"');
+  });
+
+  it("sets draft: true", () => {
+    const result = createTypedFrontmatter("my-post", "post");
+    expect(result).toContain("draft: true");
+  });
+
+  it("includes a date field in YYYY-MM-DD format", () => {
+    const result = createTypedFrontmatter("my-post", "post");
+    expect(result).toMatch(/date: \d{4}-\d{2}-\d{2}/);
   });
 });
