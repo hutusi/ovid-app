@@ -1,14 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
+import { EmptyState } from "./components/EmptyState";
+import { InputModal } from "./components/InputModal";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { Sidebar } from "./components/Sidebar";
-import { StatusBar } from "./components/StatusBar";
+import { type SaveStatus, StatusBar } from "./components/StatusBar";
 import {
+  createAmytisFrontmatter,
+  type FrontmatterValue,
   joinFrontmatter,
   type ParsedFrontmatter,
   parseFrontmatter,
   parseYamlFrontmatter,
+  serializeFrontmatter,
 } from "./lib/frontmatter";
 import type { FileNode } from "./lib/types";
 import { useTheme } from "./lib/useTheme";
@@ -18,20 +23,37 @@ import "./App.css";
 interface WorkspaceResult {
   name: string;
   rootPath: string;
+  treeRoot: string;
   tree: FileNode[];
 }
 
+interface Toast {
+  id: number;
+  message: string;
+}
+
+type ModalState = { type: "new-file"; dirPath: string } | null;
+
 const SAVE_DELAY_MS = 750;
+const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
   const [tree, setTree] = useState<FileNode[]>([]);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [wordCount, setWordCount] = useState(0);
   const [parsedFrontmatter, setParsedFrontmatter] = useState<ParsedFrontmatter>({});
   const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(
+    () => localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "false"
+  );
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [modal, setModal] = useState<ModalState>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   const frontmatterRef = useRef<string>("");
   const selectedPathRef = useRef<string | null>(null);
@@ -45,7 +67,17 @@ function App() {
     };
   }, []);
 
-  async function flushPendingSave() {
+  const toastIdRef = useRef(0);
+
+  const showToast = useCallback((message: string) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2000);
+  }, []);
+
+  const flushPendingSave = useCallback(async () => {
     if (!saveTimerRef.current) return;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
@@ -54,37 +86,107 @@ function App() {
     const markdown = pendingMarkdownRef.current;
     if (!path || markdown === null) return;
 
-    pendingMarkdownRef.current = null;
     const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
     try {
       await invoke("write_file", { path, content: diskContent });
+      // Only clear after a successful write; if new edits arrived, keep them
+      if (pendingMarkdownRef.current === markdown) {
+        pendingMarkdownRef.current = null;
+        setSaveStatus("saved");
+      }
     } catch (err) {
       console.error("Failed to flush pending save:", err);
+      showToast("Failed to save — check console for details");
     }
-  }
+  }, [showToast]);
 
-  async function handleOpenWorkspace() {
+  const handleCloseFile = useCallback(async () => {
+    await flushPendingSave();
+    setSelectedFile(null);
+    setFileContent("");
+    setWordCount(0);
+    setParsedFrontmatter({});
+    setSaveStatus("saved");
+    frontmatterRef.current = "";
+    selectedPathRef.current = null;
+    pendingMarkdownRef.current = null;
+  }, [flushPendingSave]);
+
+  const refreshTree = useCallback(async (): Promise<FileNode[]> => {
+    try {
+      const updated = await invoke<FileNode[]>("list_workspace");
+      setTree(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to refresh tree:", err);
+      return [];
+    }
+  }, []);
+
+  const handleOpenWorkspace = useCallback(async () => {
     await flushPendingSave();
     const result = await invoke<WorkspaceResult | null>("open_workspace");
     if (result) {
       setTree(result.tree);
       setWorkspaceName(result.name);
+      setWorkspaceRoot(result.treeRoot);
       setSelectedFile(null);
       setFileContent("");
       setWordCount(0);
       setParsedFrontmatter({});
+      setSaveStatus("saved");
       frontmatterRef.current = "";
       selectedPathRef.current = null;
       pendingMarkdownRef.current = null;
     }
-  }
+  }, [flushPendingSave]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.metaKey && !e.ctrlKey) return;
+      switch (e.key) {
+        case "\\":
+          e.preventDefault();
+          setSidebarVisible((v) => {
+            const next = !v;
+            localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next));
+            return next;
+          });
+          break;
+        case "o":
+          e.preventDefault();
+          void handleOpenWorkspace();
+          break;
+        case "P":
+          if (e.shiftKey) {
+            e.preventDefault();
+            setPropertiesOpen((v) => !v);
+          }
+          break;
+        case "n":
+          e.preventDefault();
+          if (workspaceRoot) setModal({ type: "new-file", dirPath: workspaceRoot });
+          break;
+        case "s":
+          e.preventDefault();
+          void flushPendingSave();
+          break;
+        case "w":
+          e.preventDefault();
+          void handleCloseFile();
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [flushPendingSave, handleCloseFile, handleOpenWorkspace, workspaceRoot]);
 
   async function handleSelectFile(node: FileNode) {
-    // Flush any pending save for the outgoing file before switching
     await flushPendingSave();
-
     setWordCount(0);
     setParsedFrontmatter({});
+    setSaveStatus("saved");
     const prevPath = selectedPathRef.current;
     selectedPathRef.current = node.path;
     pendingMarkdownRef.current = null;
@@ -94,36 +196,131 @@ function App() {
       if (selectedPathRef.current !== node.path) return;
       const { frontmatter, body } = parseFrontmatter(raw);
       frontmatterRef.current = frontmatter;
-      // Set selectedFile and fileContent together so the Editor mounts with
-      // the new key only after content is ready. Tiptap's useEditor treats
-      // `content` as an initialisation-only value, so the Editor must receive
-      // the correct content on its first render or it will stay blank.
       setSelectedFile(node);
       setFileContent(body);
       setParsedFrontmatter(parseYamlFrontmatter(raw));
     } catch (err) {
       console.error("Failed to read file:", err);
-      // Restore previous path so flushPendingSave doesn't write to the
-      // failed file's path if the user continues editing the old file.
+      showToast("Failed to open file — check console for details");
       if (selectedPathRef.current === node.path) selectedPathRef.current = prevPath;
     }
   }
 
   function handleEditorChange(markdown: string) {
     if (!selectedFile) return;
-    // Capture path now — selectedFile state may change before timeout fires
     const pathToSave = selectedFile.path;
+    setSaveStatus("unsaved");
     pendingMarkdownRef.current = markdown;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
-      pendingMarkdownRef.current = null;
-      const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
+      saveTimerRef.current = null;
+      const snapshot = pendingMarkdownRef.current;
+      if (snapshot === null) return;
+      const diskContent = joinFrontmatter(frontmatterRef.current, snapshot);
       try {
         await invoke("write_file", { path: pathToSave, content: diskContent });
+        if (pendingMarkdownRef.current === snapshot) {
+          pendingMarkdownRef.current = null;
+          setSaveStatus("saved");
+        }
       } catch (err) {
         console.error("Failed to save file:", err);
+        showToast("Failed to save — check console for details");
       }
     }, SAVE_DELAY_MS);
+  }
+
+  function findNode(nodes: FileNode[], path: string): FileNode | undefined {
+    for (const n of nodes) {
+      if (n.path === path) return n;
+      if (n.children) {
+        const found = findNode(n.children, path);
+        if (found) return found;
+      }
+    }
+  }
+
+  async function handleNewFile(dirPath: string, filename: string) {
+    setModal(null);
+    const slug = filename.replace(/\.md$/, "");
+    const filePath = `${dirPath}/${slug}.md`;
+    const content = createAmytisFrontmatter(slug);
+    try {
+      await invoke("create_file", { path: filePath, content });
+      const updated = await refreshTree();
+      const newNode = findNode(updated, filePath);
+      if (newNode) await handleSelectFile(newNode);
+    } catch (err) {
+      console.error("Failed to create file:", err);
+      showToast(`Failed to create file: ${err}`);
+    }
+  }
+
+  async function handleRename(node: FileNode, newName: string) {
+    setRenamingPath(null);
+    await flushPendingSave();
+    const dir = node.path.substring(0, node.path.lastIndexOf("/"));
+    const ext = node.extension ?? ".md";
+    const newPath = `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
+    try {
+      await invoke("rename_file", { oldPath: node.path, newPath });
+      const updated = await refreshTree();
+      if (selectedFile?.path === node.path) {
+        const renamed = findNode(updated, newPath);
+        if (renamed) {
+          selectedPathRef.current = newPath;
+          setSelectedFile(renamed);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to rename file:", err);
+      showToast(`Failed to rename: ${err}`);
+    }
+  }
+
+  async function handleDelete(node: FileNode) {
+    const confirmed = window.confirm(`Move "${node.name}" to Trash?`);
+    if (!confirmed) return;
+    try {
+      await invoke("trash_file", { path: node.path });
+      if (selectedFile?.path === node.path) await handleCloseFile();
+      await refreshTree();
+    } catch (err) {
+      console.error("Failed to delete file:", err);
+      showToast(`Failed to delete: ${err}`);
+    }
+  }
+
+  async function handleFieldChange(key: string, value: FrontmatterValue) {
+    if (!selectedFile) return;
+    const updated = { ...parsedFrontmatter, [key]: value };
+    setParsedFrontmatter(updated);
+    const newFrontmatter = serializeFrontmatter(updated);
+    frontmatterRef.current = newFrontmatter;
+
+    let body: string;
+    if (pendingMarkdownRef.current !== null) {
+      body = pendingMarkdownRef.current;
+    } else {
+      try {
+        const raw = await invoke<string>("read_file", { path: selectedFile.path });
+        body = parseFrontmatter(raw).body;
+      } catch (err) {
+        console.error("Failed to read file body for frontmatter update:", err);
+        showToast("Failed to load file — check console for details");
+        return;
+      }
+    }
+
+    try {
+      await invoke("write_file", {
+        path: selectedFile.path,
+        content: joinFrontmatter(newFrontmatter, body),
+      });
+    } catch (err) {
+      console.error("Failed to save frontmatter:", err);
+      showToast("Failed to save — check console for details");
+    }
   }
 
   const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;
@@ -134,9 +331,17 @@ function App() {
         <Sidebar
           tree={tree}
           selectedPath={selectedFile?.path ?? null}
+          renamingPath={renamingPath}
+          visible={sidebarVisible}
+          workspaceName={workspaceName}
+          workspaceRoot={workspaceRoot}
           onSelect={handleSelectFile}
           onOpenWorkspace={handleOpenWorkspace}
-          workspaceName={workspaceName}
+          onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
+          onRename={handleRename}
+          onDelete={handleDelete}
+          onStartRename={setRenamingPath}
+          onCancelRename={() => setRenamingPath(null)}
         />
         <div className="editor-column">
           {selectedFile && hasFrontmatter && (
@@ -144,22 +349,49 @@ function App() {
               frontmatter={parsedFrontmatter}
               isOpen={propertiesOpen}
               onToggle={() => setPropertiesOpen((v) => !v)}
+              onFieldChange={handleFieldChange}
             />
           )}
-          <Editor
-            key={selectedFile?.path ?? "empty"}
-            content={fileContent}
-            onWordCount={setWordCount}
-            onChange={handleEditorChange}
-          />
+          {selectedFile ? (
+            <Editor
+              key={selectedFile.path}
+              content={fileContent}
+              onWordCount={setWordCount}
+              onChange={handleEditorChange}
+            />
+          ) : (
+            <EmptyState
+              workspaceOpen={workspaceRoot !== null}
+              onOpenWorkspace={handleOpenWorkspace}
+            />
+          )}
         </div>
       </div>
       <StatusBar
         fileName={selectedFile?.name ?? null}
         wordCount={wordCount}
         resolvedTheme={resolvedTheme}
+        saveStatus={saveStatus}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
       />
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.id} className="toast">
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
+      {modal?.type === "new-file" && (
+        <InputModal
+          title="New file"
+          placeholder="filename"
+          confirmLabel="Create"
+          onConfirm={(name) => handleNewFile(modal.dirPath, name)}
+          onCancel={() => setModal(null)}
+        />
+      )}
     </div>
   );
 }

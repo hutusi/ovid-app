@@ -1,78 +1,196 @@
+import { useEffect, useRef, useState } from "react";
 import type { FileNode } from "../lib/types";
 
 interface SidebarProps {
   tree: FileNode[];
   selectedPath: string | null;
+  renamingPath: string | null;
+  visible: boolean;
+  workspaceName: string | null;
+  workspaceRoot: string | null;
   onSelect: (node: FileNode) => void;
   onOpenWorkspace: () => void;
-  workspaceName: string | null;
+  onNewFile: (dirPath: string) => void;
+  onRename: (node: FileNode, newName: string) => void;
+  onDelete: (node: FileNode) => void;
+  onStartRename: (path: string) => void;
+  onCancelRename: () => void;
 }
 
 interface FileItemProps {
   node: FileNode;
   depth: number;
   selectedPath: string | null;
+  renamingPath: string | null;
   onSelect: (node: FileNode) => void;
+  onNewFile: (dirPath: string) => void;
+  onRename: (node: FileNode, newName: string) => void;
+  onDelete: (node: FileNode) => void;
+  onStartRename: (path: string) => void;
+  onCancelRename: () => void;
 }
 
-function FileItem({ node, depth, selectedPath, onSelect }: FileItemProps) {
+function FileItem({
+  node,
+  depth,
+  selectedPath,
+  renamingPath,
+  onSelect,
+  onNewFile,
+  onRename,
+  onDelete,
+  onStartRename,
+  onCancelRename,
+}: FileItemProps) {
+  const [expanded, setExpanded] = useState(true);
   const isSelected = node.path === selectedPath;
+  const isRenaming = renamingPath === node.path;
   const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
+  const baseName = node.name.replace(/\.mdx?$/, "");
+  const [renameValue, setRenameValue] = useState(baseName);
+  const renameRef = useRef<HTMLInputElement>(null);
+  const indent = `${12 + depth * 14}px`;
+
+  useEffect(() => {
+    if (isRenaming) {
+      setRenameValue(baseName);
+      renameRef.current?.focus();
+      renameRef.current?.select();
+    }
+  }, [isRenaming, baseName]);
 
   if (node.isDirectory) {
     return (
       <div>
-        <div className="sidebar-dir" style={{ paddingLeft: `${12 + depth * 14}px` }}>
-          <span className="sidebar-icon">▸</span>
-          {node.name}
+        <div className="sidebar-dir-row" style={{ paddingLeft: indent }}>
+          <button type="button" className="sidebar-dir" onClick={() => setExpanded((v) => !v)}>
+            <span className="sidebar-icon sidebar-chevron">{expanded ? "▾" : "▸"}</span>
+            {node.name}
+          </button>
+          <button
+            type="button"
+            className="sidebar-dir-action"
+            title="New file here"
+            onClick={() => onNewFile(node.path)}
+          >
+            +
+          </button>
         </div>
-        {node.children?.map((child) => (
-          <FileItem
-            key={child.path}
-            node={child}
-            depth={depth + 1}
-            selectedPath={selectedPath}
-            onSelect={onSelect}
-          />
-        ))}
+        {expanded &&
+          node.children?.map((child) => (
+            <FileItem
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              renamingPath={renamingPath}
+              onSelect={onSelect}
+              onNewFile={onNewFile}
+              onRename={onRename}
+              onDelete={onDelete}
+              onStartRename={onStartRename}
+              onCancelRename={onCancelRename}
+            />
+          ))}
       </div>
     );
   }
 
   if (!isMarkdown) return null;
 
+  if (isRenaming) {
+    return (
+      <div className="sidebar-rename-row" style={{ paddingLeft: indent }}>
+        <input
+          ref={renameRef}
+          className="sidebar-rename-input"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && renameValue.trim()) {
+              onRename(node, renameValue.trim());
+            } else if (e.key === "Escape") {
+              onCancelRename();
+            }
+          }}
+          onBlur={() => {
+            if (renameValue.trim()) onRename(node, renameValue.trim());
+            else onCancelRename();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      className={`sidebar-file ${isSelected ? "selected" : ""}`}
-      style={{ paddingLeft: `${12 + depth * 14}px` }}
-      onClick={() => onSelect(node)}
-    >
-      <span className="sidebar-icon">◦</span>
-      {node.name.replace(/\.mdx?$/, "")}
-    </button>
+    <div className={`sidebar-file-row ${isSelected ? "selected" : ""}`}>
+      <button
+        type="button"
+        className="sidebar-file"
+        style={{ paddingLeft: indent }}
+        onClick={() => onSelect(node)}
+        onDoubleClick={() => onStartRename(node.path)}
+        onKeyDown={(e) => {
+          if (e.key === "F2") onStartRename(node.path);
+        }}
+      >
+        <span className="sidebar-icon">◦</span>
+        {baseName}
+      </button>
+      <button
+        type="button"
+        className="sidebar-delete-btn"
+        title="Move to Trash"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(node);
+        }}
+      >
+        ✕
+      </button>
+    </div>
   );
 }
 
 export function Sidebar({
   tree,
   selectedPath,
+  renamingPath,
+  visible,
+  workspaceName,
+  workspaceRoot,
   onSelect,
   onOpenWorkspace,
-  workspaceName,
+  onNewFile,
+  onRename,
+  onDelete,
+  onStartRename,
+  onCancelRename,
 }: SidebarProps) {
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${visible ? "" : "hidden"}`}>
       <div className="sidebar-header">
         <span className="sidebar-workspace-name">{workspaceName ?? "No workspace"}</span>
-        <button
-          type="button"
-          className="sidebar-open-btn"
-          onClick={onOpenWorkspace}
-          title="Open workspace"
-        >
-          ⊕
-        </button>
+        <div className="sidebar-header-actions">
+          {workspaceRoot && (
+            <button
+              type="button"
+              className="sidebar-action-btn"
+              title="New file (⌘N)"
+              onClick={() => onNewFile(workspaceRoot)}
+            >
+              +
+            </button>
+          )}
+          <button
+            type="button"
+            className="sidebar-open-btn"
+            onClick={onOpenWorkspace}
+            title="Open workspace"
+          >
+            ⊕
+          </button>
+        </div>
       </div>
 
       <div className="sidebar-tree">
@@ -90,7 +208,13 @@ export function Sidebar({
               node={node}
               depth={0}
               selectedPath={selectedPath}
+              renamingPath={renamingPath}
               onSelect={onSelect}
+              onNewFile={onNewFile}
+              onRename={onRename}
+              onDelete={onDelete}
+              onStartRename={onStartRename}
+              onCancelRename={onCancelRename}
             />
           ))
         )}

@@ -25,6 +25,7 @@ struct FileNode {
 struct WorkspaceResult {
     name: String,
     root_path: String,
+    tree_root: String,
     tree: Vec<FileNode>,
 }
 
@@ -89,6 +90,22 @@ fn validate_path(workspace_root: &Path, requested: &str) -> Result<PathBuf, Stri
     Ok(canonical_path)
 }
 
+/// Validate that a prospective new path's parent exists inside the workspace root.
+fn validate_new_path(workspace_root: &Path, requested: &str) -> Result<PathBuf, String> {
+    let canonical_root =
+        std::fs::canonicalize(workspace_root).map_err(|e| format!("workspace root: {e}"))?;
+    let new_path = PathBuf::from(requested);
+    let parent = new_path
+        .parent()
+        .ok_or("path has no parent directory")?;
+    let canonical_parent =
+        std::fs::canonicalize(parent).map_err(|e| format!("invalid parent path: {e}"))?;
+    if !canonical_parent.starts_with(&canonical_root) {
+        return Err("path is outside the opened workspace".to_string());
+    }
+    Ok(new_path)
+}
+
 /// Write content atomically: write to a sibling temp file then rename over the target.
 fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
     let dir = path
@@ -151,8 +168,16 @@ async fn open_workspace(
     Ok(Some(WorkspaceResult {
         name,
         root_path: root.to_string_lossy().to_string(),
+        tree_root: tree_root.to_string_lossy().to_string(),
         tree,
     }))
+}
+
+#[tauri::command]
+fn list_workspace(state: State<'_, WorkspaceState>) -> Result<Vec<FileNode>, String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?;
+    Ok(walk_dir(root))
 }
 
 #[tauri::command]
@@ -171,6 +196,48 @@ fn write_file(path: String, content: String, state: State<'_, WorkspaceState>) -
     write_atomic(&canonical, &content).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn create_file(path: String, content: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?;
+    let new_path = validate_new_path(root, &path)?;
+    if new_path.exists() {
+        return Err("file already exists".to_string());
+    }
+    write_atomic(&new_path, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn rename_file(old_path: String, new_path: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?;
+    let canonical_old = validate_path(root, &old_path)?;
+    let new = validate_new_path(root, &new_path)?;
+    if new.exists() {
+        return Err("a file with that name already exists".to_string());
+    }
+    std::fs::rename(&canonical_old, &new).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn trash_file(path: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?;
+    let canonical = validate_path(root, &path)?;
+    trash::delete(&canonical).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn create_dir(path: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?;
+    let new_path = validate_new_path(root, &path)?;
+    if new_path.exists() {
+        return Err("directory already exists".to_string());
+    }
+    std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -179,7 +246,16 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![open_workspace, read_file, write_file])
+        .invoke_handler(tauri::generate_handler![
+            open_workspace,
+            list_workspace,
+            read_file,
+            write_file,
+            create_file,
+            rename_file,
+            trash_file,
+            create_dir,
+        ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error while running tauri application")
 }
