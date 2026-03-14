@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "e477f29bec6d",
+  "strategy": "manual-commit",
+  "branch": "refactor",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/App.tsx",
+    "src/components/PropertiesPanel.tsx",
+    "src/components/Sidebar.css",
+    "src/lib/useWorkspace.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e4/77f29bec6d/0/metadata.json",
+      "transcript": "/e4/77f29bec6d/0/full.jsonl",
+      "content_hash": "/e4/77f29bec6d/0/content_hash.txt",
+      "prompt": "/e4/77f29bec6d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 60,
+    "cache_creation_tokens": 126600,
+    "cache_read_tokens": 1539396,
+    "output_tokens": 10293,
+    "api_call_count": 27
+  }
+}
