@@ -262,6 +262,51 @@
   background: var(--color-accent-light);
 }
 
+/* ── Empty State ─────────────────────────────── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-faint);
+  user-select: none;
+}
+
+.empty-state-title {
+  font-family: var(--font-editor);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.empty-state-hint {
+  font-size: 13px;
+  color: var(--color-text-faint);
+}
+
+.empty-state-btn {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 6px 18px;
+  transition: background 0.15s;
+}
+
+.empty-state-btn:hover {
+  background: var(--color-accent-light);
+}
+
+.empty-state-shortcut {
+  font-size: 11px;
+  color: var(--color-text-faint);
+  opacity: 0.6;
+}
+
 /* ── Status Bar ──────────────────────────────── */
 .statusbar {
   height: var(--statusbar-height);
@@ -271,6 +316,32 @@
   justify-content: space-between;
   padding: 0 14px;
   flex-shrink: 0;
+}
+
+.statusbar-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition:
+    background-color 0.3s ease,
+    opacity 0.3s ease;
+  opacity: 0;
+}
+
+.save-dot.unsaved {
+  background: var(--color-warning);
+  opacity: 1;
+}
+
+.save-dot.saved {
+  opacity: 0;
 }
 
 .statusbar-file {
@@ -289,6 +360,40 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* ── Toasts ──────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: calc(var(--statusbar-height) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 12.5px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  white-space: nowrap;
+  animation: toast-in 0.15s ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .statusbar-theme-btn {

@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
+import { EmptyState } from "./components/EmptyState";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { Sidebar } from "./components/Sidebar";
-import { StatusBar } from "./components/StatusBar";
+import { type SaveStatus, StatusBar } from "./components/StatusBar";
 import {
   joinFrontmatter,
   type ParsedFrontmatter,
@@ -21,6 +22,11 @@ interface WorkspaceResult {
   tree: FileNode[];
 }
 
+interface Toast {
+  id: number;
+  message: string;
+}
+
 const SAVE_DELAY_MS = 750;
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 
@@ -36,6 +42,8 @@ function App() {
   const [sidebarVisible, setSidebarVisible] = useState(
     () => localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "false"
   );
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const frontmatterRef = useRef<string>("");
   const selectedPathRef = useRef<string | null>(null);
@@ -47,6 +55,14 @@ function App() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
+  }, []);
+
+  const showToast = useCallback((message: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2000);
   }, []);
 
   const flushPendingSave = useCallback(async () => {
@@ -62,10 +78,12 @@ function App() {
     const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
     try {
       await invoke("write_file", { path, content: diskContent });
+      setSaveStatus("saved");
     } catch (err) {
       console.error("Failed to flush pending save:", err);
+      showToast("Failed to save — check console for details");
     }
-  }, []);
+  }, [showToast]);
 
   const handleCloseFile = useCallback(async () => {
     await flushPendingSave();
@@ -73,6 +91,7 @@ function App() {
     setFileContent("");
     setWordCount(0);
     setParsedFrontmatter({});
+    setSaveStatus("saved");
     frontmatterRef.current = "";
     selectedPathRef.current = null;
     pendingMarkdownRef.current = null;
@@ -121,6 +140,7 @@ function App() {
       setFileContent("");
       setWordCount(0);
       setParsedFrontmatter({});
+      setSaveStatus("saved");
       frontmatterRef.current = "";
       selectedPathRef.current = null;
       pendingMarkdownRef.current = null;
@@ -133,6 +153,7 @@ function App() {
 
     setWordCount(0);
     setParsedFrontmatter({});
+    setSaveStatus("saved");
     const prevPath = selectedPathRef.current;
     selectedPathRef.current = node.path;
     pendingMarkdownRef.current = null;
@@ -151,6 +172,7 @@ function App() {
       setParsedFrontmatter(parseYamlFrontmatter(raw));
     } catch (err) {
       console.error("Failed to read file:", err);
+      showToast("Failed to open file — check console for details");
       // Restore previous path so flushPendingSave doesn't write to the
       // failed file's path if the user continues editing the old file.
       if (selectedPathRef.current === node.path) selectedPathRef.current = prevPath;
@@ -161,6 +183,7 @@ function App() {
     if (!selectedFile) return;
     // Capture path now — selectedFile state may change before timeout fires
     const pathToSave = selectedFile.path;
+    setSaveStatus("unsaved");
     pendingMarkdownRef.current = markdown;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -168,8 +191,10 @@ function App() {
       const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
       try {
         await invoke("write_file", { path: pathToSave, content: diskContent });
+        setSaveStatus("saved");
       } catch (err) {
         console.error("Failed to save file:", err);
+        showToast("Failed to save — check console for details");
       }
     }, SAVE_DELAY_MS);
   }
@@ -195,20 +220,34 @@ function App() {
               onToggle={() => setPropertiesOpen((v) => !v)}
             />
           )}
-          <Editor
-            key={selectedFile?.path ?? "empty"}
-            content={fileContent}
-            onWordCount={setWordCount}
-            onChange={handleEditorChange}
-          />
+          {selectedFile ? (
+            <Editor
+              key={selectedFile.path}
+              content={fileContent}
+              onWordCount={setWordCount}
+              onChange={handleEditorChange}
+            />
+          ) : (
+            <EmptyState workspaceOpen={tree.length > 0} onOpenWorkspace={handleOpenWorkspace} />
+          )}
         </div>
       </div>
       <StatusBar
         fileName={selectedFile?.name ?? null}
         wordCount={wordCount}
         resolvedTheme={resolvedTheme}
+        saveStatus={saveStatus}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
       />
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.id} className="toast">
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
