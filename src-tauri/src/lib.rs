@@ -70,8 +70,12 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
 }
 
 #[tauri::command]
-fn open_workspace(app: tauri::AppHandle) -> Option<WorkspaceResult> {
-    let folder = app.dialog().file().blocking_pick_folder()?;
+async fn open_workspace(app: tauri::AppHandle) -> Option<WorkspaceResult> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<tauri_plugin_dialog::FilePath>>();
+    app.dialog().file().pick_folder(move |folder| {
+        tx.send(folder).ok();
+    });
+    let folder = rx.await.ok()??;
     let root: PathBuf = match folder {
         tauri_plugin_dialog::FilePath::Path(p) => p,
         tauri_plugin_dialog::FilePath::Url(u) => PathBuf::from(u.path()),
