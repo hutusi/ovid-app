@@ -92,12 +92,3 @@ Ovid App is purpose-built for content creators working in Amytis workspaces. Thi
 38. **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
 39. **Link preview** — hover over a wikilink or URL to see a preview tooltip; for wikilinks, resolve to files in the workspace
 
----
-
-## Design Principles (non-negotiable across all phases)
-
-- **Writing first** — every feature must justify itself against the cost of distraction it adds
-- **Keyboard reachable** — every action must have a keyboard path; mouse is optional
-- **Files stay plain** — on-disk format is always valid `.md`; no app-specific syntax or metadata bleed
-- **Amytis-native** — frontmatter, content types, and publish workflow are first-class, not afterthoughts
-- **Graceful degradation** — features that require git, Rust tools, or network access fail silently and informatively

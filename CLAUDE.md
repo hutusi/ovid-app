@@ -59,11 +59,18 @@ Three-zone layout managed by `src/App.tsx`:
 
 ## Design Principles
 
+Aesthetic:
 - **Typora-style WYSIWYG** — markdown renders inline as you type; no split pane
 - **Typography-first** — Georgia serif for prose, generous line height, 680px max-width
 - **Minimal chrome** — sidebar collapses, no toolbar cluttering the editor
 - **Keyboard-first** (goal) — all primary actions reachable without mouse
-- **Files on disk are always plain `.md`** — Tiptap reads/writes markdown; Amytis workspace format is untouched
+
+Product (non-negotiable):
+- **Writing first** — every feature must justify itself against the cost of distraction it adds
+- **Files stay plain** — on-disk format is always valid `.md`; no app-specific syntax or metadata bleed
+- **Amytis-native** — frontmatter, content types, and publish workflow are first-class, not afterthoughts
+- **Graceful degradation** — features requiring git, Rust tools, or network access fail silently and informatively
+- **Keyboard reachable** — every action must have a keyboard path; mouse is optional
 
 ## Key Design Decisions
 
