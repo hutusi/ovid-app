@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "fcfde0d3a721",
+  "strategy": "manual-commit",
+  "branch": "fix-edit",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/workflows/ci.yml",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fc/fde0d3a721/0/metadata.json",
+      "transcript": "/fc/fde0d3a721/0/full.jsonl",
+      "content_hash": "/fc/fde0d3a721/0/content_hash.txt",
+      "prompt": "/fc/fde0d3a721/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 41,
+    "cache_creation_tokens": 68829,
+    "cache_read_tokens": 778237,
+    "output_tokens": 3987,
+    "api_call_count": 13
+  }
+}

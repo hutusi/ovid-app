@@ -1,0 +1,1 @@
+please also add github ci and local validate command, what do you think?
