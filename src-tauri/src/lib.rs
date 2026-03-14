@@ -305,6 +305,10 @@ fn search_dir(path: &Path, query: &str) -> Vec<SearchResult> {
         if name.starts_with('.') {
             continue;
         }
+        // Skip symlinks to prevent traversal outside the workspace
+        if entry.file_type().map(|ft| ft.is_symlink()).unwrap_or(false) {
+            continue;
+        }
         if entry_path.is_dir() {
             results.extend(search_dir(&entry_path, query));
         } else {
@@ -348,9 +352,12 @@ fn search_workspace(query: String, state: State<'_, WorkspaceState>) -> Result<V
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
-    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
-    let root = root_guard.as_ref().ok_or("no workspace open")?;
-    Ok(search_dir(root, query.trim()))
+    // Clone root before releasing the lock so the mutex is not held during search
+    let root = {
+        let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+        root_guard.as_ref().ok_or("no workspace open")?.clone()
+    };
+    Ok(search_dir(&root, query.trim()))
 }
 
 #[tauri::command]
