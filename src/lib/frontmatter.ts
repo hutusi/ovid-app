@@ -1,4 +1,4 @@
-import { load } from "js-yaml";
+import { dump, load } from "js-yaml";
 
 const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 const YAML_INNER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
@@ -19,6 +19,21 @@ export function parseFrontmatter(raw: string): {
 
 export function joinFrontmatter(frontmatter: string, body: string): string {
   return frontmatter + body;
+}
+
+export function serializeFrontmatter(frontmatter: ParsedFrontmatter): string {
+  const obj: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(frontmatter)) {
+    if (val !== null && val !== undefined) obj[key] = val;
+  }
+  const yaml = dump(obj, { lineWidth: -1 }).trimEnd();
+  return `---\n${yaml}\n---\n`;
+}
+
+export function createAmytisFrontmatter(slug: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const title = slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return `---\ntitle: "${title}"\ndate: ${today}\ndraft: true\n---\n`;
 }
 
 export function parseYamlFrontmatter(raw: string): ParsedFrontmatter {

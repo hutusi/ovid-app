@@ -1,9 +1,11 @@
-import type { ParsedFrontmatter } from "../lib/frontmatter";
+import { useRef, useState } from "react";
+import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 
 interface PropertiesPanelProps {
   frontmatter: ParsedFrontmatter;
   isOpen: boolean;
   onToggle: () => void;
+  onFieldChange?: (key: string, value: FrontmatterValue) => void;
 }
 
 function formatDate(value: string): string {
@@ -26,11 +28,136 @@ function sortedKeys(frontmatter: ParsedFrontmatter): string[] {
   return [...known, ...rest];
 }
 
-export function PropertiesPanel({ frontmatter, isOpen, onToggle }: PropertiesPanelProps) {
+interface EditableValueProps {
+  fieldKey: string;
+  value: FrontmatterValue;
+  onSave: (newValue: FrontmatterValue) => void;
+}
+
+function EditableValue({ fieldKey, value, onSave }: EditableValueProps) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Represent the value as a string for the input
+  const toInputString = (v: FrontmatterValue): string => {
+    if (Array.isArray(v)) return v.join(", ");
+    if (v === null || v === undefined) return "";
+    return String(v);
+  };
+
+  const [draft, setDraft] = useState(toInputString(value));
+
+  function startEdit() {
+    setDraft(toInputString(value));
+    setEditing(true);
+    // Focus on next tick after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (Array.isArray(value)) {
+      // Parse comma-separated back to array
+      const arr = trimmed
+        ? trimmed
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+      onSave(arr);
+    } else if (typeof value === "number") {
+      const num = Number(trimmed);
+      onSave(Number.isNaN(num) ? value : num);
+    } else {
+      onSave(trimmed || null);
+    }
+  }
+
+  function cancel() {
+    setEditing(false);
+    setDraft(toInputString(value));
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="prop-edit-input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          else if (e.key === "Escape") cancel();
+        }}
+        onBlur={commit}
+        // Prevent sidebar keyboard shortcuts from firing while editing
+        onKeyUp={(e) => e.stopPropagation()}
+      />
+    );
+  }
+
+  // For tags: show tag chips, click any to edit
+  if (fieldKey === "tags" && Array.isArray(value)) {
+    return (
+      <button
+        type="button"
+        className="prop-editable-area"
+        onClick={startEdit}
+        title="Click to edit"
+      >
+        {value.map((tag) => (
+          <span key={tag} className="prop-tag">
+            {tag}
+          </span>
+        ))}
+        {value.length === 0 && <span className="prop-value prop-empty">add tags…</span>}
+      </button>
+    );
+  }
+
+  if (fieldKey === "date" && typeof value === "string") {
+    return (
+      <button
+        type="button"
+        className="prop-editable-area"
+        onClick={startEdit}
+        title="Click to edit"
+      >
+        <span className="prop-value">{formatDate(value)}</span>
+      </button>
+    );
+  }
+
+  if (fieldKey === "title") {
+    return (
+      <button
+        type="button"
+        className="prop-editable-area"
+        onClick={startEdit}
+        title="Click to edit"
+      >
+        <span className="prop-value prop-title">{String(value)}</span>
+      </button>
+    );
+  }
+
+  return (
+    <button type="button" className="prop-editable-area" onClick={startEdit} title="Click to edit">
+      <span className="prop-value">{String(value ?? "")}</span>
+    </button>
+  );
+}
+
+export function PropertiesPanel({
+  frontmatter,
+  isOpen,
+  onToggle,
+  onFieldChange,
+}: PropertiesPanelProps) {
   const keys = sortedKeys(frontmatter);
 
   return (
-    // Wrapper stays visible at all times so the toggle button is always reachable
     <div className={`properties-wrapper ${isOpen ? "" : "panel-closed"}`}>
       <div className={`properties-panel ${isOpen ? "open" : "closed"}`}>
         <div className="properties-inner">
@@ -38,23 +165,42 @@ export function PropertiesPanel({ frontmatter, isOpen, onToggle }: PropertiesPan
             const val = frontmatter[key];
             if (val === null || val === undefined) return null;
 
-            if (key === "draft" && val === true) {
+            // Draft: toggle button, not a text field
+            if (key === "draft") {
               return (
                 <div key={key} className="prop-field">
-                  <span className="prop-draft">Draft</span>
+                  <button
+                    type="button"
+                    className={`prop-draft ${val ? "" : "prop-draft-published"}`}
+                    title={val ? "Click to publish" : "Click to mark as draft"}
+                    onClick={() => onFieldChange?.(key, !val)}
+                  >
+                    {val ? "Draft" : "Published"}
+                  </button>
                 </div>
               );
             }
 
             if (key === "tags" && Array.isArray(val)) {
-              if (val.length === 0) return null;
               return (
                 <div key={key} className="prop-field">
-                  {val.map((tag) => (
-                    <span key={tag} className="prop-tag">
-                      {tag}
-                    </span>
-                  ))}
+                  <EditableValue
+                    fieldKey={key}
+                    value={val}
+                    onSave={(v) => onFieldChange?.(key, v)}
+                  />
+                </div>
+              );
+            }
+
+            if (key === "title") {
+              return (
+                <div key={key} className="prop-field">
+                  <EditableValue
+                    fieldKey={key}
+                    value={val}
+                    onSave={(v) => onFieldChange?.(key, v)}
+                  />
                 </div>
               );
             }
@@ -63,15 +209,11 @@ export function PropertiesPanel({ frontmatter, isOpen, onToggle }: PropertiesPan
               return (
                 <div key={key} className="prop-field">
                   <span className="prop-label">date</span>
-                  <span className="prop-value">{formatDate(val)}</span>
-                </div>
-              );
-            }
-
-            if (key === "title") {
-              return (
-                <div key={key} className="prop-field">
-                  <span className="prop-value prop-title">{String(val)}</span>
+                  <EditableValue
+                    fieldKey={key}
+                    value={val}
+                    onSave={(v) => onFieldChange?.(key, v)}
+                  />
                 </div>
               );
             }
@@ -79,13 +221,12 @@ export function PropertiesPanel({ frontmatter, isOpen, onToggle }: PropertiesPan
             return (
               <div key={key} className="prop-field">
                 <span className="prop-label">{key}</span>
-                <span className="prop-value">{String(val)}</span>
+                <EditableValue fieldKey={key} value={val} onSave={(v) => onFieldChange?.(key, v)} />
               </div>
             );
           })}
         </div>
       </div>
-      {/* Toggle lives outside the collapsible panel so it's always visible */}
       <button
         type="button"
         className="properties-toggle"
