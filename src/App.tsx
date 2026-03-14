@@ -31,6 +31,8 @@ function App() {
   const frontmatterRef = useRef<string>("");
   const selectedPathRef = useRef<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stores the latest unsaved markdown so file switches can flush it
+  const pendingMarkdownRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -38,7 +40,26 @@ function App() {
     };
   }, []);
 
+  async function flushPendingSave() {
+    if (!saveTimerRef.current) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+
+    const path = selectedPathRef.current;
+    const markdown = pendingMarkdownRef.current;
+    if (!path || markdown === null) return;
+
+    pendingMarkdownRef.current = null;
+    const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
+    try {
+      await invoke("write_file", { path, content: diskContent });
+    } catch (err) {
+      console.error("Failed to flush pending save:", err);
+    }
+  }
+
   async function handleOpenWorkspace() {
+    await flushPendingSave();
     const result = await invoke<WorkspaceResult | null>("open_workspace");
     if (result) {
       setTree(result.tree);
@@ -49,20 +70,20 @@ function App() {
       setParsedFrontmatter({});
       frontmatterRef.current = "";
       selectedPathRef.current = null;
+      pendingMarkdownRef.current = null;
     }
   }
 
   async function handleSelectFile(node: FileNode) {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
+    // Flush any pending save for the outgoing file before switching
+    await flushPendingSave();
 
     setSelectedFile(node);
     setFileContent("");
     setWordCount(0);
     setParsedFrontmatter({});
     selectedPathRef.current = node.path;
+    pendingMarkdownRef.current = null;
 
     try {
       const raw = await invoke<string>("read_file", { path: node.path });
@@ -78,11 +99,15 @@ function App() {
 
   function handleEditorChange(markdown: string) {
     if (!selectedFile) return;
+    // Capture path now — selectedFile state may change before timeout fires
+    const pathToSave = selectedFile.path;
+    pendingMarkdownRef.current = markdown;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
+      pendingMarkdownRef.current = null;
       const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
       try {
-        await invoke("write_file", { path: selectedFile.path, content: diskContent });
+        await invoke("write_file", { path: pathToSave, content: diskContent });
       } catch (err) {
         console.error("Failed to save file:", err);
       }
