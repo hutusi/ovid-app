@@ -1,0 +1,1 @@
+let's try to find bugs, when I open workspace, and open a md file in content, there is no content in the edit area, only blank to edit.
