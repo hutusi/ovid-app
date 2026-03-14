@@ -1,0 +1,31 @@
+Let's think about CLAUDE.md. How can we make it better? Please be concise and useful. What are your thoughts?
+
+---
+
+go ahead
+
+---
+
+do you think we need to add Compact Instructions into CLAUDE.md, something like: When compressing, preserve in priority order:
+
+1. Architecture decisions (NEVER summarize)
+2. Modified files and their key changes
+3. Current verification status (pass/fail)
+4. Open TODOs and rollback notes
+5. Tool outputs (can delete, keep pass/fail only)
+
+---
+
+this project maybe become biger and biger, so maybe we need to prepare for the future, what do you think?
+
+---
+
+is it better to compress the context or just new a session, or clear the context, which choice is better?
+
+---
+
+OK, let's think more deeply to create a deliberate and prudent plan, and refactor the ROADMAP. I want to make this app elegant and user-friendly, with exquisite UX details that are friendly for content creators. It must also integrate seamlessly with Amytis. Please think about future improvements and make a detailed, phased plan.
+
+---
+
+continue
