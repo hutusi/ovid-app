@@ -40,17 +40,21 @@ struct FileNode {
 /// Read the frontmatter block (between `---` fences) of a markdown file and
 /// extract the `title` and `draft` scalar values using simple line scanning.
 /// Returns `(None, None)` if the file can't be read or has no frontmatter.
+/// Uses a buffered reader so only the frontmatter is read, not the full file.
 fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
-    let Ok(content) = std::fs::read_to_string(path) else {
+    use std::io::{BufRead, BufReader};
+    let Ok(file) = std::fs::File::open(path) else {
         return (None, None);
     };
-    let mut lines = content.lines();
-    if lines.next().map(str::trim) != Some("---") {
+    let mut reader = BufReader::new(file);
+    let mut first_line = String::new();
+    if reader.read_line(&mut first_line).is_err() || first_line.trim() != "---" {
         return (None, None);
     }
     let mut title: Option<String> = None;
     let mut draft: Option<bool> = None;
-    for line in lines {
+    let mut line = String::new();
+    while reader.read_line(&mut line).unwrap_or(0) > 0 {
         if line.trim() == "---" {
             break;
         }
@@ -58,8 +62,13 @@ fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
             title = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
         } else if let Some(rest) = line.strip_prefix("draft:") {
             let val = rest.trim();
-            draft = Some(val == "true");
+            draft = match val {
+                "true" => Some(true),
+                "false" => Some(false),
+                _ => None,
+            };
         }
+        line.clear();
     }
     (title, draft)
 }

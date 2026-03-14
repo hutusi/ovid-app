@@ -164,7 +164,7 @@ function App() {
             workspaceRoot={workspaceRoot}
             onSelect={(node) => {
               void handleSelectFile(node);
-              pushRecent(node);
+              if (!node.isDirectory) pushRecent(node);
             }}
             onOpenWorkspace={handleOpenWorkspace}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
