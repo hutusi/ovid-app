@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 
 interface PropertiesPanelProps {
@@ -20,6 +20,12 @@ function formatDate(value: string): string {
 
 const FIELD_ORDER = ["title", "date", "tags", "draft"];
 
+function toInputString(v: FrontmatterValue): string {
+  if (Array.isArray(v)) return v.join(", ");
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
 function sortedKeys(frontmatter: ParsedFrontmatter): string[] {
   const known = FIELD_ORDER.filter((k) => k in frontmatter);
   const rest = Object.keys(frontmatter)
@@ -37,15 +43,14 @@ interface EditableValueProps {
 function EditableValue({ fieldKey, value, onSave }: EditableValueProps) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Represent the value as a string for the input
-  const toInputString = (v: FrontmatterValue): string => {
-    if (Array.isArray(v)) return v.join(", ");
-    if (v === null || v === undefined) return "";
-    return String(v);
-  };
-
   const [draft, setDraft] = useState(toInputString(value));
+
+  // Sync draft when value is updated externally (e.g. frontmatter written from disk)
+  useEffect(() => {
+    if (!editing) {
+      setDraft(toInputString(value));
+    }
+  }, [value, editing]);
 
   function startEdit() {
     setDraft(toInputString(value));

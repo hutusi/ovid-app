@@ -86,11 +86,14 @@ function App() {
     const markdown = pendingMarkdownRef.current;
     if (!path || markdown === null) return;
 
-    pendingMarkdownRef.current = null;
     const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
     try {
       await invoke("write_file", { path, content: diskContent });
-      setSaveStatus("saved");
+      // Only clear after a successful write; if new edits arrived, keep them
+      if (pendingMarkdownRef.current === markdown) {
+        pendingMarkdownRef.current = null;
+        setSaveStatus("saved");
+      }
     } catch (err) {
       console.error("Failed to flush pending save:", err);
       showToast("Failed to save — check console for details");
@@ -120,6 +123,24 @@ function App() {
     }
   }, []);
 
+  const handleOpenWorkspace = useCallback(async () => {
+    await flushPendingSave();
+    const result = await invoke<WorkspaceResult | null>("open_workspace");
+    if (result) {
+      setTree(result.tree);
+      setWorkspaceName(result.name);
+      setWorkspaceRoot(result.treeRoot);
+      setSelectedFile(null);
+      setFileContent("");
+      setWordCount(0);
+      setParsedFrontmatter({});
+      setSaveStatus("saved");
+      frontmatterRef.current = "";
+      selectedPathRef.current = null;
+      pendingMarkdownRef.current = null;
+    }
+  }, [flushPendingSave]);
+
   // Global keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -132,6 +153,10 @@ function App() {
             localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next));
             return next;
           });
+          break;
+        case "o":
+          e.preventDefault();
+          void handleOpenWorkspace();
           break;
         case "P":
           if (e.shiftKey) {
@@ -155,25 +180,7 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [flushPendingSave, handleCloseFile, workspaceRoot]);
-
-  async function handleOpenWorkspace() {
-    await flushPendingSave();
-    const result = await invoke<WorkspaceResult | null>("open_workspace");
-    if (result) {
-      setTree(result.tree);
-      setWorkspaceName(result.name);
-      setWorkspaceRoot(result.treeRoot);
-      setSelectedFile(null);
-      setFileContent("");
-      setWordCount(0);
-      setParsedFrontmatter({});
-      setSaveStatus("saved");
-      frontmatterRef.current = "";
-      selectedPathRef.current = null;
-      pendingMarkdownRef.current = null;
-    }
-  }
+  }, [flushPendingSave, handleCloseFile, handleOpenWorkspace, workspaceRoot]);
 
   async function handleSelectFile(node: FileNode) {
     await flushPendingSave();
@@ -206,11 +213,16 @@ function App() {
     pendingMarkdownRef.current = markdown;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
-      pendingMarkdownRef.current = null;
-      const diskContent = joinFrontmatter(frontmatterRef.current, markdown);
+      saveTimerRef.current = null;
+      const snapshot = pendingMarkdownRef.current;
+      if (snapshot === null) return;
+      const diskContent = joinFrontmatter(frontmatterRef.current, snapshot);
       try {
         await invoke("write_file", { path: pathToSave, content: diskContent });
-        setSaveStatus("saved");
+        if (pendingMarkdownRef.current === snapshot) {
+          pendingMarkdownRef.current = null;
+          setSaveStatus("saved");
+        }
       } catch (err) {
         console.error("Failed to save file:", err);
         showToast("Failed to save — check console for details");
@@ -246,6 +258,7 @@ function App() {
 
   async function handleRename(node: FileNode, newName: string) {
     setRenamingPath(null);
+    await flushPendingSave();
     const dir = node.path.substring(0, node.path.lastIndexOf("/"));
     const ext = node.extension ?? ".md";
     const newPath = `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
@@ -284,12 +297,21 @@ function App() {
     setParsedFrontmatter(updated);
     const newFrontmatter = serializeFrontmatter(updated);
     frontmatterRef.current = newFrontmatter;
-    // Use the pending markdown if an edit is in flight, otherwise re-read body
-    const body =
-      pendingMarkdownRef.current ??
-      (await invoke<string>("read_file", { path: selectedFile.path })
-        .then((raw) => parseFrontmatter(raw).body)
-        .catch(() => ""));
+
+    let body: string;
+    if (pendingMarkdownRef.current !== null) {
+      body = pendingMarkdownRef.current;
+    } else {
+      try {
+        const raw = await invoke<string>("read_file", { path: selectedFile.path });
+        body = parseFrontmatter(raw).body;
+      } catch (err) {
+        console.error("Failed to read file body for frontmatter update:", err);
+        showToast("Failed to load file — check console for details");
+        return;
+      }
+    }
+
     try {
       await invoke("write_file", {
         path: selectedFile.path,
@@ -338,7 +360,10 @@ function App() {
               onChange={handleEditorChange}
             />
           ) : (
-            <EmptyState workspaceOpen={tree.length > 0} onOpenWorkspace={handleOpenWorkspace} />
+            <EmptyState
+              workspaceOpen={workspaceRoot !== null}
+              onOpenWorkspace={handleOpenWorkspace}
+            />
           )}
         </div>
       </div>
