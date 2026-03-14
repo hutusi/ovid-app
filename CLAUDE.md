@@ -15,6 +15,10 @@ bun install              # Install dependencies
 bun run tauri dev        # Run with hot reload (requires Rust)
 bun run build            # Build frontend only
 bun run tauri build      # Build distributable app
+bun run validate         # Type-check + lint + test (run before committing)
+bun run lint             # Biome check
+bun run lint:fix         # Biome auto-fix
+bun run test             # Vitest unit tests
 bun tsc --noEmit         # Type-check without emitting
 ```
 
@@ -58,7 +62,7 @@ Three-zone layout managed by `src/App.tsx`:
 - **Typora-style WYSIWYG** — markdown renders inline as you type; no split pane
 - **Typography-first** — Georgia serif for prose, generous line height, 680px max-width
 - **Minimal chrome** — sidebar collapses, no toolbar cluttering the editor
-- **Keyboard-first** — all actions reachable without mouse
+- **Keyboard-first** (goal) — all primary actions reachable without mouse
 - **Files on disk are always plain `.md`** — Tiptap reads/writes markdown; Amytis workspace format is untouched
 
 ## Key Design Decisions
@@ -67,13 +71,32 @@ Three-zone layout managed by `src/App.tsx`:
 - **Tiptap v3** (ProseMirror-based) for WYSIWYG — most mature ecosystem for this use case
 - **`tiptap-markdown`** for markdown serialization/deserialization
 - **Bun** as runtime and package manager — consistent with the TUI sibling project
-- **No shared code** with the TUI (`ovid-for-app`) — different runtime APIs; reference TUI for domain logic only
+- **No shared code** with the TUI (`ovid`) — different runtime APIs; reference TUI for domain logic only
 - File I/O goes through **Tauri FS plugin** (`@tauri-apps/plugin-fs`) or Rust commands — never direct Node/Bun APIs
+- **All frontend state lives in `App.tsx`** — no external state library (no Zustand, Redux, etc.)
+- **No editor toolbar** — keyboard-first design; don't add toolbars or button bars to the editor
 
 ## Amytis Workspace
 
 An Amytis workspace is identified by the presence of `site.config.ts` + `content/` directory. Content files are `.md` with YAML frontmatter. Frontmatter is parsed with `js-yaml`, stripped from the editor view, and displayed in the properties panel. The raw frontmatter block is always written back verbatim to preserve formatting.
 
+## Error Handling
+
+- Tauri Rust commands return `Result<T, String>` — errors surface as rejected promises in the frontend
+- Display errors via `console.error` or in-UI feedback; no global error boundary currently exists
+- Path validation happens in Rust (`read_file` / `write_file` reject paths outside workspace root)
+
+## Context Compression Hints
+
+When compressing conversation history, preserve in priority order:
+
+1. **Architecture decisions** — especially any deviations from constraints in this file
+2. **Modified files and key changes** — which files changed and why
+3. **Tauri command changes** — Rust-side commands being added/modified (separate from frontend)
+4. **Verification status** — current `bun run validate` pass/fail state
+5. **Open TODOs and rollback notes**
+6. **Tool output** — can be dropped; keep pass/fail summary only
+
 ## Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for completed and planned features.
+See [ROADMAP.md](./ROADMAP.md) for the full phased plan. Features are organized into 7 phases; complete each phase before starting the next.

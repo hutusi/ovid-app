@@ -1,19 +1,103 @@
 # Roadmap
 
+Ovid App is purpose-built for content creators working in Amytis workspaces. This roadmap is organized into deliberate phases — each phase must feel complete and polished before the next begins.
+
+---
+
 ## Completed
 
-1. ✅ **Workspace open** — Tauri folder picker dialog; walks file tree, detects Amytis `content/` subdir
-2. ✅ **File read/write** — load `.md` into editor on select; debounced atomic save (750ms); frontmatter preserved on disk
-3. ✅ **Frontmatter parsing** — YAML parsed with `js-yaml`; stripped from editor view; shown in collapsible properties bar above editor
-4. ✅ **Dark mode** — follows system preference (`prefers-color-scheme`); manual toggle in status bar; preference persisted in `localStorage`; flash-of-wrong-theme prevention via inline script
-5. ✅ **Properties panel** — inline bar above editor showing title, date, tags, draft badge, and other fields; collapsible
+1. ✅ **Workspace open** — Tauri folder picker; walks file tree, auto-detects Amytis `content/` subdir
+2. ✅ **File read/write** — load `.md` into editor on select; debounced atomic save (750ms); frontmatter preserved verbatim
+3. ✅ **Frontmatter parsing** — YAML parsed with `js-yaml`; stripped from editor view; shown in collapsible properties panel
+4. ✅ **Dark mode** — follows system preference; manual toggle in status bar; persisted in `localStorage`; no flash-of-wrong-theme
+5. ✅ **Properties panel** — inline bar above editor showing title, date, tags, draft badge; collapsible
 
-## Planned
+---
 
-6. **Editable properties** — allow editing frontmatter fields directly in the properties panel; write changes back to disk
-7. **Sidebar collapse** — toggle sidebar visibility to maximise writing space
-8. **Keyboard shortcuts** — `Cmd+P` file switcher, `Cmd+Shift+P` toggle properties, `Cmd+\` toggle sidebar
-9. **New file / rename / delete** — file management operations from the sidebar
-10. **Git integration** — commit, push, pull via Rust backend; show dirty/staged status in sidebar
-11. **Search** — full-text search across workspace files
-12. **Image handling** — drag-and-drop images into editor; copy to workspace asset folder; relative path insertion
+## Phase 1 — Core UX Polish
+> Goal: make what exists feel complete and intentional. No new features until these feel right.
+
+6. **Sidebar collapse** (`Cmd+\`) — toggle sidebar visibility to maximize writing space; animate width; remember state across sessions
+7. **Directory expand/collapse** — sidebar directories currently show all children always; add click-to-toggle with chevron; persist expanded state per workspace
+8. **Keyboard shortcuts** — register global shortcuts:
+   - `Cmd+\` — toggle sidebar
+   - `Cmd+Shift+P` — toggle properties panel
+   - `Cmd+S` — force-save immediately (bypass debounce)
+   - `Cmd+W` — close current file (return to blank state)
+9. **Save status indicator** — subtle dot in status bar: grey = saved, amber = unsaved; never intrusive
+10. **Error notifications** — replace `console.error` with a brief toast (2s, bottom-center); never block writing
+11. **Empty state** — when no workspace is open or no file selected, show a calm, intentional empty state (not a blank white box)
+
+---
+
+## Phase 2 — File Management
+> Goal: a content creator should never need to leave the app to manage files.
+
+12. **New file** (`Cmd+N`) — create a new `.md` file; prompt for filename; auto-insert Amytis frontmatter template (`title`, `date`, `draft: true`); open immediately in editor
+13. **Rename file** (`F2` or double-click filename in sidebar) — inline rename; validates no duplicate names; updates open editor tab if renaming current file
+14. **Delete file** — right-click context menu or keyboard shortcut; confirmation dialog; moves to system Trash (not permanent delete)
+15. **Editable properties panel** — click any field to edit inline; writes changes back to frontmatter on disk verbatim; tab between fields; `Esc` to cancel; support adding new fields
+16. **New folder** — create subdirectory from sidebar; useful for organizing Amytis content collections
+
+---
+
+## Phase 3 — Navigation & Discovery
+> Goal: moving between files should be instant and effortless.
+
+17. **Quick file switcher** (`Cmd+P`) — fuzzy search by filename and frontmatter `title`; keyboard-navigable; shows path for disambiguation; searches across entire workspace tree
+18. **Recent files** — track last N opened files per workspace; show in empty state and at top of switcher; persisted via Tauri store
+19. **Sidebar title display** — show frontmatter `title` instead of filename in sidebar when available; fall back to filename; reduces visual noise of slugs
+20. **Sidebar draft indicator** — dim or badge files with `draft: true`; helps distinguish published vs in-progress content at a glance
+
+---
+
+## Phase 4 — Search
+> Goal: find anything across the workspace instantly.
+
+21. **Full-text search** (`Cmd+Shift+F`) — search panel replaces sidebar temporarily; queries run in Rust (walk files, search content); results show filename, matched line with context
+22. **Search result navigation** — click result to open file and scroll to match; highlight matched text in editor
+23. **Frontmatter search** — filter by tag, draft status, date range; useful for editorial workflows ("show me all drafts tagged 'tutorial'")
+
+---
+
+## Phase 5 — Amytis Integration
+> Goal: seamlessly support the full Amytis publish workflow without leaving the app.
+
+24. **Workspace validation** — on open, detect `site.config.ts`; parse content type schema if available; warn if workspace doesn't look like an Amytis project
+25. **Content type templates** — if `site.config.ts` defines content types (e.g. `post`, `page`, `note`), offer type selection when creating new files; pre-fill frontmatter fields accordingly
+26. **Git status indicators** — show per-file dirty/staged/untracked markers in sidebar; requires `git` on PATH; gracefully no-ops if not a git repo
+27. **Commit & push** (`Cmd+Shift+G`) — simple commit dialog: auto-filled message (`Update: <title>`), branch name shown; push toggle; runs via Rust `git` subprocess
+28. **Draft → publish flow** — one-click to toggle `draft: true/false` in properties panel with a clear "Publish" affordance; auto-commits if git integration is active
+
+---
+
+## Phase 6 — Rich Editing
+> Goal: the editor should feel as capable as it is calm.
+
+29. **Image handling** — drag-and-drop image into editor: copy to workspace `assets/` (or configured asset dir), insert relative markdown path; show inline preview
+30. **Code block syntax highlighting** — syntax-highlighted code blocks in the editor (read-only highlight; doesn't affect saved markdown)
+31. **Focus / Zen mode** (`Cmd+Shift+Z`) — hide sidebar, properties panel, status bar; center editor with generous margins; `Esc` to exit
+32. **Typewriter mode** — keep the active line vertically centered as you type; reduces eye movement during long writing sessions
+33. **Writing session stats** — track words written in current session (not total); show session duration; visible in status bar or focus mode overlay
+
+---
+
+## Phase 7 — Polish & Power
+> Goal: the details that separate a good app from one people love.
+
+34. **Workspace persistence** — remember last opened workspace; re-open automatically on launch (with user opt-out)
+35. **Multiple workspaces** — switch between recently opened workspaces without going through the folder picker every time
+36. **Customizable fonts** — let users choose editor font (serif / sans / mono) and size; persisted preference
+37. **Spell check** — native OS spell check via Tauri webview; highlight misspellings without disrupting writing flow
+38. **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
+39. **Link preview** — hover over a wikilink or URL to see a preview tooltip; for wikilinks, resolve to files in the workspace
+
+---
+
+## Design Principles (non-negotiable across all phases)
+
+- **Writing first** — every feature must justify itself against the cost of distraction it adds
+- **Keyboard reachable** — every action must have a keyboard path; mouse is optional
+- **Files stay plain** — on-disk format is always valid `.md`; no app-specific syntax or metadata bleed
+- **Amytis-native** — frontmatter, content types, and publish workflow are first-class, not afterthoughts
+- **Graceful degradation** — features that require git, Rust tools, or network access fail silently and informatively
