@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "2f275d1d1d42",
+  "strategy": "manual-commit",
+  "branch": "phase-4",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src-tauri/src/lib.rs",
+    "src/App.tsx",
+    "src/components/FileSwitcher.css",
+    "src/components/FileSwitcher.tsx",
+    "src/components/PropertiesPanel.tsx",
+    "src/lib/types.ts",
+    "src/lib/useFileEditor.ts",
+    "src/lib/useRecentFiles.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2f/275d1d1d42/0/metadata.json",
+      "transcript": "/2f/275d1d1d42/0/full.jsonl",
+      "content_hash": "/2f/275d1d1d42/0/content_hash.txt",
+      "prompt": "/2f/275d1d1d42/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 621,
+    "cache_creation_tokens": 1198072,
+    "cache_read_tokens": 32895280,
+    "output_tokens": 192363,
+    "api_call_count": 351
+  }
+}
