@@ -5,6 +5,7 @@ import { Editor } from "./components/Editor";
 import { StatusBar } from "./components/StatusBar";
 import { FileNode } from "./lib/types";
 import { parseFrontmatter, joinFrontmatter } from "./lib/frontmatter";
+import { useTheme } from "./lib/useTheme";
 import "./styles/global.css";
 import "./App.css";
 
@@ -17,6 +18,7 @@ interface WorkspaceResult {
 const SAVE_DELAY_MS = 750;
 
 function App() {
+  const { resolvedTheme, setPreference } = useTheme();
   const [tree, setTree] = useState<FileNode[]>([]);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -103,6 +105,8 @@ function App() {
       <StatusBar
         fileName={selectedFile?.name ?? null}
         wordCount={wordCount}
+        resolvedTheme={resolvedTheme}
+        onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
       />
     </div>
   );

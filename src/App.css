@@ -154,3 +154,26 @@
   color: var(--color-status-text);
   font-family: var(--font-ui);
 }
+
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusbar-theme-btn {
+  font-size: 13px;
+  color: var(--color-status-text);
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.statusbar-theme-btn:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  opacity: 1;
+}

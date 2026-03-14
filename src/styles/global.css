@@ -36,6 +36,31 @@
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
+}
+
+[data-theme="dark"] {
+  --color-bg:              #1c1c1e;
+  --color-bg-sidebar:      #161618;
+  --color-bg-hover:        #2c2c2e;
+  --color-bg-selected:     #3a3a3c;
+
+  --color-border:          #3a3a3c;
+  --color-border-strong:   #48484a;
+
+  --color-text:            #f2f2f7;
+  --color-text-muted:      #aeaeb2;
+  --color-text-faint:      #636366;
+
+  --color-accent:          #7c7fff;
+  --color-accent-light:    rgba(124, 127, 255, 0.15);
+
+  --color-status-bg:       #111113;
+  --color-status-text:     #636366;
 }
 
 html, body, #root {
