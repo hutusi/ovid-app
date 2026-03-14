@@ -1,11 +1,16 @@
-import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Sidebar } from "./components/Sidebar";
+import { useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
 import { PropertiesPanel } from "./components/PropertiesPanel";
+import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
-import { FileNode } from "./lib/types";
-import { parseFrontmatter, joinFrontmatter, parseYamlFrontmatter, ParsedFrontmatter } from "./lib/frontmatter";
+import {
+  joinFrontmatter,
+  type ParsedFrontmatter,
+  parseFrontmatter,
+  parseYamlFrontmatter,
+} from "./lib/frontmatter";
+import type { FileNode } from "./lib/types";
 import { useTheme } from "./lib/useTheme";
 import "./styles/global.css";
 import "./App.css";
