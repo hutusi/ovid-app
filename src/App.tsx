@@ -85,6 +85,7 @@ function App() {
 
     setWordCount(0);
     setParsedFrontmatter({});
+    const prevPath = selectedPathRef.current;
     selectedPathRef.current = node.path;
     pendingMarkdownRef.current = null;
 
@@ -102,6 +103,9 @@ function App() {
       setParsedFrontmatter(parseYamlFrontmatter(raw));
     } catch (err) {
       console.error("Failed to read file:", err);
+      // Restore previous path so flushPendingSave doesn't write to the
+      // failed file's path if the user continues editing the old file.
+      if (selectedPathRef.current === node.path) selectedPathRef.current = prevPath;
     }
   }
 
