@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "cdc96f74acd9",
+  "strategy": "manual-commit",
+  "branch": "editor",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/components/Editor.tsx",
+    "src/components/ErrorBoundary.tsx",
+    "src/lib/tiptap/FindReplace.test.ts",
+    "src/lib/tiptap/TextFolding.test.ts",
+    "src/lib/tiptap/TextFolding.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/cd/c96f74acd9/0/metadata.json",
+      "transcript": "/cd/c96f74acd9/0/full.jsonl",
+      "content_hash": "/cd/c96f74acd9/0/content_hash.txt",
+      "prompt": "/cd/c96f74acd9/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 20,
+    "cache_creation_tokens": 11249,
+    "cache_read_tokens": 2578394,
+    "output_tokens": 5853,
+    "api_call_count": 18
+  }
+}
