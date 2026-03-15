@@ -1,6 +1,8 @@
 # Roadmap
 
-Ovid App is purpose-built for content creators working in Amytis workspaces. This roadmap is organized into deliberate phases — each phase must feel complete and polished before the next begins.
+Ovid is a writing and knowledge tool for people who take their words seriously. It serves three overlapping audiences: **writers and bloggers** who want a calm, focused environment for long-form work; **knowledge workers** who think and organize in interconnected notes; and **Amytis publishers** who want to manage their site content without leaving the editor. Deep Amytis integration is first-class, but Ovid is equally at home for anyone who writes in Markdown.
+
+This roadmap is organized into deliberate phases — each phase must feel complete and polished before the next begins. Features are tagged by primary audience: 🖊 Writer · 🧠 Knowledge · 📢 Publisher.
 
 ---
 
@@ -95,105 +97,124 @@ Ovid App is purpose-built for content creators working in Amytis workspaces. Thi
 ---
 
 ## Phase 8 — Editing Power
-> Goal: close the gap between Ovid and a professional writing tool for in-document editing.
+> Goal: close the gap between Ovid and a professional writing tool for in-document editing. Serves all audiences — every serious writer needs these. 🖊 🧠 📢
 
 40. **Find & replace** (`Cmd+H`) — search within the current file; highlight all matches simultaneously; navigate with `Enter` / `Shift+Enter`; replace one or all; optional regex mode; closes with `Esc`
 41. **Tables** — insert and edit Markdown tables inline via Tiptap table extension; `Tab` to advance cells, `Shift+Tab` to go back; add/remove rows and columns via context menu; serialized as GFM table syntax
 42. **Footnotes** — `[^1]` inline syntax rendered as superscript number; footnote definitions collected at bottom of editor view; exported as standard Markdown; click footnote to jump to definition
 43. **Paragraph focus mode** — dim all paragraphs except the one under the cursor; adjustable dim level; pairs naturally with zen mode and typewriter mode; toggle from status bar
-44. **Text folding** — collapse / expand sections by heading level; click chevron next to any heading; folded state persisted per file; useful for long documents with many sections
+44. **Text folding** — collapse / expand sections by heading level; click chevron next to any heading; folded state persisted per file; useful for long documents and notes with many sections
 45. **Math / LaTeX** — inline (`$...$`) and block (`$$...$$`) expressions rendered via KaTeX; display-only (raw LaTeX preserved in the markdown); syntax-error indicator on invalid expressions
+46. **Table of contents** — auto-generate a TOC from H1/H2/H3 headings; insert at cursor as a markdown list, or show as a floating panel; updates live; configurable depth
+47. **Private annotations** — inline editorial comments stored in `.ovid/annotations/` alongside the file; never written into the markdown; visible only in Ovid; useful for revision notes, TODOs, and self-review
 
 ---
 
-## Phase 9 — Document Intelligence
-> Goal: give writers insight into their own writing without leaving the flow.
+## Phase 9 — Daily Writing & Habits
+> Goal: support the routines and rituals that make writing a sustainable, daily practice. 🖊 🧠
 
-46. **Reading time** — estimated reading time shown in the status bar alongside word count; calculated at ~200 wpm; updates live
-47. **Writing stats panel** — sentence count, average sentence length, paragraph count, Flesch–Kincaid reading ease score; shown in a toggleable panel below the properties bar; never intrusive
-48. **Grammar & style check** — integration with LanguageTool (local binary or self-hosted API); underlines grammar and style issues separately from spell check; click to see suggestion and accept/dismiss; never blocks writing
-49. **Local snapshots** — automatic version history saved to `.ovid/snapshots/<filename>/` every 5 minutes and on manual save; independent of git; browse past versions in a timeline panel; one-click restore
-50. **Writing streak** — track consecutive days with at least N words written (configurable threshold); subtle streak counter in the status bar; resets if a day is missed; no gamification beyond awareness
-51. **Workspace-wide find & replace** — Rust-powered search across all files; preview all matches before replacing; confirm per-file or all at once; regex support; replaces the current search panel when in replace mode
-
----
-
-## Phase 10 — Knowledge Graph
-> Goal: turn a collection of files into a connected body of knowledge.
-
-52. **Wikilinks** (`[[filename]]`) — type `[[` to open an inline autocomplete picker of workspace files; resolves by filename or frontmatter `title`; renders as a styled clickable link; `Cmd+Click` to navigate; serialized as standard markdown link on disk
-53. **Backlinks panel** — collapsible panel below the editor listing every file in the workspace that links to the current file; shows the linking sentence for context; click to navigate; updates on save
-54. **Outline view** — H1 / H2 / H3 heading tree shown in a sidebar panel (replaces file tree when toggled); click any heading to jump to it in the editor; indented to reflect nesting level; updates live as you write
-55. **Tags browser** — sidebar panel listing all unique frontmatter `tags` values across the workspace with file counts; click a tag to filter the sidebar file list; multi-select to filter by multiple tags
-56. **Graph view** — visual canvas of file connections via wikilinks and markdown links; nodes are files, edges are links; zoom/pan; node size reflects link count; click a node to open the file; graceful no-op with no links
-57. **Calendar view** — month grid showing files by frontmatter `date`; click a date to open the file; navigate months with arrow keys; dots indicate multiple files on the same date; useful for blog-style editorial planning
+48. **Daily notes** (`Cmd+Shift+D`) — create or open today's note in a configurable folder (e.g. `journal/`); auto-named by date (e.g. `2026-03-15.md`); uses a user-defined template; quick-capture without switching context
+49. **Focus timer** — configurable writing timer visible in the status bar; Pomodoro-style (default 25 min) or freeform; gentle visual indicator when time is up; logs completed sessions; pairs with word count goal
+50. **Writing streak** — track consecutive days with at least N words written (user-configurable threshold); subtle streak indicator in the status bar; no gamification — just awareness of momentum
+51. **Ambient sounds** — optional background audio (rain, café, white noise, birdsong); volume slider; choice persisted across sessions; for writers who need an acoustic focus environment
+52. **Starred files** — star any file from the sidebar or via shortcut; starred files appear in a pinned section at the top of the sidebar and the empty state; persisted per workspace; quick access to most-used notes and posts
+53. **Reading mode** (`Cmd+Shift+R`) — distraction-free read-only view of the current file; no cursor, no editing affordances; clean typography with generous margins; useful for proofreading; `Esc` to return to editing
+54. **Quick capture** (menu bar) — system tray icon opens a minimal floating input for a quick note or thought; saved to a configurable inbox file or today's daily note; available even when the main window is closed
 
 ---
 
-## Phase 11 — Publishing Pipeline
-> Goal: the full Amytis publish workflow — from draft to live — without leaving the app.
+## Phase 10 — Document Intelligence
+> Goal: give writers and bloggers meaningful insight into their own writing and long-term output. 🖊 📢
 
-58. **In-app preview** (`Cmd+Shift+V`) — render the current file as it would appear on the published Amytis site; split-pane or overlay toggle; uses the site's CSS from the workspace if available; live-updates as you type
-59. **Build & deploy** — trigger `amytis build` and `amytis deploy` from the command palette or a toolbar button; stream stdout/stderr to a collapsible log panel; show success / error status with timestamp; cancel in-progress builds
-60. **Git history per file** — browse the full commit history for the current file in a timeline panel; view the file content at any past commit; diff against current version; one-click restore to any version
-61. **Branch management** — create, switch, and delete branches from within the app; current branch name shown in the status bar; visual indicator when the branch is ahead/behind remote; fetch and pull from remote
-62. **Draft scheduling** — set a future `date` in the properties panel and mark `draft: true`; Ovid shows a "scheduled" badge; optionally auto-toggles `draft: false` on the scheduled date; integrates with the calendar view
-63. **SEO panel** — dedicated collapsible panel for SEO-specific frontmatter: `description`, `og:image`, `og:title`, `canonical`; character counters for `description` (optimal 120–160 chars); preview how the entry would look in a search result snippet
-
----
-
-## Phase 12 — Multi-file & Workspace Power
-> Goal: the app should handle real workspaces at scale — many files, many sessions.
-
-64. **File watcher** — detect when the currently open file is modified externally (e.g. edited in another editor or by a script); prompt to reload or keep the in-memory version; uses Rust `notify` crate; no polling
-65. **Tabs** — open multiple files simultaneously in a tab bar above the editor; `Cmd+T` opens a new tab, `Cmd+W` closes the current tab; drag to reorder tabs; unsaved indicator per tab; restore previous tab session on relaunch
-66. **Split view** (`Cmd+Shift+\`) — divide the editor area into two independent panes; each pane has its own file, scroll position, and cursor; useful for referencing one file while writing another; resizable divider
-67. **Bulk file operations** — multi-select files in the sidebar with `Shift+Click` / `Cmd+Click`; batch delete (to Trash), move to a different folder, or tag (add frontmatter `tags`); confirmation dialog for destructive operations
-68. **Asset manager** — dedicated sidebar panel for browsing `assets/`; thumbnail grid for images; click to insert at cursor; drag into editor; shows file name and size; delete unused assets; configurable asset directory per workspace
-69. **Drag to reorganize** — drag files and folders in the sidebar to move them; visual drop target indicator; updates disk on drop; internal links and wikilinks to moved files optionally updated automatically
+55. **Reading time** — estimated reading time shown in the status bar alongside word count; calculated at ~200 wpm; updates live; useful for bloggers calibrating post length
+56. **Writing stats panel** — sentence count, average sentence length, paragraph count, Flesch–Kincaid reading ease score; shown in a toggleable panel; never intrusive; helps writers identify dense or over-long prose
+57. **Grammar & style check** — integration with LanguageTool (local binary or self-hosted API); underlines grammar and style issues separately from spell check; click to see suggestion and accept or dismiss; never blocks writing
+58. **Local snapshots** — automatic version history saved to `.ovid/snapshots/` every 5 minutes and on each manual save; independent of git; browse past versions in a timeline panel; one-click restore; soft safety net for every file
+59. **Long-term writing analytics** — words per day/week/month chart; most productive hours heatmap; file growth over time; all stored locally in `.ovid/analytics/`; no external service; helps writers understand their own patterns
+60. **Workspace-wide find & replace** — Rust-powered search and replace across all files; preview every match in context before committing; confirm per-file or all at once; regex support; essential for renaming terms or fixing repeated errors across a large workspace
 
 ---
 
-## Phase 13 — Rich Content
-> Goal: support the full range of content a modern Amytis site might contain.
+## Phase 11 — Knowledge Graph
+> Goal: turn a collection of files into a living, connected body of knowledge. Core to the knowledge management use case. 🧠 🖊
 
-70. **Mermaid diagrams** — fenced code blocks with ` ```mermaid ` rendered as live diagrams (flowcharts, sequence, Gantt, etc.); edit source in the block, preview updates inline; exported as raw mermaid fences in the markdown
-71. **Math rendering** — move KaTeX from Phase 8 if deferred; ensure full equation alignment, matrix, and multi-line support; consistent rendering in both editor and in-app preview
-72. **Image optimization** — on drag-drop, offer to compress images before saving to `assets/`; show original vs compressed size; configurable quality slider (default 85%); skips SVG
-73. **Audio / video attachments** — drag audio or video files into the editor; copies to `assets/`; inserts an HTML5 `<audio>` or `<video>` element in the markdown; inline playback in the editor
-74. **Embed previews** — paste a YouTube, Vimeo, or Twitter/X URL to get an inline preview card; stored as a markdown link on disk (no external dependency in the saved file); display-only in the editor
-75. **Scratchpad** — persistent side panel for quick notes not tied to any file; survives across sessions and workspace switches; plain text only; `Cmd+Shift+S` to toggle; never saved to the workspace
-
----
-
-## Phase 14 — Customization & Export
-> Goal: let writers shape the tool to their own habits and share their work in any format.
-
-76. **Export** — export the current file as HTML (with site CSS), PDF (via headless WebView print), or DOCX (via pandoc if available); export dialog with format and destination options; batch export of multiple files
-77. **Custom keyboard shortcuts** — remap any named action from a settings panel; shortcuts persisted in `.ovid/keybindings.json`; conflict detection with visual warning; reset to defaults button
-78. **Custom themes** — built-in preset color schemes beyond light/dark (e.g. Solarized, Nord, Rosé Pine); import a custom theme JSON; live preview before applying; export current theme
-79. **Custom editor CSS** — inject user-authored CSS scoped to the editor pane; persisted in `.ovid/editor.css`; changes applied live; "reset to default" option; for writers who want precise typographic control
-80. **Snippets / text expansion** — define trigger words (e.g. `;date`) that expand to text or frontmatter fragments; manage snippets from a settings panel; triggers fire on `Space` or `Tab` after the keyword
-81. **Command palette** (`Cmd+Shift+K`) — search all app actions by name; keyboard-navigable; shows shortcut hints; replaces needing to memorize bindings; also accepts file names to open
-82. **Settings UI** — persistent settings panel (not localStorage); organized into sections (editor, workspace, git, snippets, shortcuts, themes); import/export settings as JSON for portability across machines
+61. **Wikilinks** (`[[filename]]`) — type `[[` to open an inline autocomplete picker; resolves by filename or frontmatter `title`; renders as a styled clickable link; `Cmd+Click` to navigate; serialized as a standard Markdown link on disk so files remain portable
+62. **Transclusion** (`![[filename]]`) — embed the full content of one file inside another, rendered inline in the editor; the source file on disk is unchanged; useful for reusable content blocks, shared reference notes, and blog series intros; updates live when the source changes
+63. **Backlinks panel** — collapsible panel below the editor listing every file that links to the current file; shows the linking sentence for context; click to navigate; updates on save; the foundation of a personal knowledge graph
+64. **Outline view** — H1/H2/H3 heading tree in a sidebar panel; click any heading to jump to it; indented to reflect nesting; updates live as you type; equally useful for long essays and deeply nested notes
+65. **Tags browser** — sidebar panel listing all unique frontmatter `tags` across the workspace with file counts; click a tag to filter the file list; Shift+click for multi-tag filtering; search within tags; useful for knowledge workers with hundreds of tagged notes
+66. **Task / checklist view** — aggregate all Markdown checkboxes (` - [ ] `) across the workspace into a unified task panel; filter by file, tag, or completion status; check off a task and the change is saved back to the source file
+67. **Graph view** — visual canvas of file connections via wikilinks and Markdown links; nodes are files, edges are links; zoom and pan; node size reflects link count; click a node to open the file; filter by tag or content type; graceful no-op when no links exist
+68. **Calendar view** — month grid showing files by frontmatter `date`; click a date to open the file; dots indicate multiple files on the same date; navigate months with arrow keys; useful for bloggers planning posts and knowledge workers reviewing notes by time
 
 ---
 
-## Phase 15 — Daily Writing Workflow
-> Goal: support the habits and rituals that make writing a sustainable practice.
+## Phase 12 — Discovery & Organization
+> Goal: find anything and keep everything organized at scale, no matter how large the workspace grows. 🧠 📢
 
-83. **Daily notes** (`Cmd+Shift+D`) — create or open today's note in a configurable folder (e.g. `journal/`); auto-named by date (e.g. `2026-03-15.md`); uses a user-defined template; quick-capture without leaving the current file
-84. **Focus timer** — configurable Pomodoro-style writing timer visible in the status bar; set duration (default 25 min); gentle visual indicator when time is up; logs completed sessions; pairs with word count goal
-85. **Starred files** — star any file from the sidebar (right-click or `Cmd+D`); starred files shown in a pinned section at the top of the sidebar and in the empty state; persisted per workspace
-86. **Reading mode** — toggle a distraction-free read-only view of the current file (`Cmd+Shift+R`); no cursor, no editing affordances; clean typography; useful for proofreading; `Esc` or same shortcut to return to editing
-87. **Quick capture** (menu bar) — macOS/Windows system tray icon; click to open a minimal floating input for a quick note; saved to a configurable inbox file or daily note; available even when the main window is closed
+69. **Advanced search operators** — filter syntax in the search panel: `tag:writing`, `is:draft`, `is:published`, `date:>2024-01-01`, `type:post`, `words:>500`; operators autocomplete as you type; stack multiple filters; powered by Rust; essential for knowledge workers with large note collections
+70. **Content series & collections** — group related files into a named series via frontmatter (`series: "Getting Started"`); sidebar shows series grouping with progress (e.g. 3/5 published); series panel shows reading order and publication status; useful for bloggers and course creators
+71. **Pinned searches** — save frequently-used search queries as named bookmarks; shown at the top of the search panel; reorderable; persisted per workspace; e.g. "All unfinished drafts" or "Notes tagged #research"
+72. **File labels** — assign color labels to files from the sidebar context menu; visible as a colored dot next to the filename; filter sidebar by label; stored in `.ovid/labels.json` — never bleeds into frontmatter; purely organizational
+73. **Duplicate & move** — right-click any file to duplicate it (copy with a new name) or move it to a different folder without drag-and-drop; Wikilinks and Markdown links to the moved file optionally updated automatically across the workspace
+74. **Sitemap view** — read-only panel showing all workspace content organized by content type, with word counts, draft/published status, and last-modified date; useful for auditing coverage, finding orphaned notes, and planning what to write next
 
 ---
 
-## Phase 16 — Extensibility & Platform
-> Goal: open the app to the ecosystem and support advanced multi-workspace power users.
+## Phase 13 — Publishing Pipeline
+> Goal: the full publish workflow — from first draft to live site — without leaving the app. Primarily for Amytis publishers and bloggers. 📢
 
-88. **Plugin system** — JavaScript plugins loaded from `.ovid/plugins/`; plugins can register commands, add sidebar panels, and extend the editor with custom Tiptap extensions; sandboxed with a documented API; managed from the settings UI
-89. **Multiple OS windows** — open different workspaces in separate native OS windows simultaneously (`Cmd+Shift+N`); each window is fully independent; useful for referencing one workspace while writing in another
-90. **Import from other tools** — import an Obsidian vault, Bear export (`.bearbak`), Ulysses sheets, or Notion Markdown export; map their internal link formats and tags to Amytis frontmatter; one-time migration wizard
-91. **Cloud backup** — optional automatic backup of the workspace to iCloud Drive, Dropbox, or any configured folder; configurable frequency (on save, hourly, daily); separate from git; restores via the settings UI
+75. **In-app preview** (`Cmd+Shift+V`) — render the current file as it would appear on the published site; split-pane or overlay toggle; uses the site's CSS from the workspace if available; live-updates as you type; graceful fallback to plain HTML for non-Amytis workspaces
+76. **Build & deploy** — trigger `amytis build` and `amytis deploy` from the command palette; stream stdout/stderr to a collapsible log panel; show success / error status with elapsed time; cancel in-progress builds; configurable build command for non-Amytis static site generators
+77. **Git history per file** — browse the full commit history for the current file in a timeline panel; view file content at any past commit; diff view against current version; one-click restore to any version; gracefully hidden when not a git repo
+78. **Branch management** — create, switch, and delete branches from within the app; current branch shown in the status bar; visual indicator when ahead/behind remote; fetch and pull without leaving the editor
+79. **Draft scheduling** — set a future `date` in the properties panel and keep `draft: true`; Ovid shows a "scheduled" badge; optionally auto-toggles `draft: false` on the scheduled date and triggers a commit; integrates with the calendar view
+80. **SEO panel** — dedicated collapsible panel for SEO frontmatter: `description`, `og:image`, `og:title`, `canonical`; character counter for `description` (optimal 120–160 chars); live preview of how the entry looks in a search result snippet
+81. **Content calendar** — editorial planning view; month and week grid showing scheduled, published, and draft posts; drag a post to a new date to update its frontmatter `date`; color-coded by content type; the control center for a busy blogger
+
+---
+
+## Phase 14 — Multi-file & Workspace Power
+> Goal: the app should handle large, complex workspaces — many files, many sessions, many collaborators. 🖊 🧠 📢
+
+82. **File watcher** — detect when the open file is modified externally (by another editor, a script, or a sync service); prompt to reload or keep the in-memory version; uses the Rust `notify` crate with no polling; prevents silent data loss
+83. **Tabs** — open multiple files simultaneously in a tab bar above the editor; `Cmd+T` new tab, `Cmd+W` closes the current tab; drag to reorder tabs; unsaved indicator per tab; restore the previous tab session on relaunch
+84. **Split view** (`Cmd+Shift+\`) — divide the editor area into two independent panes, each with its own file, scroll position, and cursor; useful for referencing a note while writing a post; resizable divider; each pane supports all editor features
+85. **Bulk file operations** — multi-select files in the sidebar with `Shift+Click` / `Cmd+Click`; batch delete (to Trash), move to folder, or add/remove frontmatter tags; confirmation dialog for destructive actions; progress indicator for large batches
+86. **Asset manager** — dedicated sidebar panel for browsing `assets/`; thumbnail grid for images; click to insert at cursor; drag into editor; shows file name, dimensions, and size; delete unused assets; configurable asset directory per workspace in settings
+87. **User-defined templates** — create and save a file as a template from the sidebar context menu; template variables (`{{date}}`, `{{title}}`, `{{slug}}`); available in the new file dialog alongside Amytis content types; stored in `.ovid/templates/`
+
+---
+
+## Phase 15 — Rich Content
+> Goal: support the full range of content types that writers, bloggers, and technical authors create. 🖊 📢
+
+88. **Mermaid diagrams** — fenced ` ```mermaid ` blocks rendered as live diagrams (flowchart, sequence, Gantt, ER, pie, etc.); edit source and preview updates inline; exported as raw Mermaid fences so the file remains valid Markdown
+89. **Image optimization** — on drag-drop, offer to compress images before saving to `assets/`; show original vs compressed file size and dimensions; configurable quality slider (default 85%); skips SVG and already-small images
+90. **Audio / video attachments** — drag audio or video files into the editor; copies to `assets/`; inserts an HTML5 `<audio>` or `<video>` tag; inline playback controls in the editor; useful for podcasters and video bloggers
+91. **Embed previews** — paste a YouTube, Vimeo, or Twitter/X URL on its own line to get an inline preview card in the editor; stored as a plain Markdown link on disk — no external dependency in the saved file; display-only
+92. **Scratchpad** — persistent side panel (`Cmd+Shift+S`) for quick notes not tied to any file; survives across sessions and workspace switches; supports basic Markdown; never saved into the workspace tree; a private thinking space alongside any file
+
+---
+
+## Phase 16 — Customization & Export
+> Goal: let every user shape the tool to their own habits, aesthetic, and output format. 🖊 🧠 📢
+
+93. **Export** — export the current file as HTML (with site CSS), PDF (via headless WebView print), or DOCX (via pandoc if available); batch export multiple files; export dialog with format, destination, and styling options; useful for sharing drafts with non-technical collaborators
+94. **Custom keyboard shortcuts** — remap any named action from a settings panel; persisted in `.ovid/keybindings.json`; conflict detection with visual warning; reset individual or all shortcuts to defaults
+95. **Custom themes** — built-in preset color schemes beyond light/dark (e.g. Solarized, Nord, Rosé Pine, Catppuccin); import a custom theme JSON; live preview before applying; export the current theme to share with others
+96. **Custom editor CSS** — inject user-authored CSS scoped to the editor pane; persisted in `.ovid/editor.css`; changes applied live without restart; "reset to default" option; for writers who want precise typographic control beyond the font settings
+97. **Snippets / text expansion** — define trigger words (e.g. `;date`, `;intro`) that expand to full text or frontmatter fragments; manage snippets from a settings panel; triggers fire on `Space` or `Tab`; supports template variables
+98. **Command palette** (`Cmd+Shift+K`) — search and trigger any app action by name; keyboard-navigable with shortcut hints; accepts file names to open; extensible by plugins; the single entry point for power users who prefer keys over menus
+99. **Settings UI** — persistent settings panel organized by section (editor, workspace, git, snippets, shortcuts, themes, plugins); import/export all settings as a single JSON file for portability across machines or sharing with a team
+
+---
+
+## Phase 17 — Extensibility & Platform
+> Goal: open Ovid to the wider ecosystem and make it a platform, not just an app. 🧠 📢
+
+100. **Plugin system** — JavaScript plugins loaded from `.ovid/plugins/`; plugins can register commands, add sidebar panels, and contribute Tiptap editor extensions; sandboxed with a documented public API; managed and toggled from the settings UI; enables community-built integrations
+101. **Multiple OS windows** — open different workspaces in separate native OS windows simultaneously (`Cmd+Shift+N`); each window is fully independent with its own state; useful for referencing one workspace while writing in another
+102. **Import from other tools** — one-time migration wizard for Obsidian vaults, Bear exports (`.bearbak`), Ulysses sheets, and Notion Markdown exports; maps internal link formats, tags, and metadata to standard Markdown frontmatter; preserves folder structure
+103. **Local API / CLI** — expose a local HTTP API and CLI for scripting and automation: `ovid open <path>`, `ovid new <title>`, `ovid search <query>`, `ovid export <path>`; useful for integrating Ovid into custom workflows, Alfred/Raycast, or shell scripts
+104. **Cloud backup** — optional automatic backup of the workspace to iCloud Drive, Dropbox, or any configured directory; configurable frequency (on save, hourly, daily); versioned backups; separate from git; restore from the settings UI; a safety net for users without git
