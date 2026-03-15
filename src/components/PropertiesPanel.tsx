@@ -2,10 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./PropertiesPanel.css";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Separator } from "./ui/separator";
 
 interface PropertiesPanelProps {
   frontmatter: ParsedFrontmatter;
@@ -39,19 +35,24 @@ function TypeSelector({
   onChange: (t: string) => void;
 }) {
   return (
-    <Select value={type ?? ""} onValueChange={onChange}>
-      <SelectTrigger className="prop-type-trigger h-auto border-none bg-transparent shadow-none p-1.5 gap-1.5 text-xs font-medium text-muted-foreground capitalize focus:ring-0 hover:bg-accent transition-colors rounded-md">
-        <ContentTypeIcon type={type} size={14} className="shrink-0 text-muted-foreground" />
-        <SelectValue placeholder="unknown" />
-      </SelectTrigger>
-      <SelectContent>
+    <div className="prop-type-row">
+      <ContentTypeIcon type={type} size={14} />
+      <select
+        className="prop-type-select"
+        value={type ?? ""}
+        aria-label="Content type"
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="" disabled>
+          unknown
+        </option>
         {STANDARD_TYPES.map((t) => (
-          <SelectItem key={t} value={t} className="capitalize text-xs">
+          <option key={t} value={t}>
             {t}
-          </SelectItem>
+          </option>
         ))}
-      </SelectContent>
-    </Select>
+      </select>
+    </div>
   );
 }
 
@@ -69,10 +70,10 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string | null
 
   if (editing) {
     return (
-      <Input
+      <input
         ref={inputRef}
         type="date"
-        className="h-7 text-[12px] cursor-pointer"
+        className="prop-input prop-input--date"
         value={value}
         onChange={(e) => {
           onSave(e.target.value || null);
@@ -187,9 +188,9 @@ function EditableValue({
 
   if (editing) {
     return (
-      <Input
+      <input
         ref={inputRef}
-        className="h-7 text-[13px] px-1.5"
+        className="prop-input"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -260,9 +261,9 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
 
   return (
     <div className="prop-add-row">
-      <Input
+      <input
         ref={keyRef}
-        className="h-7 text-xs"
+        className="prop-input prop-input--sm"
         placeholder="field name"
         value={key}
         onChange={(e) => setKey(e.target.value)}
@@ -271,8 +272,8 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
           else if (e.key === "Enter") submit();
         }}
       />
-      <Input
-        className="h-7 text-xs"
+      <input
+        className="prop-input prop-input--sm"
         placeholder="value"
         value={val}
         onChange={(e) => setVal(e.target.value)}
@@ -323,28 +324,28 @@ export function PropertiesPanel({
       <div className="properties-body">
         {title !== undefined && (
           <div className="prop-field">
-            <Label className="prop-label">Title</Label>
+            <span className="prop-label">Title</span>
             <EditableValue value={title} onSave={(v) => onFieldChange?.("title", v)} />
           </div>
         )}
 
         {slug && (
           <div className="prop-field">
-            <Label className="prop-label">Slug</Label>
+            <span className="prop-label">Slug</span>
             <span className="prop-slug">{slug}</span>
           </div>
         )}
 
         {date !== undefined && (
           <div className="prop-field">
-            <Label className="prop-label">Date</Label>
+            <span className="prop-label">Date</span>
             <DateField value={date} onSave={(v) => onFieldChange?.("date", v ?? "")} />
           </div>
         )}
 
         {tags !== undefined && (
           <div className="prop-field">
-            <Label className="prop-label">Tags</Label>
+            <span className="prop-label">Tags</span>
             <TagInput tags={tags} onSave={(v) => onFieldChange?.("tags", v)} />
           </div>
         )}
@@ -352,10 +353,10 @@ export function PropertiesPanel({
         {/* ── Custom fields ─────────────────────────── */}
         {customKeys.length > 0 && (
           <>
-            <Separator className="my-0" />
+            <div className="prop-divider" />
             {customKeys.map((key) => (
               <div key={key} className="prop-field">
-                <Label className="prop-label">{key}</Label>
+                <span className="prop-label">{key}</span>
                 <EditableValue value={frontmatter[key]} onSave={(v) => onFieldChange?.(key, v)} />
               </div>
             ))}
