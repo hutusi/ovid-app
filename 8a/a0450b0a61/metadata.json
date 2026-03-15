@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "8aa0450b0a61",
+  "strategy": "manual-commit",
+  "branch": "ui-refactor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/components/FileContextMenu.css",
+    "src/components/FileContextMenu.tsx",
+    "src/components/FontSettings.tsx",
+    "src/components/LinkDialog.css",
+    "src/components/Sidebar.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8a/a0450b0a61/0/metadata.json",
+      "transcript": "/8a/a0450b0a61/0/full.jsonl",
+      "content_hash": "/8a/a0450b0a61/0/content_hash.txt",
+      "prompt": "/8a/a0450b0a61/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1121,
+    "cache_creation_tokens": 1623087,
+    "cache_read_tokens": 53309539,
+    "output_tokens": 264336,
+    "api_call_count": 573
+  }
+}

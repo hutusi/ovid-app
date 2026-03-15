@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "8aa0450b0a61",
+  "session_id": "7b210d78-ee4d-4a86-9b7e-5b961745dc87",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T09:08:52.351453Z",
+  "branch": "ui-refactor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/components/FileContextMenu.css",
+    "src/components/FileContextMenu.tsx",
+    "src/components/FontSettings.tsx",
+    "src/components/LinkDialog.css",
+    "src/components/Sidebar.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-haiku-4-5-20251001",
+  "turn_id": "751667cae0a4",
+  "token_usage": {
+    "input_tokens": 1121,
+    "cache_creation_tokens": 1623087,
+    "cache_read_tokens": 53309539,
+    "output_tokens": 264336,
+    "api_call_count": 573
+  },
+  "session_metrics": {
+    "turn_count": 47
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T09:08:46.658371Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 177,
+    "human_removed": 141,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
