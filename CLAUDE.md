@@ -55,14 +55,18 @@ Three-zone layout managed by `src/App.tsx`:
 - `TextFolding.ts` — Heading-level fold/unfold via chevron widgets; `getHeadingRanges` exported for testing
 - `InlineEditMode.ts` — Shows `[` and `](url)` decorations around links when cursor is inside one; URL hint is clickable
 - `LinkPreview.ts` — Hover tooltip showing link URL
+- `Modal.css` — Shared plain-CSS primitives for all modal dialogs (overlay, panel, buttons, inputs, badge, checkbox label)
+- `ui/command.tsx` — Thin wrapper around `cmdk` for the file switcher; styled with design tokens
+- `ui/input.tsx` — Plain input wrapper used by Sidebar filter and SearchPanel
 
 **`src/lib/`**
 - `types.ts` — Shared interfaces (`FileNode`, `WorkspaceState`)
 - `frontmatter.ts` — `parseFrontmatter` / `joinFrontmatter` (raw round-trip) + `parseYamlFrontmatter` (js-yaml)
 - `useTheme.ts` — Hook for system/manual dark mode; syncs to `localStorage`; applies `data-theme` on `<html>`
+- `useFocusTrap.ts` — Hook for modal dialogs: auto-focuses first element on open, traps Tab/Shift+Tab within bounds, restores focus on close
 
 **`src/styles/`**
-- `global.css` — CSS reset + design tokens (CSS custom properties, light + dark sets)
+- `global.css` — Tailwind `@theme` block (single source of truth for design tokens + utility classes); `[data-theme="dark"]` overrides; `:root` for non-theme constants (font sizes, layout, shadows)
 - `editor.css` — ProseMirror / Tiptap prose typography
 
 **`src-tauri/`** — Rust backend (Tauri 2).
@@ -93,6 +97,11 @@ Product (non-negotiable):
 - File I/O goes through **Tauri FS plugin** (`@tauri-apps/plugin-fs`) or Rust commands — never direct Node/Bun APIs
 - **Global UI state in `App.tsx`** — workspace and editor state live in `App.tsx`; theme state is managed by the `useTheme` hook; no external state library (no Zustand, Redux, etc.)
 - **No persistent toolbar** — keyboard-first design; no fixed toolbar above the editor; the bubble menu appears transiently on selection and disappears after use
+- **No editor toolbar** — keyboard-first design; don't add toolbars or button bars to the editor
+- **No Radix UI / shadcn** — all dialog and popover components use plain CSS with direct `var(--color-*)` references; Radix `Portal` renders outside the app's CSS tree, causing multi-hop CSS variable chains to fail silently in Tauri's WebView
+- **Tailwind-first design tokens** — all color and font tokens live in `@theme` in `global.css` (generates both CSS variables and utility classes); dark mode via `[data-theme="dark"]` attribute overrides; never add a `@theme inline` bridge layer
+- **`cmdk`** for the file switcher — keyboard-navigable fuzzy search; does not use Portal so it works correctly in Tauri's WebView; wrapped in `ui/command.tsx`
+- **`useFocusTrap`** for all modal dialogs — every `role="dialog"` element must attach the `useFocusTrap` ref; handles initial focus, Tab cycling, and focus restoration on close
 
 ## Amytis Workspace
 
