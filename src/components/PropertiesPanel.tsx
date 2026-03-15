@@ -31,12 +31,12 @@ function TypeSelector({
   type,
   onChange,
 }: {
-  type: string | undefined;
+  type: string | null | undefined;
   onChange: (t: string | null) => void;
 }) {
   return (
     <div className="prop-type-row">
-      <ContentTypeIcon type={type} size={14} />
+      <ContentTypeIcon type={type ?? undefined} size={14} />
       <select
         className="prop-type-select"
         value={type ?? ""}
@@ -218,9 +218,20 @@ function EditableValue({
     );
   }
 
+  const displayValue = String(value ?? "");
+  const buttonLabel = label
+    ? `${label}${displayValue ? `: ${displayValue}` : ""}`
+    : displayValue || "Editable field";
+
   return (
-    <button type="button" className="prop-editable-area" onClick={startEdit} title="Click to edit">
-      <span className="prop-value">{String(value ?? "")}</span>
+    <button
+      type="button"
+      className="prop-editable-area"
+      aria-label={buttonLabel}
+      onClick={startEdit}
+      title="Click to edit"
+    >
+      <span className="prop-value">{displayValue}</span>
     </button>
   );
 }
