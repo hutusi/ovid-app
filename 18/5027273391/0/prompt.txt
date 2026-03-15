@@ -1,0 +1,1 @@
+the second issue is fixed, but the first issue seems the same, I can not edit the url of the link.

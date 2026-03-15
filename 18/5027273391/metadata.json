@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "185027273391",
+  "strategy": "manual-commit",
+  "branch": "editor",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/components/Editor.tsx",
+    "src/lib/tiptap/InlineEditMode.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/18/5027273391/0/metadata.json",
+      "transcript": "/18/5027273391/0/full.jsonl",
+      "content_hash": "/18/5027273391/0/content_hash.txt",
+      "prompt": "/18/5027273391/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 7,
+    "cache_creation_tokens": 2857,
+    "cache_read_tokens": 822246,
+    "output_tokens": 2541,
+    "api_call_count": 5
+  }
+}
