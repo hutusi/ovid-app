@@ -118,11 +118,15 @@ export function FontSettingsButton({
 
         <Separator className="my-0.5" />
 
-        <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em] px-0.5">
+        <label
+          htmlFor="session-goal-input"
+          className="text-[10px] text-muted-foreground uppercase tracking-[0.06em] px-0.5"
+        >
           Session goal
-        </span>
+        </label>
         <div className="flex gap-1 items-center">
           <input
+            id="session-goal-input"
             className="flex-1 min-w-0 px-1.5 py-0.5 text-[12px] font-[var(--font-ui)] text-foreground bg-background border border-input rounded outline-none focus:border-ring transition-colors"
             type="number"
             min="1"
