@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
@@ -162,6 +163,60 @@ export function Editor({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor]);
+
+  // Insert / Format menu commands forwarded from the native menu bar
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string>("menu-action", (event) => {
+      if (!editor) return;
+      switch (event.payload) {
+        case "format-bold":
+          editor.chain().focus().toggleBold().run();
+          break;
+        case "format-italic":
+          editor.chain().focus().toggleItalic().run();
+          break;
+        case "format-strike":
+          editor.chain().focus().toggleStrike().run();
+          break;
+        case "format-code":
+          editor.chain().focus().toggleCode().run();
+          break;
+        case "format-heading-1":
+          editor.chain().focus().toggleHeading({ level: 1 }).run();
+          break;
+        case "format-heading-2":
+          editor.chain().focus().toggleHeading({ level: 2 }).run();
+          break;
+        case "format-heading-3":
+          editor.chain().focus().toggleHeading({ level: 3 }).run();
+          break;
+        case "format-blockquote":
+          editor.chain().focus().toggleBlockquote().run();
+          break;
+        case "format-bullet-list":
+          editor.chain().focus().toggleBulletList().run();
+          break;
+        case "format-ordered-list":
+          editor.chain().focus().toggleOrderedList().run();
+          break;
+        case "insert-link": {
+          const href = editor.getAttributes("link").href ?? "";
+          setLinkDialog({ href });
+          break;
+        }
+        case "insert-code-block":
+          editor.chain().focus().toggleCodeBlock().run();
+          break;
+        case "insert-hr":
+          editor.chain().focus().setHorizontalRule().run();
+          break;
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, [editor]);
 
   return (

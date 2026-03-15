@@ -56,13 +56,16 @@ All major actions are accessible from the native menu bar, making features disco
 
 | Menu | Items |
 |---|---|
-| **File** | New File, Open Workspace, Switch Workspace, Save, Close File |
-| **Edit** | Undo, Redo, Cut, Copy, Paste, Select All (native OS actions) |
-| **View** | Toggle Sidebar, Toggle Properties Panel, Full-Text Search, Zen Mode, Typewriter Mode |
-| **Go** | Open Quickly (file switcher), Recent Files |
-| **Git** | Commit & Push |
+| **Ovid** | About Ovid, Hide, Quit (standard macOS app menu) |
+| **File** | New File, Open Workspace, Switch Workspace, Save, Close File, Commit & Push |
+| **Edit** | Undo, Redo, Cut, Copy, Paste, Select All, Find in Workspace, Open Quickly |
+| **Insert** | Link…, Code Block, Horizontal Rule |
+| **Format** | Bold, Italic, Strikethrough, Inline Code, Heading 1/2/3, Blockquote, Bullet List, Numbered List |
+| **View** | Toggle Sidebar, Toggle Properties Panel, Zen Mode, Typewriter Mode, Toggle Spell Check |
+| **Window** | Minimize, Zoom (standard macOS window menu) |
+| **Help** | Ovid Documentation, Report an Issue… |
 
-Menu items show their keyboard shortcut where one exists. All actions in the menu are equivalent to their shortcut counterparts.
+Menu items show their keyboard shortcut where one exists. Insert and Format menu items work on the current editor selection.
 
 ---
 

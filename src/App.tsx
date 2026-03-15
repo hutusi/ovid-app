@@ -291,8 +291,8 @@ function App() {
         case "file-switcher":
           if (tree.length > 0) setSwitcherOpen(true);
           break;
-        case "recent-files":
-          if (tree.length > 0) setSwitcherOpen(true);
+        case "toggle-spell-check":
+          updatePrefs({ spellCheck: !prefs.spellCheck });
           break;
         case "commit-push":
           if (isGitRepo) {
@@ -320,6 +320,8 @@ function App() {
     flushPendingSave,
     handleCloseFile,
     handleOpenWorkspace,
+    prefs,
+    updatePrefs,
   ]);
 
   const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;

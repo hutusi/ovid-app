@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::menu::{MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_dialog::DialogExt;
 
 // Holds workspace paths so file commands can validate against them.
@@ -717,6 +718,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // ── Ovid (app menu) ───────────────────────────────────────────────
+            let ovid_menu = SubmenuBuilder::new(app, "Ovid")
+                .items(&[
+                    &PredefinedMenuItem::about(app, None, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::show_all(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ])
+                .build()?;
+
             // ── File ──────────────────────────────────────────────────────────
             let file_menu = SubmenuBuilder::new(app, "File")
                 .items(&[
@@ -737,6 +751,10 @@ pub fn run() {
                     &MenuItemBuilder::with_id("close-file", "Close File")
                         .accelerator("CmdOrCtrl+W")
                         .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("commit-push", "Commit & Push…")
+                        .accelerator("CmdOrCtrl+Shift+G")
+                        .build(app)?,
                 ])
                 .build()?;
 
@@ -750,6 +768,49 @@ pub fn run() {
                     &PredefinedMenuItem::copy(app, None)?,
                     &PredefinedMenuItem::paste(app, None)?,
                     &PredefinedMenuItem::select_all(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("toggle-search", "Find in Workspace…")
+                        .accelerator("CmdOrCtrl+Shift+F")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("file-switcher", "Open Quickly…")
+                        .accelerator("CmdOrCtrl+P")
+                        .build(app)?,
+                ])
+                .build()?;
+
+            // ── Insert ────────────────────────────────────────────────────────
+            let insert_menu = SubmenuBuilder::new(app, "Insert")
+                .items(&[
+                    &MenuItemBuilder::with_id("insert-link", "Link…")
+                        .accelerator("CmdOrCtrl+K")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("insert-code-block", "Code Block").build(app)?,
+                    &MenuItemBuilder::with_id("insert-hr", "Horizontal Rule").build(app)?,
+                ])
+                .build()?;
+
+            // ── Format ────────────────────────────────────────────────────────
+            let format_menu = SubmenuBuilder::new(app, "Format")
+                .items(&[
+                    &MenuItemBuilder::with_id("format-bold", "Bold")
+                        .accelerator("CmdOrCtrl+B")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("format-italic", "Italic")
+                        .accelerator("CmdOrCtrl+I")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("format-strike", "Strikethrough").build(app)?,
+                    &MenuItemBuilder::with_id("format-code", "Inline Code")
+                        .accelerator("CmdOrCtrl+E")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-heading-1", "Heading 1").build(app)?,
+                    &MenuItemBuilder::with_id("format-heading-2", "Heading 2").build(app)?,
+                    &MenuItemBuilder::with_id("format-heading-3", "Heading 3").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-blockquote", "Blockquote").build(app)?,
+                    &MenuItemBuilder::with_id("format-bullet-list", "Bullet List").build(app)?,
+                    &MenuItemBuilder::with_id("format-ordered-list", "Numbered List").build(app)?,
                 ])
                 .build()?;
 
@@ -762,47 +823,71 @@ pub fn run() {
                     &MenuItemBuilder::with_id("toggle-properties", "Toggle Properties Panel")
                         .accelerator("CmdOrCtrl+Shift+P")
                         .build(app)?,
-                    &MenuItemBuilder::with_id("toggle-search", "Full-Text Search")
-                        .accelerator("CmdOrCtrl+Shift+F")
-                        .build(app)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItemBuilder::with_id("zen-mode", "Zen Mode")
                         .accelerator("Ctrl+Cmd+Z")
                         .build(app)?,
-                    &MenuItemBuilder::with_id("typewriter-mode", "Typewriter Mode")
+                    &MenuItemBuilder::with_id("typewriter-mode", "Typewriter Mode").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("toggle-spell-check", "Toggle Spell Check")
                         .build(app)?,
                 ])
                 .build()?;
 
-            // ── Go ────────────────────────────────────────────────────────────
-            let go_menu = SubmenuBuilder::new(app, "Go")
+            // ── Window ────────────────────────────────────────────────────────
+            let window_menu = SubmenuBuilder::new(app, "Window")
                 .items(&[
-                    &MenuItemBuilder::with_id("file-switcher", "Open Quickly…")
-                        .accelerator("CmdOrCtrl+P")
-                        .build(app)?,
-                    &MenuItemBuilder::with_id("recent-files", "Recent Files")
-                        .build(app)?,
+                    &PredefinedMenuItem::minimize(app, None)?,
+                    &PredefinedMenuItem::maximize(app, None)?,
                 ])
                 .build()?;
 
-            // ── Git ───────────────────────────────────────────────────────────
-            let git_menu = SubmenuBuilder::new(app, "Git")
-                .items(&[&MenuItemBuilder::with_id("commit-push", "Commit & Push…")
-                    .accelerator("CmdOrCtrl+Shift+G")
-                    .build(app)?])
+            // ── Help ──────────────────────────────────────────────────────────
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .items(&[
+                    &MenuItemBuilder::with_id("help-docs", "Ovid Documentation").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("help-issues", "Report an Issue…").build(app)?,
+                ])
                 .build()?;
 
             let menu = tauri::menu::Menu::with_items(
                 app,
-                &[&file_menu, &edit_menu, &view_menu, &go_menu, &git_menu],
+                &[
+                    &ovid_menu,
+                    &file_menu,
+                    &edit_menu,
+                    &insert_menu,
+                    &format_menu,
+                    &view_menu,
+                    &window_menu,
+                    &help_menu,
+                ],
             )?;
             app.set_menu(menu)?;
 
-            // Forward menu events to the frontend as "menu-action" events.
+            // Help links are resolved in Rust; everything else is forwarded to
+            // the frontend as a "menu-action" event.
             let handle = app.handle().clone();
             app.on_menu_event(move |_app, event| {
-                if let Some(window) = handle.get_webview_window("main") {
-                    let _ = window.emit("menu-action", event.id().as_ref());
+                match event.id().as_ref() {
+                    "help-docs" => {
+                        let _ = handle.opener().open_url(
+                            "https://github.com/hutusi/ovid-app",
+                            None::<&str>,
+                        );
+                    }
+                    "help-issues" => {
+                        let _ = handle.opener().open_url(
+                            "https://github.com/hutusi/ovid-app/issues",
+                            None::<&str>,
+                        );
+                    }
+                    id => {
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let _ = window.emit("menu-action", id);
+                        }
+                    }
                 }
             });
 
