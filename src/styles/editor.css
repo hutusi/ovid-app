@@ -107,6 +107,15 @@
   font-size: 1em;
 }
 
+/* Code block with language bar — reset pre so bar and block form one unified unit */
+.ProseMirror .code-block-wrapper pre {
+  margin: 0;
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  padding-top: 12px;
+}
+
 /* Blockquote */
 .ProseMirror blockquote {
   border-left: 3px solid var(--color-accent);
