@@ -79,7 +79,7 @@ function TypeSelector({
 // Date field with native date picker
 // ---------------------------------------------------------------------------
 
-function DateField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+function DateField({ value, onSave }: { value: string; onSave: (v: string | null) => void }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +95,7 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string) => vo
         className="prop-date-input"
         value={value}
         onChange={(e) => {
-          if (e.target.value) onSave(e.target.value);
+          onSave(e.target.value || null);
         }}
         onBlur={() => setEditing(false)}
       />
@@ -188,6 +188,7 @@ function EditableValue({
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(String(value ?? ""));
+  const skipBlurCommitRef = useRef(false);
 
   useEffect(() => {
     if (!editing) setDraft(String(value ?? ""));
@@ -212,13 +213,22 @@ function EditableValue({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-          else if (e.key === "Escape") {
+          if (e.key === "Enter") {
+            skipBlurCommitRef.current = true;
+            commit();
+          } else if (e.key === "Escape") {
+            skipBlurCommitRef.current = true;
             setEditing(false);
             setDraft(String(value ?? ""));
           }
         }}
-        onBlur={commit}
+        onBlur={() => {
+          if (skipBlurCommitRef.current) {
+            skipBlurCommitRef.current = false;
+            return;
+          }
+          commit();
+        }}
         onKeyUp={(e) => e.stopPropagation()}
       />
     );
@@ -348,7 +358,7 @@ export function PropertiesPanel({
         {date !== undefined && (
           <div className="prop-field">
             <span className="prop-label">Date</span>
-            <DateField value={date} onSave={(v) => onFieldChange?.("date", v)} />
+            <DateField value={date} onSave={(v) => onFieldChange?.("date", v ?? "")} />
           </div>
         )}
 

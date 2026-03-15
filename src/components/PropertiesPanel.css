@@ -127,7 +127,8 @@
   font-size: 13px;
   color: var(--color-text-muted);
   line-height: 1.4;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
 }
 
 /* ── Slug (read-only) ────────────────────────── */
