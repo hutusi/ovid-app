@@ -246,9 +246,19 @@ export function Sidebar({
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
   const isMounted = useRef(true);
+  const activeDragListeners = useRef<{
+    onMouseMove: (ev: MouseEvent) => void;
+    onMouseUp: (ev: MouseEvent) => void;
+  } | null>(null);
   useEffect(() => {
     isMounted.current = true;
     return () => {
+      const listeners = activeDragListeners.current;
+      if (listeners) {
+        window.removeEventListener("mousemove", listeners.onMouseMove);
+        window.removeEventListener("mouseup", listeners.onMouseUp);
+        activeDragListeners.current = null;
+      }
       isMounted.current = false;
     };
   }, []);
@@ -259,23 +269,25 @@ export function Sidebar({
     dragStartX.current = e.clientX;
     dragStartWidth.current = sidebarWidth;
 
-    function onMouseMove(ev: MouseEvent) {
+    const onMouseMove = (ev: MouseEvent) => {
       if (!isMounted.current) return;
       const delta = ev.clientX - dragStartX.current;
       const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
       setSidebarWidth(next);
-    }
+    };
 
-    function onMouseUp(ev: MouseEvent) {
+    const onMouseUp = (ev: MouseEvent) => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      activeDragListeners.current = null;
       if (!isMounted.current) return;
       const delta = ev.clientX - dragStartX.current;
       const final = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
       localStorage.setItem(SIDEBAR_WIDTH_KEY, String(final));
       setIsResizing(false);
-    }
+    };
 
+    activeDragListeners.current = { onMouseMove, onMouseUp };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   }
