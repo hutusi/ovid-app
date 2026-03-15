@@ -1,0 +1,25 @@
+should I clean the build and start dev build?
+
+---
+
+Editor error:
+[tiptap error]: The editor view is not available. Cannot access view['dom']. The editor may not be mounted yet.
+
+get@http://localhost:1420/node_modules/.vite/deps/chunk-LUHUOW3T.js:5298:26
+@http://localhost:1420/src/components/Editor.tsx:197:16
+react_stack_bottom_frame@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:18567:26
+runWithFiberInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:999:23
+commitHookEffectListMount@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:9411:180
+commitHookPassiveMountEffects@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:9465:85
+reconnectPassiveEffects@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:11273:42
+recursivelyTraverseReconnectPassiveEffects@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:11240:34
+reconnectPassiveEffects@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:11317:55
+doubleInvokeEffectsOnFiber@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13339:158
+runWithFiberInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:999:23
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13312:95
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13317:63
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13317:63
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13317:63
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13317:63
+recursivelyTraverseAndDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-dom_client.js:13317:63
+commitDoubleInvokeEffectsInDEV@http://localhost:1420/node_modules/.vite/deps/react-
