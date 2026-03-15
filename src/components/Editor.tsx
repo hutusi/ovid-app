@@ -196,6 +196,20 @@ export function Editor({
     });
   }, [editor, spellCheck]);
 
+  // Click on the ](url) hint from InlineEditMode → open link dialog
+  useEffect(() => {
+    if (!editor) return;
+    function onMouseDown(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.classList.contains("link-url-hint")) return;
+      e.preventDefault();
+      const href = editor.getAttributes("link").href ?? "";
+      setLinkDialog({ href });
+    }
+    editor.view.dom.addEventListener("mousedown", onMouseDown);
+    return () => editor.view.dom.removeEventListener("mousedown", onMouseDown);
+  }, [editor]);
+
   // Cmd+K — open link dialog when editor is focused
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

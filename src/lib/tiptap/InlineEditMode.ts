@@ -135,18 +135,6 @@ export const InlineEditMode = Extension.create({
           decorations(state) {
             return INLINE_EDIT_KEY.getState(state) ?? DecorationSet.empty;
           },
-          handleDOMEvents: {
-            mousedown(_view, event) {
-              const target = event.target as HTMLElement;
-              if (!target.classList.contains("link-url-hint")) return false;
-              // Prevent blur so the editor stays focused, then open the link dialog
-              event.preventDefault();
-              window.dispatchEvent(
-                new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
-              );
-              return true;
-            },
-          },
         },
       }),
     ];
