@@ -117,14 +117,14 @@ H. ✅ **Dialog accessibility** — shared `useFocusTrap` hook across all modals
 
 ---
 
-## Phase 8 — Editing Power
+## ✅ Phase 8 — Editing Power
 > Goal: close the gap on the editing features writers actually miss. 🖊 🧠 📢
 
-40. **Find & replace** (`Cmd+H`) — search within the current file; highlight all matches; navigate with `Enter` / `Shift+Enter`; replace one or all; `Esc` to close
-41. **Tables** — insert and edit Markdown tables inline; `Tab` / `Shift+Tab` to move between cells; add/remove rows and columns; serialized as GFM syntax
-42. **Text folding** — collapse / expand sections by heading level; folded state persisted per file; essential for navigating long documents
-43. **Math / LaTeX** — inline (`$...$`) and block (`$$...$$`) rendered via KaTeX; raw LaTeX preserved in the Markdown; syntax-error indicator on invalid expressions
-44. **Bubble / formatting menu** — floating toolbar above any text selection; Bold, Italic, Strikethrough, Inline code, Link; disappears on click-away or `Esc`; does not replace keyboard shortcuts — complements them
-45. **Typora-style inline editing** — when cursor enters a link, the raw Markdown syntax (`[text](url)`) is revealed in-place for editing; renders back to styled output when cursor leaves; implemented as a ProseMirror decoration plugin
-46. **Smart URL paste** — when a URL is pasted with text selected, wrap it as `[selected text](url)` instead of replacing the selection; most common friction point when adding links
-47. **Paste as plain text** (`Cmd+Shift+V`) — strip rich formatting on paste; prevents stale spans from external sources bleeding into the document
+40. ✅ **Find & replace** (`Cmd+H`) — search within the current file; highlight all matches; navigate with `Enter` / `Shift+Enter`; replace one or all; `Esc` to close
+41. ✅ **Tables** — insert and edit Markdown tables inline; `Tab` / `Shift+Tab` to move between cells; add/remove rows and columns; serialized as GFM syntax
+42. ✅ **Text folding** — collapse / expand sections by heading level; chevron widget on each heading; essential for navigating long documents
+43. ✅ **Math / LaTeX** — inline (`$...$`) and block (`$$...$$`) rendered via KaTeX; raw LaTeX preserved in the Markdown; syntax-error indicator on invalid expressions
+44. ✅ **Bubble / formatting menu** — floating toolbar above any text selection; Bold, Italic, Strikethrough, Inline code, Link; disappears on click-away or `Esc`; does not replace keyboard shortcuts — complements them
+45. ✅ **Typora-style inline editing** — when cursor enters a link, the raw Markdown syntax (`[text](url)`) is revealed in-place for editing; click `](url)` hint or `Cmd+K` to edit URL
+46. ✅ **Smart URL paste** — when a URL is pasted with text selected, wrap it as `[selected text](url)` instead of replacing the selection
+47. ✅ **Paste as plain text** (`Cmd+Shift+V`) — strip rich formatting on paste; prevents stale spans from external sources bleeding into the document
