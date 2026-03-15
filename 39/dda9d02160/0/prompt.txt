@@ -67,3 +67,7 @@ check about code revies by coderabbit on PR #10
 ---
 
 just apply fix in current branch
+
+---
+
+/commit
