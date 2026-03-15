@@ -115,3 +115,7 @@ check about the code reviews by coderabbit on PR #16
 ---
 
 go ahead
+
+---
+
+the right click dropdown box of workspace sidebar seems ugly, and the new file dialog ugly too. try to improve them, make it elegant.
