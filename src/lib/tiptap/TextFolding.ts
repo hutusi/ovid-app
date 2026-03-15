@@ -49,6 +49,11 @@ function buildDecorations(doc: Node, folded: ReadonlySet<number>): DecorationSet
 
   const decorations: Decoration[] = [];
 
+  // Build sorted list of folded content intervals for a single-pass node walk
+  const foldedIntervals = ranges
+    .filter((r) => folded.has(r.headingFrom))
+    .map((r) => ({ from: r.contentFrom, to: r.contentTo }));
+
   for (const range of ranges) {
     const isFolded = folded.has(range.headingFrom);
 
@@ -73,19 +78,23 @@ function buildDecorations(doc: Node, folded: ReadonlySet<number>): DecorationSet
         marks: [] as any,
       })
     );
+  }
 
-    // Hide content blocks when folded
-    if (isFolded) {
-      doc.forEach((node, pos) => {
-        if (pos >= range.contentFrom && pos + node.nodeSize <= range.contentTo) {
+  // Single pass over top-level nodes to hide content under folded headings
+  if (foldedIntervals.length > 0) {
+    doc.forEach((node, pos) => {
+      const end = pos + node.nodeSize;
+      for (const interval of foldedIntervals) {
+        if (pos >= interval.from && end <= interval.to) {
           decorations.push(
-            Decoration.node(pos, pos + node.nodeSize, {
+            Decoration.node(pos, end, {
               style: "display:none; height:0; overflow:hidden; padding:0; margin:0;",
             })
           );
+          break; // a node can only be inside one folded interval
         }
-      });
-    }
+      }
+    });
   }
 
   return DecorationSet.create(doc, decorations);
@@ -119,7 +128,7 @@ export const TextFolding = Extension.create({
               const next = new Set<number>();
               for (const pos of prev.folded) {
                 const mapped = tr.mapping.map(pos);
-                if (mapped > 0) next.add(mapped);
+                if (mapped >= 0) next.add(mapped);
               }
               folded = next;
             } else {

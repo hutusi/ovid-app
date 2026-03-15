@@ -37,8 +37,8 @@
 }
 
 .table-ctrl-delete:hover {
-  background: color-mix(in srgb, red 10%, var(--color-surface-hover));
-  color: red;
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface-hover));
+  color: var(--color-danger);
 }
 
 .table-ctrl-divider {

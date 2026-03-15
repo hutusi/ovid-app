@@ -243,9 +243,14 @@ export function Editor({
       if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key?.toLowerCase() !== "v") return;
       if (!editor?.isFocused) return;
       e.preventDefault();
-      navigator.clipboard.readText().then((text) => {
-        editor.chain().focus().insertContent(text).run();
-      });
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          editor.chain().focus().insertContent(text).run();
+        })
+        .catch((err) => {
+          console.error("Failed to read clipboard:", err);
+        });
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -257,7 +262,10 @@ export function Editor({
       if (!(e.metaKey || e.ctrlKey) || e.key?.toLowerCase() !== "h") return;
       if (!editor?.isFocused && !showFindReplace) return;
       e.preventDefault();
-      setShowFindReplace((v) => !v);
+      setShowFindReplace((v) => {
+        if (v) editor?.chain().focus().run();
+        return !v;
+      });
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -334,7 +342,13 @@ export function Editor({
         <EditorContent editor={editor} />
       </div>
       {editor && showFindReplace && (
-        <FindReplaceBar editor={editor} onClose={() => setShowFindReplace(false)} />
+        <FindReplaceBar
+          editor={editor}
+          onClose={() => {
+            setShowFindReplace(false);
+            editor.chain().focus().run();
+          }}
+        />
       )}
       {editor && <TableControls editor={editor} />}
       {editor && (

@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { FloatingMenu } from "@tiptap/react/menus";
+import { useCallback } from "react";
 import "./TableControls.css";
 
 interface TableControlsProps {
@@ -13,8 +14,10 @@ export function TableControls({ editor }: TableControlsProps) {
     selector: ({ editor: e }) => e.isActive("table"),
   });
 
+  const shouldShow = useCallback(() => isInTable, [isInTable]);
+
   return (
-    <FloatingMenu editor={editor} shouldShow={() => isInTable}>
+    <FloatingMenu editor={editor} shouldShow={shouldShow}>
       <div className="table-controls" role="toolbar" aria-label="Table controls">
         <button
           type="button"
