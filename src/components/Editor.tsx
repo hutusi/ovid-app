@@ -11,6 +11,7 @@ import { common, createLowlight } from "lowlight";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
+import { BubbleMenu } from "./BubbleMenu";
 import { CodeBlockView } from "./CodeBlockView";
 import { LinkDialog } from "./LinkDialog";
 import "../styles/editor.css";
@@ -70,6 +71,20 @@ export function Editor({
     content,
     editorProps: {
       attributes: { spellcheck: spellCheck ? "true" : "false" },
+      handlePaste(view, event) {
+        const text = (event.clipboardData?.getData("text/plain") ?? "").trim();
+        if (!/^https?:\/\/\S+$/.test(text)) return false;
+        if (view.state.selection.empty) return false;
+        // Paste a URL with text selected → apply it as a link mark
+        event.preventDefault();
+        const { from, to } = view.state.selection;
+        const linkMark = view.state.schema.marks.link.create({
+          href: text,
+          rel: "noopener noreferrer",
+        });
+        view.dispatch(view.state.tr.addMark(from, to, linkMark));
+        return true;
+      },
       handleDrop(view, event) {
         const imageFiles = Array.from(event.dataTransfer?.files ?? [])
           .filter((f) => IMAGE_MIME.test(f.type))
@@ -165,6 +180,20 @@ export function Editor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editor]);
 
+  // Cmd+Shift+V — paste as plain text, stripping all rich formatting
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key?.toLowerCase() !== "v") return;
+      if (!editor?.isFocused) return;
+      e.preventDefault();
+      navigator.clipboard.readText().then((text) => {
+        editor.chain().focus().insertContent(text).run();
+      });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor]);
+
   // Insert / Format menu commands forwarded from the native menu bar
   useEffect(() => {
     let mounted = true;
@@ -232,6 +261,15 @@ export function Editor({
       <div ref={scrollRef} className="editor-scroll">
         <EditorContent editor={editor} />
       </div>
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          onLinkClick={() => {
+            const href = editor.getAttributes("link").href ?? "";
+            setLinkDialog({ href });
+          }}
+        />
+      )}
       {linkDialog && (
         <LinkDialog
           initialHref={linkDialog.href}

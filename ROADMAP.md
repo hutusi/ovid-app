@@ -125,3 +125,7 @@ H. ✅ **Dialog accessibility** — shared `useFocusTrap` hook across all modals
 42. **Footnotes** — `[^1]` syntax rendered as superscript; definitions shown at bottom of editor; click to jump; exported as standard Markdown
 43. **Text folding** — collapse / expand sections by heading level; folded state persisted per file; essential for navigating long documents
 44. **Math / LaTeX** — inline (`$...$`) and block (`$$...$$`) rendered via KaTeX; raw LaTeX preserved in the markdown; syntax-error indicator on invalid expressions
+45. **Bubble / formatting menu** — floating toolbar above any text selection; Bold, Italic, Strikethrough, Inline code, Link, and heading level; disappears on click-away or `Esc`; does not replace keyboard shortcuts — complements them
+46. **Typora-style inline editing** — when cursor enters a link, bold, or italic span, the raw markdown syntax (`[text](url)`, `**text**`, `_text_`) is revealed in-place for editing; renders back to styled output when cursor leaves; implemented as a ProseMirror decoration plugin
+47. **Smart URL paste** — when a URL is pasted with text selected, wrap it as `[selected text](url)` instead of replacing the selection; most common friction point when adding links
+48. **Paste as plain text** (`Cmd+Shift+V`) — strip rich formatting on paste; prevents stale spans from external sources bleeding into the document
