@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
+  resetKey?: string;
 }
 
 interface State {
@@ -19,16 +20,35 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("[ErrorBoundary] Caught error:", error, info.componentStack);
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
+  }
+
   render() {
     if (this.state.error) {
       return (
         <div style={{ padding: "24px", fontFamily: "monospace", fontSize: "13px" }}>
           <strong>Editor error:</strong>
-          <pre style={{ whiteSpace: "pre-wrap", marginTop: "8px", color: "#c0392b" }}>
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              marginTop: "8px",
+              color: "var(--color-error, #c0392b)",
+            }}
+          >
             {this.state.error.message}
             {"\n\n"}
             {this.state.error.stack}
           </pre>
+          <button
+            type="button"
+            onClick={() => this.setState({ error: null })}
+            style={{ marginTop: "12px", cursor: "pointer" }}
+          >
+            Retry
+          </button>
         </div>
       );
     }

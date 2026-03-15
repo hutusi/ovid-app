@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Schema } from "prosemirror-model";
+import { Schema } from "@tiptap/pm/model";
 import { getHeadingRanges } from "./TextFolding";
 
 const schema = new Schema({

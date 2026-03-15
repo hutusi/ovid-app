@@ -68,6 +68,8 @@ function buildDecorations(doc: Node, folded: ReadonlySet<number>): DecorationSet
     const chevron = document.createElement("span");
     chevron.className = "fold-chevron";
     chevron.setAttribute("contenteditable", "false");
+    chevron.setAttribute("role", "button");
+    chevron.setAttribute("tabindex", "0");
     chevron.setAttribute("data-fold-pos", String(range.headingFrom));
     chevron.setAttribute("aria-label", isFolded ? "Expand section" : "Collapse section");
     decorations.push(
@@ -127,8 +129,8 @@ export const TextFolding = Extension.create({
             } else if (tr.docChanged) {
               const next = new Set<number>();
               for (const pos of prev.folded) {
-                const mapped = tr.mapping.map(pos);
-                if (mapped >= 0) next.add(mapped);
+                const result = tr.mapping.mapResult(pos);
+                if (!result.deleted && result.pos >= 0) next.add(result.pos);
               }
               folded = next;
             } else {
@@ -146,6 +148,18 @@ export const TextFolding = Extension.create({
             mousedown(view, event) {
               const target = event.target as HTMLElement;
               if (!target.classList.contains("fold-chevron")) return false;
+              event.preventDefault();
+              const pos = Number(target.getAttribute("data-fold-pos"));
+              if (Number.isNaN(pos)) return false;
+              view.dispatch(
+                view.state.tr.setMeta(FOLD_KEY, { togglePos: pos }).setMeta("addToHistory", false)
+              );
+              return true;
+            },
+            keydown(view, event) {
+              const target = event.target as HTMLElement;
+              if (!target.classList.contains("fold-chevron")) return false;
+              if (event.key !== "Enter" && event.key !== " ") return false;
               event.preventDefault();
               const pos = Number(target.getAttribute("data-fold-pos"));
               if (Number.isNaN(pos)) return false;

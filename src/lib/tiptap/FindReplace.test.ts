@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Schema } from "prosemirror-model";
+import { Schema } from "@tiptap/pm/model";
 import { collectMatches } from "./FindReplace";
 
 // Minimal schema: doc > paragraph > text

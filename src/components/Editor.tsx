@@ -189,11 +189,14 @@ export function Editor({
     },
   });
 
-  // Update spellcheck live when the preference changes
+  // Update spellcheck live — set directly on the DOM to avoid replacing editorProps
   useEffect(() => {
-    editor?.setOptions({
-      editorProps: { attributes: { spellcheck: spellCheck ? "true" : "false" } },
-    });
+    if (!editor) return;
+    try {
+      editor.view.dom.setAttribute("spellcheck", spellCheck ? "true" : "false");
+    } catch {
+      // view not yet mounted — initial value is set via editorProps in useEditor
+    }
   }, [editor, spellCheck]);
 
   // Click on the ](url) hint from InlineEditMode → open link dialog
