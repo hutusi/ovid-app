@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "5e0782aeeb06",
+  "strategy": "manual-commit",
+  "branch": "remediation",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/components/CodeBlockView.css",
+    "src/components/CodeBlockView.tsx",
+    "src/components/Editor.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5e/0782aeeb06/0/metadata.json",
+      "transcript": "/5e/0782aeeb06/0/full.jsonl",
+      "content_hash": "/5e/0782aeeb06/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 13,
+    "cache_creation_tokens": 12618,
+    "cache_read_tokens": 858426,
+    "output_tokens": 7567,
+    "api_call_count": 13
+  }
+}
