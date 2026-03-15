@@ -235,6 +235,45 @@
   font-weight: bold;
 }
 
+/* ── Text folding ──────────────────────────────── */
+.ProseMirror .foldable {
+  position: relative;
+}
+
+.fold-chevron {
+  position: absolute;
+  left: -22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--color-fg-subtle);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+
+.fold-chevron::before {
+  content: "▼";
+}
+
+.fold-chevron:hover {
+  color: var(--color-fg);
+  background: var(--color-surface-hover);
+}
+
+/* When heading has fold-closed class, chevron points right */
+.ProseMirror .fold-closed .fold-chevron::before {
+  content: "▶";
+}
+
 /* ── Tables ────────────────────────────────────── */
 .ProseMirror .tableWrapper {
   overflow-x: auto;

@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { FindReplace } from "../lib/tiptap/FindReplace";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
+import { TextFolding } from "../lib/tiptap/TextFolding";
 import { BubbleMenu } from "./BubbleMenu";
 import { CodeBlockView } from "./CodeBlockView";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -80,6 +81,7 @@ export function Editor({
       TableCell,
       LinkPreview,
       FindReplace,
+      TextFolding,
     ],
     content,
     editorProps: {
