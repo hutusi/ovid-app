@@ -49,6 +49,18 @@ function ContentTypeIcon({ type }: { type: string | undefined }) {
   }
 }
 
+function filterTree(nodes: FileNode[], query: string): FileNode[] {
+  const q = query.toLowerCase();
+  return nodes.flatMap((node) => {
+    if (node.isDirectory) {
+      const filtered = filterTree(node.children ?? [], q);
+      return filtered.length > 0 ? [{ ...node, children: filtered }] : [];
+    }
+    const name = (node.title || node.name).toLowerCase();
+    return name.includes(q) ? [node] : [];
+  });
+}
+
 interface SidebarProps {
   tree: FileNode[];
   selectedPath: string | null;
@@ -73,6 +85,7 @@ interface FileItemProps {
   selectedPath: string | null;
   renamingPath: string | null;
   gitStatusMap: Map<string, GitStatus>;
+  forceExpand?: boolean;
   onSelect: (node: FileNode) => void;
   onNewFile: (dirPath: string) => void;
   onRename: (node: FileNode, newName: string) => void;
@@ -88,6 +101,7 @@ function FileItem({
   selectedPath,
   renamingPath,
   gitStatusMap,
+  forceExpand = false,
   onSelect,
   onNewFile,
   onRename,
@@ -97,6 +111,7 @@ function FileItem({
   onContextMenu,
 }: FileItemProps) {
   const [expanded, setExpanded] = useState(true);
+  const isExpanded = forceExpand || expanded;
   const isSelected = node.path === selectedPath;
   const isRenaming = renamingPath === node.path;
   const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
@@ -114,8 +129,8 @@ function FileItem({
   }, [isRenaming, baseName]);
 
   if (node.isDirectory) {
-    const DirIcon = expanded ? FolderOpen : Folder;
-    const dirRollup = !expanded ? rollupGitStatus(node, gitStatusMap) : undefined;
+    const DirIcon = isExpanded ? FolderOpen : Folder;
+    const dirRollup = !isExpanded ? rollupGitStatus(node, gitStatusMap) : undefined;
     return (
       <div>
         <div
@@ -138,7 +153,7 @@ function FileItem({
             )}
           </button>
         </div>
-        {expanded &&
+        {isExpanded &&
           node.children?.map((child) => (
             <FileItem
               key={child.path}
@@ -147,6 +162,7 @@ function FileItem({
               selectedPath={selectedPath}
               renamingPath={renamingPath}
               gitStatusMap={gitStatusMap}
+              forceExpand={forceExpand}
               onSelect={onSelect}
               onNewFile={onNewFile}
               onRename={onRename}
@@ -245,6 +261,7 @@ export function Sidebar({
     x: number;
     y: number;
   } | null>(null);
+  const [filterQuery, setFilterQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -322,6 +339,31 @@ export function Sidebar({
         </div>
       </div>
 
+      {tree.length > 0 && (
+        <div className="sidebar-filter">
+          <input
+            type="text"
+            className="sidebar-filter-input"
+            placeholder="Filter files…"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setFilterQuery("");
+            }}
+          />
+          {filterQuery && (
+            <button
+              type="button"
+              className="sidebar-filter-clear"
+              aria-label="Clear filter"
+              onClick={() => setFilterQuery("")}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="sidebar-tree">
         {tree.length === 0 ? (
           <div className="sidebar-empty">
@@ -331,7 +373,7 @@ export function Sidebar({
             </button>
           </div>
         ) : (
-          tree.map((node) => (
+          (filterQuery ? filterTree(tree, filterQuery) : tree).map((node) => (
             <FileItem
               key={node.path}
               node={node}
@@ -339,6 +381,7 @@ export function Sidebar({
               selectedPath={selectedPath}
               renamingPath={renamingPath}
               gitStatusMap={gitStatusMap}
+              forceExpand={filterQuery.length > 0}
               onSelect={onSelect}
               onNewFile={onNewFile}
               onRename={onRename}

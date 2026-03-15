@@ -52,6 +52,50 @@
   pointer-events: none;
 }
 
+.sidebar-filter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-filter-input {
+  flex: 1;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sidebar-filter-input:focus {
+  border-color: var(--color-accent);
+}
+
+.sidebar-filter-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.sidebar-filter-clear {
+  position: absolute;
+  right: 14px;
+  font-size: 9px;
+  color: var(--color-text-faint);
+  padding: 2px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.sidebar-filter-clear:hover {
+  color: var(--color-text);
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
