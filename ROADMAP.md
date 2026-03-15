@@ -82,13 +82,13 @@ Ovid App is purpose-built for content creators working in Amytis workspaces. Thi
 
 ---
 
-## Phase 7 — Polish & Power
+## ✅ Phase 7 — Polish & Power
 > Goal: the details that separate a good app from one people love.
 
-34. **Workspace persistence** — remember last opened workspace; re-open automatically on launch (with user opt-out)
-35. **Multiple workspaces** — switch between recently opened workspaces without going through the folder picker every time
-36. **Customizable fonts** — let users choose editor font (serif / sans / mono) and size; persisted preference
-37. **Spell check** — native OS spell check via Tauri webview; highlight misspellings without disrupting writing flow
-38. **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
-39. **Link preview** — hover over a wikilink or URL to see a preview tooltip; for wikilinks, resolve to files in the workspace
+34. ✅ **Workspace persistence** — remember last opened workspace; re-open automatically on launch (with user opt-out)
+35. ✅ **Multiple workspaces** — switch between recently opened workspaces without going through the folder picker every time
+36. ✅ **Customizable fonts** — let users choose editor font (serif / sans / mono) and size; persisted preference
+37. ✅ **Spell check** — native OS spell check via Tauri webview; highlight misspellings without disrupting writing flow
+38. ✅ **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
+39. ✅ **Link preview** — hover over a URL to see a preview tooltip after a short delay
 

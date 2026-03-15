@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CommitDialog } from "./components/CommitDialog";
 import { Editor } from "./components/Editor";
 import { EmptyState } from "./components/EmptyState";
@@ -8,12 +8,16 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
+import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { useContentTypes } from "./lib/useContentTypes";
+import { useEditorPreferences } from "./lib/useEditorPreferences";
 import { useFileEditor } from "./lib/useFileEditor";
 import { useGit } from "./lib/useGit";
 import { useRecentFiles } from "./lib/useRecentFiles";
+import { useRecentWorkspaces } from "./lib/useRecentWorkspaces";
 import { useTheme } from "./lib/useTheme";
 import { useToast } from "./lib/useToast";
+import { useWordCountGoal } from "./lib/useWordCountGoal";
 import { useWorkspace } from "./lib/useWorkspace";
 import "./styles/global.css";
 import "./App.css";
@@ -22,6 +26,7 @@ type ModalState = { type: "new-file"; dirPath: string } | null;
 type CommitDialogState = { message: string; branch: string } | null;
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
+const AUTO_REOPEN_KEY = "ovid:skipAutoReopen";
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
@@ -34,10 +39,13 @@ function App() {
   const [sessionBaseline, setSessionBaseline] = useState<number | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
 
   const { toasts, showToast } = useToast();
+  const { prefs, updatePrefs } = useEditorPreferences();
+  const { goal: wordCountGoal, setGoal: setWordCountGoal } = useWordCountGoal();
 
   const {
     selectedFile,
@@ -60,10 +68,12 @@ function App() {
     tree,
     workspaceName,
     workspaceRoot,
+    workspaceRootPath,
     isAmytisWorkspace,
     renamingPath,
     setRenamingPath,
     handleOpenWorkspace,
+    openWorkspaceAtPath,
     handleNewFile,
     handleRename,
     handleDelete,
@@ -79,6 +89,7 @@ function App() {
   });
 
   const { recentFiles, pushRecent, resetRecent } = useRecentFiles(workspaceRoot);
+  const { recentWorkspaces, pushRecentWorkspace } = useRecentWorkspaces();
   const { gitStatusMap, isGitRepo, refreshGitStatus, handleCommit, getBranch } =
     useGit(workspaceRoot);
   const contentTypes = useContentTypes(workspaceRoot, isAmytisWorkspace);
@@ -87,6 +98,27 @@ function App() {
   useEffect(() => {
     if (workspaceRoot) resetRecent(workspaceRoot);
   }, [workspaceRoot, resetRecent]);
+
+  // Track recently opened workspaces
+  useEffect(() => {
+    if (workspaceRootPath && workspaceName) {
+      pushRecentWorkspace(workspaceRootPath, workspaceName);
+    }
+  }, [workspaceRootPath, workspaceName, pushRecentWorkspace]);
+
+  // Auto-reopen last workspace on launch (once)
+  const autoReopenAttempted = useRef(false);
+  useEffect(() => {
+    if (
+      autoReopenAttempted.current ||
+      workspaceRootPath !== null ||
+      recentWorkspaces.length === 0 ||
+      localStorage.getItem(AUTO_REOPEN_KEY) === "true"
+    )
+      return;
+    autoReopenAttempted.current = true;
+    void openWorkspaceAtPath(recentWorkspaces[0].rootPath);
+  }, [recentWorkspaces, openWorkspaceAtPath, workspaceRootPath]);
 
   // Reset session baseline when switching files (selectedFile is the trigger, not used in body)
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectedFile is the intended trigger
@@ -126,7 +158,11 @@ function App() {
           break;
         case "o":
           e.preventDefault();
-          void handleOpenWorkspace();
+          if (e.shiftKey) {
+            setWorkspaceSwitcherOpen(true);
+          } else {
+            void handleOpenWorkspace();
+          }
           break;
         case "F":
           if (e.shiftKey) {
@@ -248,6 +284,7 @@ function App() {
               if (!node.isDirectory) pushRecent(node);
             }}
             onOpenWorkspace={handleOpenWorkspace}
+            onOpenSwitcher={() => setWorkspaceSwitcherOpen(true)}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
             onRename={handleRename}
             onDelete={handleDelete}
@@ -270,6 +307,7 @@ function App() {
               content={fileContent}
               filePath={selectedFile.path}
               typewriterMode={typewriterMode}
+              spellCheck={prefs.spellCheck}
               onWordCount={setWordCount}
               onChange={handleEditorChange}
             />
@@ -291,9 +329,17 @@ function App() {
         zenMode={zenMode}
         typewriterMode={typewriterMode}
         sessionWordsAdded={sessionWordsAdded}
+        wordCountGoal={wordCountGoal}
+        fontFamily={prefs.fontFamily}
+        fontSize={prefs.fontSize}
+        spellCheck={prefs.spellCheck}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
         onToggleZen={() => setZenMode((v) => !v)}
         onToggleTypewriter={() => setTypewriterMode((v) => !v)}
+        onSetFontFamily={(f) => updatePrefs({ fontFamily: f })}
+        onSetFontSize={(s) => updatePrefs({ fontSize: s })}
+        onToggleSpellCheck={() => updatePrefs({ spellCheck: !prefs.spellCheck })}
+        onSetWordCountGoal={setWordCountGoal}
       />
       {toasts.length > 0 && (
         <div className="toast-container">
@@ -303,6 +349,15 @@ function App() {
             </div>
           ))}
         </div>
+      )}
+      {workspaceSwitcherOpen && (
+        <WorkspaceSwitcher
+          recentWorkspaces={recentWorkspaces}
+          currentRootPath={workspaceRootPath}
+          onSelect={(rootPath) => void openWorkspaceAtPath(rootPath)}
+          onOpenOther={handleOpenWorkspace}
+          onClose={() => setWorkspaceSwitcherOpen(false)}
+        />
       )}
       {switcherOpen && (
         <FileSwitcher

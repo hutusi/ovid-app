@@ -46,6 +46,7 @@ export function useWorkspace({
   const [tree, setTree] = useState<FileNode[]>([]);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
+  const [workspaceRootPath, setWorkspaceRootPath] = useState<string | null>(null);
   const [isAmytisWorkspace, setIsAmytisWorkspace] = useState(false);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
@@ -60,25 +61,45 @@ export function useWorkspace({
     }
   }, []);
 
+  const applyWorkspaceResult = useCallback(
+    (result: WorkspaceResult) => {
+      setTree(result.tree);
+      setWorkspaceName(result.name);
+      setWorkspaceRoot(result.treeRoot);
+      setWorkspaceRootPath(result.rootPath);
+      setIsAmytisWorkspace(result.isAmytisWorkspace);
+      resetFileState();
+      if (!result.isAmytisWorkspace) {
+        showToast("This folder doesn't look like an Amytis workspace.");
+      }
+    },
+    [resetFileState, showToast]
+  );
+
+  const openWorkspaceAtPath = useCallback(
+    async (path: string) => {
+      await flushPendingSave();
+      try {
+        const result = await invoke<WorkspaceResult | null>("open_workspace_at_path", { path });
+        if (result) applyWorkspaceResult(result);
+      } catch (err) {
+        console.error("Failed to open workspace:", err);
+        showToast(`Failed to open workspace: ${err}`);
+      }
+    },
+    [flushPendingSave, showToast, applyWorkspaceResult]
+  );
+
   const handleOpenWorkspace = useCallback(async () => {
     await flushPendingSave();
     try {
       const result = await invoke<WorkspaceResult | null>("open_workspace");
-      if (result) {
-        setTree(result.tree);
-        setWorkspaceName(result.name);
-        setWorkspaceRoot(result.treeRoot);
-        setIsAmytisWorkspace(result.isAmytisWorkspace);
-        resetFileState();
-        if (!result.isAmytisWorkspace) {
-          showToast("This folder doesn't look like an Amytis workspace.");
-        }
-      }
+      if (result) applyWorkspaceResult(result);
     } catch (err) {
       console.error("Failed to open workspace:", err);
       showToast(`Failed to open workspace: ${err}`);
     }
-  }, [flushPendingSave, resetFileState, showToast]);
+  }, [flushPendingSave, showToast, applyWorkspaceResult]);
 
   async function handleNewFile(dirPath: string, filename: string, contentType?: string) {
     const slug = filename.replace(/\.md$/, "");
@@ -139,10 +160,12 @@ export function useWorkspace({
     tree,
     workspaceName,
     workspaceRoot,
+    workspaceRootPath,
     isAmytisWorkspace,
     renamingPath,
     setRenamingPath,
     handleOpenWorkspace,
+    openWorkspaceAtPath,
     handleNewFile,
     handleRename,
     handleDelete,

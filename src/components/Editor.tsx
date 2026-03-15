@@ -9,6 +9,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 import { useEffect, useRef } from "react";
 import { Markdown } from "tiptap-markdown";
+import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import "../styles/editor.css";
 
 const lowlight = createLowlight(common);
@@ -19,6 +20,7 @@ interface EditorProps {
   content?: string;
   filePath?: string;
   typewriterMode?: boolean;
+  spellCheck?: boolean;
   onWordCount?: (count: number) => void;
   onChange?: (markdown: string) => void;
 }
@@ -27,6 +29,7 @@ export function Editor({
   content = "",
   filePath,
   typewriterMode = false,
+  spellCheck = true,
   onWordCount,
   onChange,
 }: EditorProps) {
@@ -53,9 +56,11 @@ export function Editor({
         HTMLAttributes: { rel: "noopener noreferrer" },
       }),
       Image,
+      LinkPreview,
     ],
     content,
     editorProps: {
+      attributes: { spellcheck: spellCheck ? "true" : "false" },
       handleDrop(view, event) {
         const imageFiles = Array.from(event.dataTransfer?.files ?? [])
           .filter((f) => IMAGE_MIME.test(f.type))
@@ -113,6 +118,13 @@ export function Editor({
       scrollEl.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
     },
   });
+
+  // Update spellcheck live when the preference changes
+  useEffect(() => {
+    editor?.setOptions({
+      editorProps: { attributes: { spellcheck: spellCheck ? "true" : "false" } },
+    });
+  }, [editor, spellCheck]);
 
   return (
     <div className="editor-wrapper">

@@ -190,6 +190,39 @@ fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
 }
 
 #[tauri::command]
+async fn open_workspace_at_path(
+    path: String,
+    state: State<'_, WorkspaceState>,
+) -> Result<Option<WorkspaceResult>, String> {
+    let root = PathBuf::from(&path);
+    if !root.is_dir() {
+        return Ok(None);
+    }
+
+    let name = root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| root.to_string_lossy().to_string());
+
+    let content_dir = root.join("content");
+    let tree_root = if content_dir.is_dir() { content_dir } else { root.clone() };
+
+    *state.tree_root.lock().map_err(|e| e.to_string())? = Some(tree_root.clone());
+    *state.workspace_root.lock().map_err(|e| e.to_string())? = Some(root.clone());
+
+    let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
+    let tree = walk_dir(&tree_root);
+
+    Ok(Some(WorkspaceResult {
+        name,
+        root_path: root.to_string_lossy().to_string(),
+        tree_root: tree_root.to_string_lossy().to_string(),
+        tree,
+        is_amytis_workspace,
+    }))
+}
+
+#[tauri::command]
 async fn open_workspace(
     app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
@@ -654,6 +687,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_workspace,
+            open_workspace_at_path,
             list_workspace,
             read_file,
             write_file,

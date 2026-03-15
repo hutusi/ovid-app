@@ -38,6 +38,7 @@
 
   --font-ui: system-ui, -apple-system, sans-serif;
   --font-editor: "Georgia", "Times New Roman", serif;
+  --font-editor-size: 17px;
   --font-mono: "Fira Code", "JetBrains Mono", monospace;
 
   --sidebar-width: 240px;

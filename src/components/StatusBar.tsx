@@ -1,5 +1,7 @@
 import type { SaveStatus } from "../lib/types";
+import type { FontFamily, FontSize } from "../lib/useEditorPreferences";
 import type { ResolvedTheme } from "../lib/useTheme";
+import { FontSettingsButton } from "./FontSettings";
 import "./StatusBar.css";
 
 export type { SaveStatus };
@@ -12,9 +14,17 @@ interface StatusBarProps {
   zenMode: boolean;
   typewriterMode: boolean;
   sessionWordsAdded: number;
+  wordCountGoal: number | null;
+  fontFamily: FontFamily;
+  fontSize: FontSize;
+  spellCheck: boolean;
   onToggleTheme: () => void;
   onToggleZen: () => void;
   onToggleTypewriter: () => void;
+  onSetFontFamily: (f: FontFamily) => void;
+  onSetFontSize: (s: FontSize) => void;
+  onToggleSpellCheck: () => void;
+  onSetWordCountGoal: (n: number | null) => void;
 }
 
 export function StatusBar({
@@ -25,10 +35,34 @@ export function StatusBar({
   zenMode,
   typewriterMode,
   sessionWordsAdded,
+  wordCountGoal,
+  fontFamily,
+  fontSize,
+  spellCheck,
   onToggleTheme,
   onToggleZen,
   onToggleTypewriter,
+  onSetFontFamily,
+  onSetFontSize,
+  onToggleSpellCheck,
+  onSetWordCountGoal,
 }: StatusBarProps) {
+  const goalProgress =
+    wordCountGoal !== null && wordCountGoal > 0 ? sessionWordsAdded / wordCountGoal : null;
+  const sessionClass =
+    goalProgress === null
+      ? "statusbar-session"
+      : goalProgress >= 1
+        ? "statusbar-session goal-reached"
+        : goalProgress >= 0.5
+          ? "statusbar-session goal-halfway"
+          : "statusbar-session";
+
+  const sessionTitle =
+    wordCountGoal !== null
+      ? `${sessionWordsAdded} / ${wordCountGoal} words (session goal)`
+      : "Words added this session";
+
   return (
     <div className="statusbar">
       <div className="statusbar-left">
@@ -42,8 +76,9 @@ export function StatusBar({
       </div>
       <div className="statusbar-right">
         {sessionWordsAdded > 0 && (
-          <span className="statusbar-session" title="Words added this session">
+          <span className={sessionClass} title={sessionTitle}>
             +{sessionWordsAdded}
+            {wordCountGoal !== null && `/${wordCountGoal}`}
           </span>
         )}
         <span className="statusbar-words">{wordCount > 0 ? `${wordCount} words` : ""}</span>
@@ -71,6 +106,16 @@ export function StatusBar({
         >
           ◎
         </button>
+        <FontSettingsButton
+          fontFamily={fontFamily}
+          fontSize={fontSize}
+          spellCheck={spellCheck}
+          wordCountGoal={wordCountGoal}
+          onSetFontFamily={onSetFontFamily}
+          onSetFontSize={onSetFontSize}
+          onToggleSpellCheck={onToggleSpellCheck}
+          onSetWordCountGoal={onSetWordCountGoal}
+        />
         <button
           type="button"
           className="statusbar-theme-btn"

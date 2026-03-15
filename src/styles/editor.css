@@ -19,7 +19,7 @@
   margin: 0 auto;
   padding: 0 24px;
   font-family: var(--font-editor);
-  font-size: 17px;
+  font-size: var(--font-editor-size, 17px);
   line-height: 1.75;
   color: var(--color-text);
   outline: none;
@@ -224,4 +224,24 @@
 
 .hljs-strong {
   font-weight: bold;
+}
+
+/* Link preview tooltip */
+.link-preview-tooltip {
+  position: fixed;
+  z-index: 1000;
+  display: none;
+  max-width: 360px;
+  background: var(--color-bg-sidebar);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

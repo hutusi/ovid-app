@@ -79,10 +79,20 @@
 
 .statusbar-session {
   font-size: 11px;
-  color: var(--color-success);
+  color: var(--color-status-text);
   font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   opacity: 0.8;
+}
+
+.statusbar-session.goal-halfway {
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+.statusbar-session.goal-reached {
+  color: var(--color-success);
+  opacity: 1;
 }
 
 .statusbar-mode-btn {
