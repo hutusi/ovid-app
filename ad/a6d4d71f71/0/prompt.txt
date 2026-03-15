@@ -1,0 +1,17 @@
+the PR 14 's title is fix, what do you think?
+
+---
+
+update it
+
+---
+
+Let's look at the editor area. Having the meta-information at the top of the editor doesn't feel right. Would it be better to move it to a right-side panel or somewhere else and make it editable? What do you think?
+
+---
+
+what is your opinion?
+
+---
+
+go ahead
