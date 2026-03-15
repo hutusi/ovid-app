@@ -1,0 +1,52 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "7b75ea048aba",
+  "session_id": "7b210d78-ee4d-4a86-9b7e-5b961745dc87",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T12:21:21.136569Z",
+  "branch": "ui-refactor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/App.css",
+    "src/components/CodeBlockView.css",
+    "src/components/CommitDialog.tsx",
+    "src/components/EmptyState.tsx",
+    "src/components/FileSwitcher.css",
+    "src/components/FileSwitcher.tsx",
+    "src/components/FontSettings.css",
+    "src/components/Modal.css",
+    "src/components/NewFileDialog.css",
+    "src/components/PropertiesPanel.css",
+    "src/components/SearchPanel.css",
+    "src/components/Sidebar.css",
+    "src/components/Sidebar.tsx",
+    "src/components/StatusBar.css",
+    "src/components/StatusBar.tsx",
+    "src/components/WorkspaceSwitcher.css",
+    "src/components/ui/command.tsx",
+    "src/components/ui/input.tsx",
+    "src/styles/global.css"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "969909ff117a",
+  "token_usage": {
+    "input_tokens": 3946,
+    "cache_creation_tokens": 2689834,
+    "cache_read_tokens": 88229565,
+    "output_tokens": 486767,
+    "api_call_count": 934
+  },
+  "session_metrics": {
+    "turn_count": 79
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T12:21:16.912619Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 213,
+    "human_removed": 9,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
