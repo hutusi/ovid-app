@@ -1,7 +1,230 @@
-# Tauri + React + Typescript
+# Ovid App
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A minimalist desktop editor for [Amytis](https://github.com/hutusi/amytis) content workspaces. Purpose-built for content creators who want a calm, keyboard-first writing environment without leaving their workspace.
 
-## Recommended IDE Setup
+Built with **Tauri 2 + React + TypeScript**, using **Bun** as the package manager.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+---
+
+## Requirements
+
+- macOS, Windows, or Linux
+- [Bun](https://bun.sh) — package manager and test runner
+- [Rust](https://rustup.rs) — required to build the Tauri backend
+- `git` on `PATH` — optional; enables git status indicators and commit/push
+
+---
+
+## Installation & Development
+
+```bash
+bun install           # Install dependencies
+bun run tauri dev     # Start with hot reload
+bun run tauri build   # Build distributable app
+bun run validate      # Type-check + lint + test
+```
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Cmd+\` | Toggle sidebar |
+| `Cmd+Shift+P` | Toggle properties panel |
+| `Cmd+Shift+F` | Toggle full-text search |
+| `Cmd+Shift+Z` | Toggle zen mode |
+| `Cmd+Shift+G` | Open commit dialog |
+| `Cmd+Shift+O` | Open workspace switcher |
+| `Cmd+P` | Open file switcher |
+| `Cmd+N` | New file |
+| `Cmd+S` | Force save (bypass debounce) |
+| `Cmd+W` | Close current file |
+| `Cmd+O` | Open workspace (folder picker) |
+| `F2` | Rename selected file |
+| `Esc` | Exit zen mode |
+
+> On Windows/Linux, substitute `Ctrl` for `Cmd`.
+
+---
+
+## Workspaces
+
+### Opening a workspace
+
+Click **Open folder** or press `Cmd+O` to pick a directory. Ovid walks the file tree and detects whether it is an Amytis workspace by checking for `site.config.ts` + `content/` directory. If the folder is not recognised as an Amytis project, a warning toast is shown.
+
+Only `.md` and `.mdx` files appear in the sidebar.
+
+### Auto-reopen
+
+Ovid remembers the last workspace you had open and reopens it automatically on next launch. To suppress this, close the workspace and relaunch — the auto-reopen is skipped once a session starts without a workspace.
+
+### Switching workspaces
+
+Press `Cmd+Shift+O` or click the workspace name in the sidebar header to open the **Workspace Switcher**. It lists your five most recently opened workspaces. Select one to switch, or click **Open folder…** to pick a new directory.
+
+---
+
+## The Sidebar
+
+The sidebar shows the full file tree of the current workspace, filtered to `.md` / `.mdx` files.
+
+- **Toggle** — `Cmd+\` hides/shows the sidebar; state is remembered across sessions
+- **Directory expand/collapse** — click a directory name or chevron to toggle; expanded state is persisted per workspace
+- **Titles** — frontmatter `title` is shown instead of the filename where available
+- **Draft indicator** — files with `draft: true` are dimmed
+- **Git status** — per-file `●` (modified), `+` (untracked), `S` (staged) markers appear when the workspace is a git repository
+- **Workspace name** — click it to open the workspace switcher
+
+---
+
+## File Management
+
+### New file (`Cmd+N`)
+
+Creates a new `.md` file. You are prompted for a filename. In an Amytis workspace with content types defined, you can also pick a content type — frontmatter fields are pre-filled accordingly. The file opens immediately in the editor.
+
+### Rename (`F2` or double-click filename)
+
+Inline rename in the sidebar. The editor tab updates automatically if the renamed file is currently open. Duplicate names are rejected.
+
+### Delete (right-click → Delete)
+
+Moves the file to the system Trash (not permanent delete). A confirmation dialog is shown. If the file is currently open, it is closed first.
+
+### New folder
+
+Right-click any directory in the sidebar and choose **New folder** to create a subdirectory. Useful for organising Amytis content collections.
+
+---
+
+## The Editor
+
+Ovid uses a **Typora-style WYSIWYG** editor (Tiptap / ProseMirror). Markdown renders inline as you type — no split pane. Files are persisted as valid Markdown; `.md` and `.mdx` files are both supported and never coerced into a different format.
+
+### Font & size
+
+Click **Aa** in the status bar to open the editor settings popover:
+
+- **Font** — Serif (Georgia), Sans (system-ui), or Mono (Fira Code / JetBrains Mono)
+- **Size** — Small (15 px), Default (17 px), Large (19 px)
+
+Preferences are persisted across sessions.
+
+### Spell check
+
+Toggle native OS spell check from the **Aa** popover. The preference is persisted. Misspellings are underlined by the OS without disrupting the editor.
+
+### Zen mode (`Cmd+Shift+Z`)
+
+Hides the sidebar, properties panel, and status bar. The editor expands to full width with generous vertical margins. Press `Esc` or `Cmd+Shift+Z` again to exit. Works even when the editor has focus.
+
+### Typewriter mode
+
+Toggle from the status bar (⌨ button). Keeps the active line vertically centred as you type, reducing eye movement during long writing sessions.
+
+### Code blocks
+
+Fenced code blocks are rendered with syntax highlighting via `lowlight`. Highlighting is display-only — the saved markdown is unchanged.
+
+### Image drag-and-drop
+
+Drag one or more image files from Finder (or Explorer) into the editor. Ovid:
+
+1. Copies each image into `<workspace>/assets/` (creating the directory if needed)
+2. Inserts a markdown image node at the drop position
+3. Shows an inline preview
+
+Supported formats: PNG, JPEG, GIF, WebP, AVIF, SVG.
+
+### Link preview
+
+Hover over any link in the editor to see a URL preview tooltip after a short delay.
+
+---
+
+## Properties Panel
+
+The properties panel sits above the editor and displays the frontmatter of the current file.
+
+- **Toggle** — `Cmd+Shift+P` or click the chevron; state is remembered
+- **Edit fields** — click any value to edit inline; changes are written back to the frontmatter on disk verbatim
+- **Tab between fields** — `Tab` moves to the next field; `Esc` cancels an edit
+- **Add fields** — type a new key into the empty field at the bottom
+- **Draft badge** — files with `draft: true` show a **DRAFT** badge; click it to toggle
+
+---
+
+## Navigation
+
+### File switcher (`Cmd+P`)
+
+Fuzzy search across all files in the workspace by filename and frontmatter `title`. Keyboard-navigable. Shows the file path for disambiguation.
+
+### Recent files
+
+The last 10 opened files per workspace are tracked and shown at the top of the file switcher and in the empty state.
+
+### Full-text search (`Cmd+Shift+F`)
+
+Replaces the sidebar with a search panel. Queries run in Rust across the entire workspace. Results show the filename and matching line with context; the match is highlighted. Click any result to open the file. Frontmatter content is included in the search.
+
+---
+
+## Save & Status Bar
+
+The status bar (bottom of the window) shows:
+
+- **Filename** of the current file
+- **Save indicator** — grey dot = saved, amber dot = unsaved changes
+- **Word count** — total words in the current file
+- **Session words** — `+N` words added since the file was opened; resets on file switch
+- **Aa** — editor settings (font, size, spell check, session goal)
+- **⌨** — typewriter mode toggle
+- **◎** — zen mode toggle
+- **Theme toggle** — moon/sun icon for dark/light mode
+
+### Force save (`Cmd+S`)
+
+Bypasses the 750 ms debounce and saves immediately.
+
+### Session word count goal
+
+Open the **Aa** popover, enter a target word count, and click **Set**. The status bar shows your progress (`+N/GOAL`). The goal resets when you quit the app.
+
+---
+
+## Amytis Integration
+
+### Workspace validation
+
+On open, Ovid checks for `site.config.ts` + `content/`. If found, it is treated as an Amytis workspace and content type templates are enabled. A warning toast is shown for non-Amytis folders (the app still works normally).
+
+### Content type templates
+
+If `site.config.ts` defines content types (e.g. `post`, `page`, `note`), the **New file** dialog offers a type selector. The chosen type pre-fills the frontmatter fields defined for that type.
+
+### Git status
+
+When the workspace is a git repository, per-file status markers appear in the sidebar (`●` modified, `+` untracked, `S` staged). Status refreshes automatically after each save.
+
+### Commit & push (`Cmd+Shift+G`)
+
+Opens the commit dialog. The commit message is pre-filled as `Update: <title>`. Edit the message, optionally enable push, and confirm. Requires `git` on `PATH`.
+
+### Publish flow
+
+In the properties panel, click the **DRAFT** badge to toggle `draft: true/false`. Setting `draft: false` on a file in a git workspace automatically opens the commit dialog pre-filled with `Publish: <title>`.
+
+---
+
+## Dark mode
+
+Follows the system preference by default. Toggle manually with the moon/sun icon in the status bar. The preference is persisted across sessions.
+
+---
+
+## Notifications
+
+Errors and warnings appear as brief toast messages at the bottom centre of the window (visible for 2 seconds). They never block writing.
