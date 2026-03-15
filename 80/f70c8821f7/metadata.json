@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "80f70c8821f7",
+  "strategy": "manual-commit",
+  "branch": "remediation",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "ROADMAP.md",
+    "src/App.tsx",
+    "src/components/Editor.tsx",
+    "src/components/LinkDialog.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/80/f70c8821f7/0/metadata.json",
+      "transcript": "/80/f70c8821f7/0/full.jsonl",
+      "content_hash": "/80/f70c8821f7/0/content_hash.txt",
+      "prompt": "/80/f70c8821f7/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 37,
+    "cache_creation_tokens": 136835,
+    "cache_read_tokens": 2693820,
+    "output_tokens": 4510,
+    "api_call_count": 21
+  }
+}
