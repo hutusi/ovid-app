@@ -94,9 +94,9 @@ function App() {
     setSessionBaseline(null);
   }, [selectedFile]);
 
-  // Capture baseline on first word count update after file switch
+  // Capture baseline on first real word-count event for the new file (skip zero)
   useEffect(() => {
-    if (sessionBaseline === null) setSessionBaseline(wordCount);
+    if (sessionBaseline === null && wordCount !== 0) setSessionBaseline(wordCount);
   }, [wordCount, sessionBaseline]);
 
   // Global keyboard shortcuts

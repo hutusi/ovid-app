@@ -65,26 +65,30 @@ export function Editor({
         event.preventDefault();
         const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
         if (dropPos === undefined) return true;
-        Promise.all(
+        Promise.allSettled(
           imageFiles.map(({ name, srcPath }) =>
             invoke<string>("save_asset", { srcPath, activeFilePath: filePath }).then((relPath) => ({
               name,
               relPath,
             }))
           )
-        )
-          .then((results) => {
-            // Apply all insertions in one transaction to avoid stale positions
-            const tr = view.state.tr;
-            let offset = 0;
-            for (const { name, relPath } of results) {
-              const node = view.state.schema.nodes.image.create({ src: relPath, alt: name });
-              tr.insert(dropPos + offset, node);
-              offset += node.nodeSize;
-            }
-            view.dispatch(tr);
-          })
-          .catch((err) => console.error("save_asset failed:", err));
+        ).then((results) => {
+          const saved = results.flatMap((r) => {
+            if (r.status === "fulfilled") return [r.value];
+            console.error("save_asset failed:", r.reason);
+            return [];
+          });
+          if (saved.length === 0) return;
+          // Apply all insertions in one transaction to avoid stale positions
+          const tr = view.state.tr;
+          let offset = 0;
+          for (const { name, relPath } of saved) {
+            const node = view.state.schema.nodes.image.create({ src: relPath, alt: name });
+            tr.insert(dropPos + offset, node);
+            offset += node.nodeSize;
+          }
+          view.dispatch(tr);
+        });
         return true;
       },
     },

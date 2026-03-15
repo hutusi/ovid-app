@@ -54,7 +54,8 @@
   gap: 10px;
 }
 
-.statusbar-theme-btn {
+.statusbar-theme-btn,
+.statusbar-mode-btn {
   font-size: 13px;
   color: var(--color-status-text);
   line-height: 1;
@@ -64,6 +65,9 @@
     color 0.15s,
     background 0.15s;
   flex-shrink: 0;
+}
+
+.statusbar-theme-btn {
   opacity: 0.7;
 }
 
@@ -82,15 +86,6 @@
 }
 
 .statusbar-mode-btn {
-  font-size: 13px;
-  color: var(--color-status-text);
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition:
-    color 0.15s,
-    background 0.15s;
-  flex-shrink: 0;
   opacity: 0.5;
 }
 
