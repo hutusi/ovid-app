@@ -196,15 +196,22 @@ export function Editor({
     });
   }, [editor, spellCheck]);
 
-  // Click on the ](url) hint from InlineEditMode → open link dialog
+  // Click on inline syntax markers from InlineEditMode
   useEffect(() => {
     if (!editor) return;
     function onMouseDown(e: MouseEvent) {
       const target = e.target as HTMLElement;
-      if (!target.classList.contains("link-url-hint")) return;
-      e.preventDefault();
-      const href = editor.getAttributes("link").href ?? "";
-      setLinkDialog({ href });
+      if (target.classList.contains("link-url-hint")) {
+        e.preventDefault();
+        const href = editor.getAttributes("link").href ?? "";
+        setLinkDialog({ href });
+      } else if (target.classList.contains("inline-syntax-bold")) {
+        e.preventDefault();
+        editor.chain().focus().toggleBold().run();
+      } else if (target.classList.contains("inline-syntax-italic")) {
+        e.preventDefault();
+        editor.chain().focus().toggleItalic().run();
+      }
     }
     editor.view.dom.addEventListener("mousedown", onMouseDown);
     return () => editor.view.dom.removeEventListener("mousedown", onMouseDown);

@@ -37,7 +37,7 @@ function getMarkRange(state: EditorState, markType: MarkType): MarkRange | null 
   while (from > startBound) {
     if (
       !state.doc
-        .resolve(from - 1)
+        .resolve(from)
         .marks()
         .some((m) => m.type === markType)
     )
