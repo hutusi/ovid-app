@@ -152,12 +152,13 @@ function App() {
         return;
       }
       if (!e.metaKey && !e.ctrlKey) return;
-      // Mode toggles work even when editor has focus
-      if (e.shiftKey && e.key === "Z") {
+      // Ctrl+Cmd+Z — zen mode (macOS); avoids conflict with Redo (Cmd+Shift+Z)
+      if (e.metaKey && e.ctrlKey && e.key === "z") {
         e.preventDefault();
         setZenMode((v) => !v);
         return;
       }
+      // Mode toggles work even when editor has focus
       if (e.shiftKey && e.key === "P") {
         e.preventDefault();
         setPropertiesOpen((v) => !v);
