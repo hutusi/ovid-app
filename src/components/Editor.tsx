@@ -249,7 +249,7 @@ export function Editor({
       navigator.clipboard
         .readText()
         .then((text) => {
-          editor.chain().focus().insertContent(text).run();
+          editor.view.dispatch(editor.view.state.tr.insertText(text));
         })
         .catch((err) => {
           console.error("Failed to read clipboard:", err);
