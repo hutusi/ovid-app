@@ -2,7 +2,7 @@
 
 A minimalist desktop editor for [Amytis](https://github.com/hutusi/amytis) content workspaces. Purpose-built for content creators who want a calm, keyboard-first writing environment without leaving their workspace.
 
-Built with **Tauri 2 + React + TypeScript**, using **Bun** as the package manager.
+Built with **Tauri 2 + React + TypeScript + Tailwind CSS v4**, using **Bun** as the package manager.
 
 ---
 
@@ -182,10 +182,12 @@ Hover over any link in the editor to see a URL preview tooltip after a short del
 The properties panel sits above the editor and displays the frontmatter of the current file.
 
 - **Toggle** — `Cmd+Shift+P` or click the chevron; state is remembered
+- **Content type** — select from the type dropdown (`post`, `flow`, `note`, `series`, `book`, `page`); select **unknown** to remove the `type` field from frontmatter
 - **Edit fields** — click any value to edit inline; changes are written back to the frontmatter on disk verbatim
 - **Tab between fields** — `Tab` moves to the next field; `Esc` cancels an edit
-- **Add fields** — type a new key into the empty field at the bottom
-- **Draft badge** — files with `draft: true` show a **DRAFT** badge; click it to toggle
+- **Tags** — type a tag name and press `Enter` or `,` to add; click `×` on a chip to remove
+- **Add fields** — type a new key and value into the empty row at the bottom; press `Enter` to confirm
+- **Draft badge** — files with `draft: true` show a **Draft** badge; click it to toggle to published (and vice versa)
 
 ---
 
