@@ -59,36 +59,36 @@ export function NewFileDialog({
         if (!open) onCancel();
       }}
     >
-      <DialogContent className="w-[320px] max-w-[calc(100vw-48px)] p-5 gap-4" hideCloseButton>
+      <DialogContent className="w-[400px] max-w-[calc(100vw-48px)]" hideCloseButton>
         <DialogHeader>
-          <DialogTitle className="text-[15px] font-semibold">{title}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <Input
             ref={inputRef}
             value={filename}
-            placeholder="filename"
+            placeholder="File name"
             onChange={(e) => setFilename(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-8 text-[13px]"
+            className="h-9 text-[14px]"
           />
 
           {!preselectedType && contentTypes.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] uppercase tracking-[0.07em] text-muted-foreground font-medium">
                 Type
               </span>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {contentTypes.map((ct) => (
                   <button
                     key={ct.name}
                     type="button"
                     onClick={() => setSelectedType(ct.name)}
                     className={cn(
-                      "px-2.5 py-[3px] rounded text-[11.5px] capitalize transition-colors",
+                      "px-3 py-1.5 rounded-md text-[12.5px] capitalize transition-colors",
                       selectedType === ct.name
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "text-muted-foreground bg-muted hover:bg-accent hover:text-foreground"
                     )}
                   >
@@ -100,15 +100,15 @@ export function NewFileDialog({
           )}
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onCancel}>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
             Cancel
           </Button>
           <Button
             size="sm"
             disabled={!filename.trim()}
             onClick={handleConfirm}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 px-5"
           >
             Create
           </Button>
