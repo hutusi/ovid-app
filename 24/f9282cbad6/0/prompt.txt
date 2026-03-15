@@ -1,0 +1,9 @@
+The 'New File' button on the sidebar seems odd because we don't need just a simple new file. Instead, we need to specify what kind of file it is—a new post, flow, note, or something else. Therefore, the current button feels useless. What do you think?
+
+---
+
+I think we can remove the 'New File' button from the sidebar and instead make the 'New' commands in the menu bar more powerful. What do you think?
+
+---
+
+make the new commands as secondary items? like "File -> New -> New Post", what do you think?
