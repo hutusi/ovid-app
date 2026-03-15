@@ -147,6 +147,11 @@ function FileItem({
         <span className={node.draft ? "sidebar-file-name draft" : "sidebar-file-name"}>
           {displayName}
         </span>
+        {node.contentType && (
+          <span className="sidebar-type-badge" title={`type: ${node.contentType}`}>
+            {node.contentType}
+          </span>
+        )}
         {gitStatus && <span className={`git-dot git-dot-${gitStatus}`} title={gitStatus} />}
       </button>
       <button

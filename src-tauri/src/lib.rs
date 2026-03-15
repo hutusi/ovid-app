@@ -36,24 +36,26 @@ struct FileNode {
     extension: Option<String>,
     title: Option<String>,
     draft: Option<bool>,
+    content_type: Option<String>,
 }
 
 /// Read the frontmatter block (between `---` fences) of a markdown file and
-/// extract the `title` and `draft` scalar values using simple line scanning.
-/// Returns `(None, None)` if the file can't be read or has no frontmatter.
+/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
+/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
 /// Uses a buffered reader so only the frontmatter is read, not the full file.
-fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
+fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
     use std::io::{BufRead, BufReader};
     let Ok(file) = std::fs::File::open(path) else {
-        return (None, None);
+        return (None, None, None);
     };
     let mut reader = BufReader::new(file);
     let mut first_line = String::new();
     if reader.read_line(&mut first_line).is_err() || first_line.trim() != "---" {
-        return (None, None);
+        return (None, None, None);
     }
     let mut title: Option<String> = None;
     let mut draft: Option<bool> = None;
+    let mut content_type: Option<String> = None;
     let mut line = String::new();
     while reader.read_line(&mut line).unwrap_or(0) > 0 {
         if line.trim() == "---" {
@@ -68,10 +70,15 @@ fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
                 "false" => Some(false),
                 _ => None,
             };
+        } else if let Some(rest) = line.strip_prefix("type:") {
+            let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
+            if !val.is_empty() {
+                content_type = Some(val);
+            }
         }
         line.clear();
     }
-    (title, draft)
+    (title, draft, content_type)
 }
 
 #[derive(Serialize)]
@@ -113,6 +120,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                     extension: None,
                     title: None,
                     draft: None,
+                    content_type: None,
                 });
             }
         } else {
@@ -121,7 +129,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                 .and_then(|e| e.to_str())
                 .unwrap_or("");
             if ext == "md" || ext == "mdx" {
-                let (title, draft) = read_frontmatter_meta(&entry_path);
+                let (title, draft, content_type) = read_frontmatter_meta(&entry_path);
                 nodes.push(FileNode {
                     name,
                     path: entry_path.to_string_lossy().to_string(),
@@ -130,6 +138,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                     extension: Some(format!(".{}", ext)),
                     title,
                     draft,
+                    content_type,
                 });
             }
         }
@@ -368,7 +377,7 @@ fn search_dir(path: &Path, query: &str) -> Vec<SearchResult> {
                 })
                 .collect();
             if !matches.is_empty() {
-                let (title, _) = read_frontmatter_meta(&entry_path);
+                let (title, _, _) = read_frontmatter_meta(&entry_path);
                 results.push(SearchResult {
                     path: entry_path.to_string_lossy().to_string(),
                     title,
