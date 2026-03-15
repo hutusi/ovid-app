@@ -4,6 +4,10 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import Typography from "@tiptap/extension-typography";
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -16,6 +20,7 @@ import { BubbleMenu } from "./BubbleMenu";
 import { CodeBlockView } from "./CodeBlockView";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { LinkDialog } from "./LinkDialog";
+import { TableControls } from "./TableControls";
 import "../styles/editor.css";
 
 const lowlight = createLowlight(common);
@@ -69,6 +74,10 @@ export function Editor({
         HTMLAttributes: { rel: "noopener noreferrer" },
       }),
       Image,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       LinkPreview,
       FindReplace,
     ],
@@ -258,6 +267,9 @@ export function Editor({
         case "insert-hr":
           editor.chain().focus().setHorizontalRule().run();
           break;
+        case "insert-table":
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+          break;
       }
     }).then((fn) => {
       if (mounted) {
@@ -280,6 +292,7 @@ export function Editor({
       {editor && showFindReplace && (
         <FindReplaceBar editor={editor} onClose={() => setShowFindReplace(false)} />
       )}
+      {editor && <TableControls editor={editor} />}
       {editor && (
         <BubbleMenu
           editor={editor}

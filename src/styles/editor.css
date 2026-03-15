@@ -235,6 +235,59 @@
   font-weight: bold;
 }
 
+/* ── Tables ────────────────────────────────────── */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 1.2em 0;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--color-border);
+  padding: 6px 12px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 80px;
+  position: relative;
+}
+
+.ProseMirror th {
+  background: var(--color-surface-subtle);
+  font-weight: 600;
+  color: var(--color-fg);
+}
+
+.ProseMirror td {
+  background: var(--color-surface);
+}
+
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent-subtle);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Column resize handle */
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-accent);
+  cursor: col-resize;
+  z-index: 20;
+}
+
 /* Link preview tooltip */
 .link-preview-tooltip {
   position: fixed;
