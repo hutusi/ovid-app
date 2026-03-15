@@ -1,17 +1,10 @@
+import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { Folder, FolderOpen } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { filterTree, needsPageDivider, rollupGitStatus, sortNodes } from "../lib/sidebarUtils";
 import type { FileNode, GitStatus } from "../lib/types";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./Sidebar.css";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "./ui/context-menu";
 import { Input } from "./ui/input";
 
 interface SidebarProps {
@@ -78,40 +71,43 @@ function FileItem({
     }
   }, [isRenaming, baseName]);
 
+  async function showDirContextMenu() {
+    const menu = await Menu.new({
+      items: [
+        await MenuItem.new({ text: "New file here", action: () => onNewFile(node.path) }),
+        await PredefinedMenuItem.new({ item: "Separator" }),
+        await MenuItem.new({ text: "Rename", action: () => onStartRename(node.path) }),
+        await MenuItem.new({ text: "Delete", action: () => onDelete(node) }),
+      ],
+    });
+    await menu.popup();
+  }
+
   if (node.isDirectory) {
     const DirIcon = isExpanded ? FolderOpen : Folder;
     const dirRollup = !isExpanded ? rollupGitStatus(node, gitStatusMap) : undefined;
     return (
       <div>
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <div role="none" className="sidebar-dir-row" style={{ paddingLeft: indent }}>
-              <button type="button" className="sidebar-dir" onClick={() => setExpanded((v) => !v)}>
-                <DirIcon size={13} className="sidebar-file-icon sidebar-dir-icon" />
-                {node.name}
-                {dirRollup && (
-                  <span
-                    className={`git-dot git-dot-${dirRollup}`}
-                    title={`${dirRollup} changes inside`}
-                  />
-                )}
-              </button>
-            </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem onClick={() => onNewFile(node.path)}>New file here</ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => onStartRename(node.path)}>
-              Rename <ContextMenuShortcut>F2</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem
-              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-              onClick={() => onDelete(node)}
-            >
-              Delete
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <div
+          role="none"
+          className="sidebar-dir-row"
+          style={{ paddingLeft: indent }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            showDirContextMenu();
+          }}
+        >
+          <button type="button" className="sidebar-dir" onClick={() => setExpanded((v) => !v)}>
+            <DirIcon size={13} className="sidebar-file-icon sidebar-dir-icon" />
+            {node.name}
+            {dirRollup && (
+              <span
+                className={`git-dot git-dot-${dirRollup}`}
+                title={`${dirRollup} changes inside`}
+              />
+            )}
+          </button>
+        </div>
         {isExpanded &&
           sortNodes(node.children ?? []).map((child, idx, sorted) => (
             <Fragment key={child.path}>
@@ -165,40 +161,42 @@ function FileItem({
   const displayName = node.title || baseName;
   const gitStatus = gitStatusMap.get(node.path);
 
+  async function showFileContextMenu() {
+    const menu = await Menu.new({
+      items: [
+        await MenuItem.new({ text: "Rename", action: () => onStartRename(node.path) }),
+        await MenuItem.new({ text: "Delete", action: () => onDelete(node) }),
+      ],
+    });
+    await menu.popup();
+  }
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div role="none" className={`sidebar-file-row ${isSelected ? "selected" : ""}`}>
-          <button
-            type="button"
-            className="sidebar-file"
-            style={{ paddingLeft: indent }}
-            onClick={() => onSelect(node)}
-            onDoubleClick={() => onStartRename(node.path)}
-            onKeyDown={(e) => {
-              if (e.key === "F2") onStartRename(node.path);
-            }}
-          >
-            <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
-            <span className={node.draft ? "sidebar-file-name draft" : "sidebar-file-name"}>
-              {displayName}
-            </span>
-            {gitStatus && <span className={`git-dot git-dot-${gitStatus}`} title={gitStatus} />}
-          </button>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => onStartRename(node.path)}>
-          Rename <ContextMenuShortcut>F2</ContextMenuShortcut>
-        </ContextMenuItem>
-        <ContextMenuItem
-          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-          onClick={() => onDelete(node)}
-        >
-          Delete
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <div
+      role="none"
+      className={`sidebar-file-row ${isSelected ? "selected" : ""}`}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        showFileContextMenu();
+      }}
+    >
+      <button
+        type="button"
+        className="sidebar-file"
+        style={{ paddingLeft: indent }}
+        onClick={() => onSelect(node)}
+        onDoubleClick={() => onStartRename(node.path)}
+        onKeyDown={(e) => {
+          if (e.key === "F2") onStartRename(node.path);
+        }}
+      >
+        <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
+        <span className={node.draft ? "sidebar-file-name draft" : "sidebar-file-name"}>
+          {displayName}
+        </span>
+        {gitStatus && <span className={`git-dot git-dot-${gitStatus}`} title={gitStatus} />}
+      </button>
+    </div>
   );
 }
 
