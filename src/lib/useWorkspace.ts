@@ -82,6 +82,7 @@ export function useWorkspace({
       try {
         const result = await invoke<WorkspaceResult | null>("open_workspace_at_path", { path });
         if (result) applyWorkspaceResult(result);
+        else showToast("Could not open workspace — path may no longer be valid.");
       } catch (err) {
         console.error("Failed to open workspace:", err);
         showToast(`Failed to open workspace: ${err}`);

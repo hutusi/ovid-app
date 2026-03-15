@@ -4,10 +4,22 @@ import type { RecentWorkspace } from "./types";
 const MAX_WORKSPACES = 5;
 const STORAGE_KEY = "ovid:recentWorkspaces";
 
+function isValidWorkspace(item: unknown): item is RecentWorkspace {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    typeof (item as RecentWorkspace).rootPath === "string" &&
+    typeof (item as RecentWorkspace).name === "string"
+  );
+}
+
 function loadWorkspaces(): RecentWorkspace[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as RecentWorkspace[]) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidWorkspace);
   } catch {
     return [];
   }

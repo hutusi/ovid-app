@@ -627,6 +627,11 @@ fn relative_path_from(from_dir: &Path, to: &Path) -> String {
 
 /// Copy an image from an arbitrary path into `<workspace>/assets/` and return
 /// a path relative to the active markdown file (or `assets/<name>` as fallback).
+///
+/// Note: unlike `read_file`/`write_file`, `src_path` is intentionally not
+/// validated against the workspace root — drag-and-drop sources originate from
+/// external locations (desktop, downloads, etc.). The destination is safely
+/// constrained to `<workspace>/assets/`.
 #[tauri::command]
 fn save_asset(
     src_path: String,

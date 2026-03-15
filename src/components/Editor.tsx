@@ -111,6 +111,7 @@ export function Editor({
       if (!typewriterRef.current || !scrollRef.current) return;
       const { from } = ed.view.state.selection;
       const coords = ed.view.coordsAtPos(from);
+      if (coords.top === 0 && coords.bottom === 0) return;
       const scrollEl = scrollRef.current;
       const rect = scrollEl.getBoundingClientRect();
       const cursorRelTop = coords.top - rect.top;

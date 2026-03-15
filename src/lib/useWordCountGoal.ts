@@ -17,12 +17,13 @@ export function useWordCountGoal() {
   const [goal, setGoalState] = useState<number | null>(loadGoal);
 
   const setGoal = useCallback((n: number | null) => {
-    setGoalState(n);
+    const normalized = n !== null && Number.isFinite(n) && n > 0 ? n : null;
+    setGoalState(normalized);
     try {
-      if (n === null) {
+      if (normalized === null) {
         sessionStorage.removeItem(STORAGE_KEY);
       } else {
-        sessionStorage.setItem(STORAGE_KEY, String(n));
+        sessionStorage.setItem(STORAGE_KEY, String(normalized));
       }
     } catch {
       // ignore

@@ -140,7 +140,14 @@ function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       // Escape exits zen mode (before other guards)
-      if (e.key === "Escape" && zenMode && !modal && !commitDialog && !switcherOpen) {
+      if (
+        e.key === "Escape" &&
+        zenMode &&
+        !modal &&
+        !commitDialog &&
+        !switcherOpen &&
+        !workspaceSwitcherOpen
+      ) {
         setZenMode(false);
         return;
       }
@@ -232,6 +239,7 @@ function App() {
     modal,
     commitDialog,
     switcherOpen,
+    workspaceSwitcherOpen,
   ]);
 
   // Refresh git status after each save completes
