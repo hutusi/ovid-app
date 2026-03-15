@@ -1,0 +1,5 @@
+There is also a problem with inline editing for bold and italic text. When editing inline, the opening ** or _ markers don't appear beside the words; instead, the left marker appears after the first character. The right marker is correct and stays after the word.
+
+---
+
+There is also a problem with inline editing for bold and italic text. When editing inline, the opening ** or _ markers don't appear beside the words; instead, the left marker appears after the first character. The right marker is correct and stays after the word. and I cannot edit the ** and _, remove it or update it.
