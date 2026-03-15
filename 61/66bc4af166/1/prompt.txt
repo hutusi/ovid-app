@@ -1,0 +1,5 @@
+I think there are some improvements to be made or problems to be fixed in the editor: 1. When I select words or a paragraph, a formatting menu should pop up with commands like bold and italic. 2. The code blocks do not render well; the language bar and the code block itself seem split rather than unified. 3. I want to edit links using Markdown syntax, and have them render as links only when I finish editing. what do you think? do you have any other user-experience improvements about editor?
+
+---
+
+fix the bugs and add the improvements to roadmap, then make a plan to implement them. waht do you think?
