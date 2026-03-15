@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CommitDialog } from "./components/CommitDialog";
 import { Editor } from "./components/Editor";
 import { EmptyState } from "./components/EmptyState";
@@ -8,12 +8,16 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
+import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { useContentTypes } from "./lib/useContentTypes";
+import { useEditorPreferences } from "./lib/useEditorPreferences";
 import { useFileEditor } from "./lib/useFileEditor";
 import { useGit } from "./lib/useGit";
 import { useRecentFiles } from "./lib/useRecentFiles";
+import { useRecentWorkspaces } from "./lib/useRecentWorkspaces";
 import { useTheme } from "./lib/useTheme";
 import { useToast } from "./lib/useToast";
+import { useWordCountGoal } from "./lib/useWordCountGoal";
 import { useWorkspace } from "./lib/useWorkspace";
 import "./styles/global.css";
 import "./App.css";
@@ -22,6 +26,7 @@ type ModalState = { type: "new-file"; dirPath: string } | null;
 type CommitDialogState = { message: string; branch: string } | null;
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
+const AUTO_REOPEN_KEY = "ovid:skipAutoReopen";
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
@@ -29,12 +34,19 @@ function App() {
     () => localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "false"
   );
   const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [zenMode, setZenMode] = useState(false);
+  const [typewriterMode, setTypewriterMode] = useState(false);
+  const [sessionBaseline, setSessionBaseline] = useState<number | null>(null);
+  const [baselineCaptured, setBaselineCaptured] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
 
   const { toasts, showToast } = useToast();
+  const { prefs, updatePrefs } = useEditorPreferences();
+  const { goal: wordCountGoal, setGoal: setWordCountGoal } = useWordCountGoal();
 
   const {
     selectedFile,
@@ -57,10 +69,12 @@ function App() {
     tree,
     workspaceName,
     workspaceRoot,
+    workspaceRootPath,
     isAmytisWorkspace,
     renamingPath,
     setRenamingPath,
     handleOpenWorkspace,
+    openWorkspaceAtPath,
     handleNewFile,
     handleRename,
     handleDelete,
@@ -76,6 +90,7 @@ function App() {
   });
 
   const { recentFiles, pushRecent, resetRecent } = useRecentFiles(workspaceRoot);
+  const { recentWorkspaces, pushRecentWorkspace } = useRecentWorkspaces();
   const { gitStatusMap, isGitRepo, refreshGitStatus, handleCommit, getBranch } =
     useGit(workspaceRoot);
   const contentTypes = useContentTypes(workspaceRoot, isAmytisWorkspace);
@@ -85,10 +100,69 @@ function App() {
     if (workspaceRoot) resetRecent(workspaceRoot);
   }, [workspaceRoot, resetRecent]);
 
+  // Track recently opened workspaces
+  useEffect(() => {
+    if (workspaceRootPath && workspaceName) {
+      pushRecentWorkspace(workspaceRootPath, workspaceName);
+    }
+  }, [workspaceRootPath, workspaceName, pushRecentWorkspace]);
+
+  // Auto-reopen last workspace on launch (once)
+  const autoReopenAttempted = useRef(false);
+  useEffect(() => {
+    if (
+      autoReopenAttempted.current ||
+      workspaceRootPath !== null ||
+      recentWorkspaces.length === 0 ||
+      localStorage.getItem(AUTO_REOPEN_KEY) === "true"
+    )
+      return;
+    autoReopenAttempted.current = true;
+    void openWorkspaceAtPath(recentWorkspaces[0].rootPath);
+  }, [recentWorkspaces, openWorkspaceAtPath, workspaceRootPath]);
+
+  // Reset session baseline when switching files (selectedFile is the trigger, not used in body)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedFile is the intended trigger
+  useEffect(() => {
+    setSessionBaseline(null);
+    setBaselineCaptured(false);
+  }, [selectedFile]);
+
+  // Capture baseline on first word-count event for the new file (including empty files)
+  useEffect(() => {
+    if (!baselineCaptured) {
+      setSessionBaseline(wordCount);
+      setBaselineCaptured(true);
+    }
+  }, [wordCount, baselineCaptured]);
+
   // Global keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Escape exits zen mode (before other guards)
+      if (
+        e.key === "Escape" &&
+        zenMode &&
+        !modal &&
+        !commitDialog &&
+        !switcherOpen &&
+        !workspaceSwitcherOpen
+      ) {
+        setZenMode(false);
+        return;
+      }
       if (!e.metaKey && !e.ctrlKey) return;
+      // Mode toggles work even when editor has focus
+      if (e.shiftKey && e.key === "Z") {
+        e.preventDefault();
+        setZenMode((v) => !v);
+        return;
+      }
+      if (e.shiftKey && e.key === "P") {
+        e.preventDefault();
+        setPropertiesOpen((v) => !v);
+        return;
+      }
       const target = e.target as HTMLElement;
       if (
         target instanceof HTMLInputElement ||
@@ -107,7 +181,11 @@ function App() {
           break;
         case "o":
           e.preventDefault();
-          void handleOpenWorkspace();
+          if (e.shiftKey) {
+            setWorkspaceSwitcherOpen(true);
+          } else {
+            void handleOpenWorkspace();
+          }
           break;
         case "F":
           if (e.shiftKey) {
@@ -124,12 +202,6 @@ function App() {
                 setCommitDialog({ message: `Update: ${title}`, branch });
               })
               .catch(() => showToast("Failed to get git branch"));
-          }
-          break;
-        case "P":
-          if (e.shiftKey) {
-            e.preventDefault();
-            setPropertiesOpen((v) => !v);
           }
           break;
         case "p":
@@ -163,6 +235,11 @@ function App() {
     parsedFrontmatter,
     selectedFile,
     showToast,
+    zenMode,
+    modal,
+    commitDialog,
+    switcherOpen,
+    workspaceSwitcherOpen,
   ]);
 
   // Refresh git status after each save completes
@@ -198,8 +275,10 @@ function App() {
     }
   }
 
+  const sessionWordsAdded = sessionBaseline !== null ? Math.max(0, wordCount - sessionBaseline) : 0;
+
   return (
-    <div className="app">
+    <div className="app" data-zen={zenMode ? "true" : undefined}>
       <div className="app-body">
         {searchOpen ? (
           <SearchPanel onOpenFile={handleOpenByPath} onClose={() => setSearchOpen(false)} />
@@ -217,6 +296,7 @@ function App() {
               if (!node.isDirectory) pushRecent(node);
             }}
             onOpenWorkspace={handleOpenWorkspace}
+            onOpenSwitcher={() => setWorkspaceSwitcherOpen(true)}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
             onRename={handleRename}
             onDelete={handleDelete}
@@ -237,6 +317,9 @@ function App() {
             <Editor
               key={selectedFile.path}
               content={fileContent}
+              filePath={selectedFile.path}
+              typewriterMode={typewriterMode}
+              spellCheck={prefs.spellCheck}
               onWordCount={setWordCount}
               onChange={handleEditorChange}
             />
@@ -255,7 +338,20 @@ function App() {
         wordCount={wordCount}
         resolvedTheme={resolvedTheme}
         saveStatus={saveStatus}
+        zenMode={zenMode}
+        typewriterMode={typewriterMode}
+        sessionWordsAdded={sessionWordsAdded}
+        wordCountGoal={wordCountGoal}
+        fontFamily={prefs.fontFamily}
+        fontSize={prefs.fontSize}
+        spellCheck={prefs.spellCheck}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
+        onToggleZen={() => setZenMode((v) => !v)}
+        onToggleTypewriter={() => setTypewriterMode((v) => !v)}
+        onSetFontFamily={(f) => updatePrefs({ fontFamily: f })}
+        onSetFontSize={(s) => updatePrefs({ fontSize: s })}
+        onToggleSpellCheck={() => updatePrefs({ spellCheck: !prefs.spellCheck })}
+        onSetWordCountGoal={setWordCountGoal}
       />
       {toasts.length > 0 && (
         <div className="toast-container">
@@ -265,6 +361,15 @@ function App() {
             </div>
           ))}
         </div>
+      )}
+      {workspaceSwitcherOpen && (
+        <WorkspaceSwitcher
+          recentWorkspaces={recentWorkspaces}
+          currentRootPath={workspaceRootPath}
+          onSelect={(rootPath) => void openWorkspaceAtPath(rootPath)}
+          onOpenOther={handleOpenWorkspace}
+          onClose={() => setWorkspaceSwitcherOpen(false)}
+        />
       )}
       {switcherOpen && (
         <FileSwitcher
@@ -293,8 +398,10 @@ function App() {
           defaultMessage={commitDialog.message}
           branch={commitDialog.branch}
           onCommit={(message, push) => {
-            setCommitDialog(null);
-            void handleCommit(message, push).catch((err) => showToast(`Commit failed: ${err}`));
+            void flushPendingSave()
+              .then(() => handleCommit(message, push))
+              .then(() => setCommitDialog(null))
+              .catch((err) => showToast(`Commit failed: ${err}`));
           }}
           onCancel={() => setCommitDialog(null)}
         />

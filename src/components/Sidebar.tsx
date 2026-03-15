@@ -12,6 +12,7 @@ interface SidebarProps {
   gitStatusMap: Map<string, GitStatus>;
   onSelect: (node: FileNode) => void;
   onOpenWorkspace: () => void;
+  onOpenSwitcher: () => void;
   onNewFile: (dirPath: string) => void;
   onRename: (node: FileNode, newName: string) => void;
   onDelete: (node: FileNode) => void;
@@ -173,6 +174,7 @@ export function Sidebar({
   gitStatusMap,
   onSelect,
   onOpenWorkspace,
+  onOpenSwitcher,
   onNewFile,
   onRename,
   onDelete,
@@ -182,7 +184,14 @@ export function Sidebar({
   return (
     <div className={`sidebar ${visible ? "" : "hidden"}`}>
       <div className="sidebar-header">
-        <span className="sidebar-workspace-name">{workspaceName ?? "No workspace"}</span>
+        <button
+          type="button"
+          className="sidebar-workspace-name"
+          onClick={onOpenSwitcher}
+          title="Switch workspace"
+        >
+          {workspaceName ?? "No workspace"}
+        </button>
         <div className="sidebar-header-actions">
           {workspaceRoot && (
             <button

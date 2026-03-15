@@ -190,6 +190,39 @@ fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
 }
 
 #[tauri::command]
+async fn open_workspace_at_path(
+    path: String,
+    state: State<'_, WorkspaceState>,
+) -> Result<Option<WorkspaceResult>, String> {
+    let root = PathBuf::from(&path);
+    if !root.is_dir() {
+        return Ok(None);
+    }
+
+    let name = root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| root.to_string_lossy().to_string());
+
+    let content_dir = root.join("content");
+    let tree_root = if content_dir.is_dir() { content_dir } else { root.clone() };
+
+    *state.tree_root.lock().map_err(|e| e.to_string())? = Some(tree_root.clone());
+    *state.workspace_root.lock().map_err(|e| e.to_string())? = Some(root.clone());
+
+    let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
+    let tree = walk_dir(&tree_root);
+
+    Ok(Some(WorkspaceResult {
+        name,
+        root_path: root.to_string_lossy().to_string(),
+        tree_root: tree_root.to_string_lossy().to_string(),
+        tree,
+        is_amytis_workspace,
+    }))
+}
+
+#[tauri::command]
 async fn open_workspace(
     app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
@@ -528,7 +561,7 @@ fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>
         } else {
             path_part
         };
-        let abs_path = format!("{}/{}", git_root, file_path);
+        let abs_path = PathBuf::from(&git_root).join(file_path).to_string_lossy().into_owned();
         let status = if xy.starts_with('?') {
             "untracked"
         } else if xy.chars().next().map(|c| c != ' ').unwrap_or(false) {
@@ -543,11 +576,20 @@ fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>
 
 #[tauri::command]
 fn get_git_branch(state: State<'_, WorkspaceState>) -> Result<String, String> {
-    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
-    let root = root_guard.as_ref().ok_or("no workspace open")?.clone();
+    let root_guard = match state.tree_root.lock() {
+        Ok(g) => g,
+        Err(_) => return Ok(String::new()),
+    };
+    let root = match root_guard.as_ref() {
+        Some(r) => r.clone(),
+        None => return Ok(String::new()),
+    };
     drop(root_guard);
-    run_git(&root.to_string_lossy(), &["rev-parse", "--abbrev-ref", "HEAD"])
-        .map(|s| s.trim().to_string())
+    Ok(
+        run_git(&root.to_string_lossy(), &["rev-parse", "--abbrev-ref", "HEAD"])
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default(),
+    )
 }
 
 #[tauri::command]
@@ -568,6 +610,91 @@ fn git_commit(
     Ok(())
 }
 
+/// Compute a POSIX-style relative path from `from_dir` to `to`.
+fn relative_path_from(from_dir: &Path, to: &Path) -> String {
+    let from: Vec<_> = from_dir.components().collect();
+    let to_c: Vec<_> = to.components().collect();
+    let common = from.iter().zip(to_c.iter()).take_while(|(a, b)| a == b).count();
+    let mut rel = PathBuf::new();
+    for _ in common..from.len() {
+        rel.push("..");
+    }
+    for c in &to_c[common..] {
+        rel.push(c);
+    }
+    rel.to_string_lossy().replace('\\', "/")
+}
+
+/// Copy an image from an arbitrary path into `<workspace>/assets/` and return
+/// a path relative to the active markdown file (or `assets/<name>` as fallback).
+///
+/// Note: unlike `read_file`/`write_file`, `src_path` is intentionally not
+/// validated against the workspace root — drag-and-drop sources originate from
+/// external locations (desktop, downloads, etc.). The destination is safely
+/// constrained to `<workspace>/assets/`.
+#[tauri::command]
+fn save_asset(
+    src_path: String,
+    active_file_path: Option<String>,
+    state: State<'_, WorkspaceState>,
+) -> Result<String, String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?.clone();
+    drop(root_guard);
+
+    let src = Path::new(&src_path);
+    let file_name = src
+        .file_name()
+        .ok_or("invalid source path")?
+        .to_string_lossy()
+        .to_string();
+
+    let assets_dir = root.join("assets");
+    std::fs::create_dir_all(&assets_dir)
+        .map_err(|e| format!("could not create assets dir: {e}"))?;
+
+    // Atomically reserve a destination path to avoid TOCTOU races.
+    // Try the original name first; fall back to timestamp-prefixed candidates.
+    let dest_name = match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(assets_dir.join(&file_name))
+    {
+        Ok(_) => file_name.clone(),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => loop {
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            let candidate = format!("{ts}_{file_name}");
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(assets_dir.join(&candidate))
+            {
+                Ok(_) => break candidate,
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(format!("could not reserve asset path: {e}")),
+            }
+        },
+        Err(e) => return Err(format!("could not reserve asset path: {e}")),
+    };
+
+    let dest = assets_dir.join(&dest_name);
+    std::fs::copy(src, &dest).map_err(|e| format!("copy failed: {e}"))?;
+
+    // Return a path relative to the active file's directory when available.
+    let rel = if let Some(active) = active_file_path {
+        let from_dir = PathBuf::from(&active);
+        let from_dir = from_dir.parent().unwrap_or(Path::new(""));
+        relative_path_from(from_dir, &dest)
+    } else {
+        format!("assets/{dest_name}")
+    };
+
+    Ok(rel)
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -581,6 +708,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_workspace,
+            open_workspace_at_path,
             list_workspace,
             read_file,
             write_file,
@@ -593,6 +721,7 @@ pub fn run() {
             get_git_status,
             get_git_branch,
             git_commit,
+            save_asset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

@@ -12,12 +12,20 @@ export function NewFileDialog({ contentTypes, onConfirm, onCancel }: NewFileDial
   const [filename, setFilename] = useState("");
   const [selectedType, setSelectedType] = useState<string>(contentTypes[0]?.name ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Keep selectedType in sync if contentTypes arrive after mount
+  useEffect(() => {
+    if (contentTypes.length > 0 && !contentTypes.some((ct) => ct.name === selectedType)) {
+      setSelectedType(contentTypes[0].name);
+    }
+  }, [contentTypes, selectedType]);
 
   function handleConfirm() {
     const name = filename.trim();
@@ -32,10 +40,15 @@ export function NewFileDialog({ contentTypes, onConfirm, onCancel }: NewFileDial
 
   function handleModalKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "Tab") return;
-    const focusable = [inputRef.current, cancelRef.current, confirmRef.current].filter(
-      (el): el is HTMLInputElement | HTMLButtonElement => el !== null
+    const focusable = [
+      inputRef.current,
+      selectRef.current,
+      cancelRef.current,
+      confirmRef.current,
+    ].filter((el): el is HTMLInputElement | HTMLSelectElement | HTMLButtonElement => el !== null);
+    const idx = focusable.indexOf(
+      document.activeElement as HTMLInputElement | HTMLSelectElement | HTMLButtonElement
     );
-    const idx = focusable.indexOf(document.activeElement as HTMLInputElement | HTMLButtonElement);
     e.preventDefault();
     const next = e.shiftKey
       ? (idx - 1 + focusable.length) % focusable.length
@@ -63,8 +76,12 @@ export function NewFileDialog({ contentTypes, onConfirm, onCancel }: NewFileDial
         />
         {contentTypes.length > 0 && (
           <div className="modal-type-row">
-            <span className="modal-type-label">Type</span>
+            <label htmlFor="new-file-type" className="modal-type-label">
+              Type
+            </label>
             <select
+              id="new-file-type"
+              ref={selectRef}
               className="modal-type-select"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}

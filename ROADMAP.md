@@ -60,35 +60,35 @@ Ovid App is purpose-built for content creators working in Amytis workspaces. Thi
 
 ---
 
-## Phase 5 — Amytis Integration
+## ✅ Phase 5 — Amytis Integration
 > Goal: seamlessly support the full Amytis publish workflow without leaving the app.
 
-24. **Workspace validation** — on open, detect `site.config.ts`; parse content type schema if available; warn if workspace doesn't look like an Amytis project
-25. **Content type templates** — if `site.config.ts` defines content types (e.g. `post`, `page`, `note`), offer type selection when creating new files; pre-fill frontmatter fields accordingly
-26. **Git status indicators** — show per-file dirty/staged/untracked markers in sidebar; requires `git` on PATH; gracefully no-ops if not a git repo
-27. **Commit & push** (`Cmd+Shift+G`) — simple commit dialog: auto-filled message (`Update: <title>`), branch name shown; push toggle; runs via Rust `git` subprocess
-28. **Draft → publish flow** — one-click to toggle `draft: true/false` in properties panel with a clear "Publish" affordance; auto-commits if git integration is active
+24. ✅ **Workspace validation** — on open, detect `site.config.ts`; parse content type schema if available; warn if workspace doesn't look like an Amytis project
+25. ✅ **Content type templates** — if `site.config.ts` defines content types (e.g. `post`, `page`, `note`), offer type selection when creating new files; pre-fill frontmatter fields accordingly
+26. ✅ **Git status indicators** — show per-file dirty/staged/untracked markers in sidebar; requires `git` on PATH; gracefully no-ops if not a git repo
+27. ✅ **Commit & push** (`Cmd+Shift+G`) — simple commit dialog: auto-filled message (`Update: <title>`), branch name shown; push toggle; runs via Rust `git` subprocess
+28. ✅ **Draft → publish flow** — one-click to toggle `draft: true/false` in properties panel with a clear "Publish" affordance; auto-commits if git integration is active
 
 ---
 
-## Phase 6 — Rich Editing
+## ✅ Phase 6 — Rich Editing
 > Goal: the editor should feel as capable as it is calm.
 
-29. **Image handling** — drag-and-drop image into editor: copy to workspace `assets/` (or configured asset dir), insert relative markdown path; show inline preview
-30. **Code block syntax highlighting** — syntax-highlighted code blocks in the editor (read-only highlight; doesn't affect saved markdown)
-31. **Focus / Zen mode** (`Cmd+Shift+Z`) — hide sidebar, properties panel, status bar; center editor with generous margins; `Esc` to exit
-32. **Typewriter mode** — keep the active line vertically centered as you type; reduces eye movement during long writing sessions
-33. **Writing session stats** — track words written in current session (not total); show session duration; visible in status bar or focus mode overlay
+29. ✅ **Image handling** — drag-and-drop image into editor: copy to workspace `assets/` (or configured asset dir), insert relative markdown path; show inline preview
+30. ✅ **Code block syntax highlighting** — syntax-highlighted code blocks in the editor (read-only highlight; doesn't affect saved markdown)
+31. ✅ **Focus / Zen mode** (`Cmd+Shift+Z`) — hide sidebar, properties panel, status bar; center editor with generous margins; `Esc` to exit
+32. ✅ **Typewriter mode** — keep the active line vertically centered as you type; reduces eye movement during long writing sessions
+33. ✅ **Writing session stats** — track words written in current session (not total); show +N words added in status bar
 
 ---
 
-## Phase 7 — Polish & Power
+## ✅ Phase 7 — Polish & Power
 > Goal: the details that separate a good app from one people love.
 
-34. **Workspace persistence** — remember last opened workspace; re-open automatically on launch (with user opt-out)
-35. **Multiple workspaces** — switch between recently opened workspaces without going through the folder picker every time
-36. **Customizable fonts** — let users choose editor font (serif / sans / mono) and size; persisted preference
-37. **Spell check** — native OS spell check via Tauri webview; highlight misspellings without disrupting writing flow
-38. **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
-39. **Link preview** — hover over a wikilink or URL to see a preview tooltip; for wikilinks, resolve to files in the workspace
+34. ✅ **Workspace persistence** — remember last opened workspace; re-open automatically on launch (with user opt-out)
+35. ✅ **Multiple workspaces** — switch between recently opened workspaces without going through the folder picker every time
+36. ✅ **Customizable fonts** — let users choose editor font (serif / sans / mono) and size; persisted preference
+37. ✅ **Spell check** — native OS spell check via Tauri webview; highlight misspellings without disrupting writing flow
+38. ✅ **Word count goal** — set a session word count target; subtle progress indicator; no gamification, just awareness
+39. ✅ **Link preview** — hover over a URL to see a preview tooltip after a short delay
 

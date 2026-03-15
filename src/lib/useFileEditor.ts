@@ -58,6 +58,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
     } catch (err) {
       console.error("Failed to flush pending save:", err);
       showToast("Failed to save — check console for details");
+      throw err; // propagate so callers (e.g. commit flow) can abort
     }
   }, [showToast]);
 

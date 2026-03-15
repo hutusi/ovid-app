@@ -18,9 +18,16 @@ export function useGit(workspaceRoot: string | null) {
       return;
     }
     try {
-      const statuses = await invoke<GitFileStatus[]>("get_git_status");
-      setIsGitRepo(true);
-      setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
+      // get_git_branch returns "" for non-git workspaces (graceful degradation)
+      const branch = await invoke<string>("get_git_branch");
+      const inRepo = branch.length > 0;
+      setIsGitRepo(inRepo);
+      if (inRepo) {
+        const statuses = await invoke<GitFileStatus[]>("get_git_status");
+        setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
+      } else {
+        setGitStatusMap(new Map());
+      }
     } catch {
       setIsGitRepo(false);
       setGitStatusMap(new Map());
@@ -32,8 +39,11 @@ export function useGit(workspaceRoot: string | null) {
   }, [refreshGitStatus]);
 
   async function handleCommit(message: string, push: boolean): Promise<void> {
-    await invoke("git_commit", { message, push });
-    void refreshGitStatus();
+    try {
+      await invoke("git_commit", { message, push });
+    } finally {
+      void refreshGitStatus();
+    }
   }
 
   async function getBranch(): Promise<string> {

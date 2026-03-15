@@ -10,9 +10,17 @@ export function useContentTypes(workspaceRoot: string | null, isAmytisWorkspace:
       setContentTypes([]);
       return;
     }
+    let cancelled = false;
     invoke<ContentType[]>("get_content_types")
-      .then(setContentTypes)
-      .catch(() => setContentTypes([]));
+      .then((result) => {
+        if (!cancelled) setContentTypes(result);
+      })
+      .catch(() => {
+        if (!cancelled) setContentTypes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceRoot, isAmytisWorkspace]);
 
   return contentTypes;

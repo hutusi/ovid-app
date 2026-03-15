@@ -39,6 +39,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin-left: -3px;
+  transition: color 0.15s;
+  cursor: pointer;
+}
+
+.sidebar-workspace-name:hover {
+  color: var(--color-text);
 }
 
 .sidebar-open-btn {

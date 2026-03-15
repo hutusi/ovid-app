@@ -25,6 +25,12 @@ export interface ContentType {
   name: string;
 }
 
+export interface RecentWorkspace {
+  rootPath: string;
+  name: string;
+  lastOpenedAt: number;
+}
+
 export type GitStatus = "modified" | "staged" | "untracked";
 
 export interface SearchMatch {

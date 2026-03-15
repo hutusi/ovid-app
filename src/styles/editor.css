@@ -19,7 +19,7 @@
   margin: 0 auto;
   padding: 0 24px;
   font-family: var(--font-editor);
-  font-size: 17px;
+  font-size: var(--font-editor-size, 17px);
   line-height: 1.75;
   color: var(--color-text);
   outline: none;
@@ -167,4 +167,81 @@
 /* Focus ring — hidden, we style it via the wrapper */
 .ProseMirror:focus {
   outline: none;
+}
+
+/* ── Syntax highlighting (lowlight/highlight.js tokens) ─── */
+.hljs-comment,
+.hljs-quote {
+  color: var(--color-syntax-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: var(--color-syntax-keyword);
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute,
+.hljs-literal,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-addition {
+  color: var(--color-syntax-string);
+}
+
+.hljs-deletion,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-meta {
+  color: var(--color-syntax-meta);
+}
+
+.hljs-doctag,
+.hljs-attr {
+  color: var(--color-syntax-attr);
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-subst,
+.hljs-variable,
+.hljs-number,
+.hljs-regexp {
+  color: var(--color-syntax-number);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* Link preview tooltip */
+.link-preview-tooltip {
+  position: fixed;
+  z-index: 1000;
+  display: none;
+  max-width: 360px;
+  background: var(--color-bg-sidebar);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  box-shadow: 0 4px 12px var(--shadow-tooltip);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
