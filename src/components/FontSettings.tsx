@@ -111,6 +111,7 @@ export function FontSettingsButton({
 
         <button
           type="button"
+          aria-pressed={spellCheck}
           className="flex items-center justify-between px-1.5 py-1 rounded text-[11.5px] w-full cursor-pointer transition-colors text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={onToggleSpellCheck}
         >

@@ -52,13 +52,7 @@ export function NewFileDialog({
   return (
     <div className="nfd-overlay" role="presentation">
       <button type="button" className="nfd-backdrop" aria-label="Close" onClick={onCancel} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="nfd-panel"
-        onKeyDown={handleKeyDown}
-      >
+      <div role="dialog" aria-modal="true" aria-label={title} className="nfd-panel">
         <p className="nfd-title">{title}</p>
 
         <input
@@ -79,6 +73,7 @@ export function NewFileDialog({
                 <button
                   key={ct.name}
                   type="button"
+                  aria-pressed={selectedType === ct.name}
                   onClick={() => setSelectedType(ct.name)}
                   className={`nfd-chip${selectedType === ct.name ? " active" : ""}`}
                 >
