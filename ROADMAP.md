@@ -99,7 +99,7 @@ This roadmap is organized into deliberate phases — each phase must feel comple
 ## ✅ Remediation — Known Issues from Testing
 > Goal: fix real gaps discovered during use before adding new features. These are not new capabilities — they are corrections to the existing experience that make the app feel complete and trustworthy.
 
-A. ✅ **Native app menu** — full native menu bar (File / Edit / View / Go / Git) built via Tauri `tauri::menu`; each item emits an event to the frontend, routed to the same handlers as keyboard shortcuts; Edit menu uses OS-native Undo/Redo/Cut/Copy/Paste predefined items
+A. ✅ **Native app menu** — full native menu bar (Ovid / File / Edit / Insert / Format / View / Window / Help) built via Tauri `tauri::menu`; Insert and Format items emit `menu-action` events routed to the editor; app-level actions (File, View) routed to App.tsx handlers; Edit uses OS-native predefined Undo/Redo/Cut/Copy/Paste items; Help links opened in Rust without emitting to the frontend
 
 B. ✅ **Keyboard shortcut conflicts** — zen mode remapped from `Cmd+Shift+Z` to `Ctrl+Cmd+Z`; Redo (`Cmd+Shift+Z`) is now fully functional inside the editor; all other shortcuts audited
 

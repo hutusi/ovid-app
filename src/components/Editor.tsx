@@ -170,7 +170,7 @@ export function Editor({
     let mounted = true;
     let unlisten: (() => void) | undefined;
     listen<string>("menu-action", (event) => {
-      if (!editor) return;
+      if (!editor || linkDialog) return;
       switch (event.payload) {
         case "format-bold":
           editor.chain().focus().toggleBold().run();
@@ -225,7 +225,7 @@ export function Editor({
       mounted = false;
       unlisten?.();
     };
-  }, [editor]);
+  }, [editor, linkDialog]);
 
   return (
     <div className="editor-wrapper">

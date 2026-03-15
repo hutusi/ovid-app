@@ -27,7 +27,10 @@ export function LinkDialog({ initialHref, onApply, onRemove, onCancel }: LinkDia
         aria-labelledby="link-dialog-title"
         className="modal link-dialog"
         onKeyDown={(e) => {
-          if (e.key === "Escape") onCancel();
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onCancel();
+          }
         }}
       >
         <p id="link-dialog-title" className="modal-title">

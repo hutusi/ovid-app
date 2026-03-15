@@ -254,15 +254,18 @@ function App() {
     let mounted = true;
     let unlisten: (() => void) | undefined;
     listen<string>("menu-action", (event) => {
+      const hasBlockingOverlay =
+        modal !== null || commitDialog !== null || switcherOpen || workspaceSwitcherOpen;
       switch (event.payload) {
         case "new-file":
-          if (workspaceRoot) setModal({ type: "new-file", dirPath: workspaceRoot });
+          if (!hasBlockingOverlay && workspaceRoot)
+            setModal({ type: "new-file", dirPath: workspaceRoot });
           break;
         case "open-workspace":
           void handleOpenWorkspace();
           break;
         case "switch-workspace":
-          setWorkspaceSwitcherOpen(true);
+          if (!hasBlockingOverlay) setWorkspaceSwitcherOpen(true);
           break;
         case "save":
           void flushPendingSave();
@@ -290,13 +293,13 @@ function App() {
           setTypewriterMode((v) => !v);
           break;
         case "file-switcher":
-          if (tree.length > 0) setSwitcherOpen(true);
+          if (!hasBlockingOverlay && tree.length > 0) setSwitcherOpen(true);
           break;
         case "toggle-spell-check":
           updatePrefs({ spellCheck: !prefs.spellCheck });
           break;
         case "commit-push":
-          if (isGitRepo) {
+          if (!hasBlockingOverlay && isGitRepo) {
             void getBranch()
               .then((branch) => {
                 const title = parsedFrontmatter.title ?? selectedFile?.name ?? "";
@@ -318,6 +321,10 @@ function App() {
       unlisten?.();
     };
   }, [
+    modal,
+    commitDialog,
+    switcherOpen,
+    workspaceSwitcherOpen,
     workspaceRoot,
     tree,
     isGitRepo,
