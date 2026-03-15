@@ -115,21 +115,6 @@
   background: var(--color-bg-hover);
 }
 
-/* ── Date field ──────────────────────────────── */
-.prop-date-input {
-  width: 100%;
-  font-size: 12px;
-  font-family: var(--font-ui);
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-accent);
-  border-radius: 4px;
-  padding: 3px 6px;
-  outline: none;
-  box-sizing: border-box;
-  cursor: pointer;
-}
-
 /* ── Tag chip input ──────────────────────────── */
 .tag-input-area {
   display: flex;

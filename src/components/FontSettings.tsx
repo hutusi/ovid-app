@@ -25,7 +25,7 @@ export function FontSettingsButton({
   onSetWordCountGoal,
 }: FontSettingsProps) {
   const [open, setOpen] = useState(false);
-  const [goalInput, setGoalInput] = useState(wordCountGoal !== null ? String(wordCountGoal) : "");
+  const [goalInput, setGoalInput] = useState("");
 
   function handleSetGoal() {
     const n = Number.parseInt(goalInput, 10);
@@ -40,16 +40,19 @@ export function FontSettingsButton({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (isOpen) setGoalInput(wordCountGoal !== null ? String(wordCountGoal) : "");
+        setOpen(isOpen);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
           className="statusbar-theme-btn"
           title="Editor settings (font, spell check, session goal)"
           aria-label="Editor settings"
-          onClick={() => {
-            setGoalInput(wordCountGoal !== null ? String(wordCountGoal) : "");
-          }}
         >
           Aa
         </button>

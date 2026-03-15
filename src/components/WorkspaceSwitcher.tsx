@@ -1,4 +1,5 @@
 import type { RecentWorkspace } from "../lib/types";
+import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 
@@ -34,18 +35,20 @@ export function WorkspaceSwitcher({
             <button
               key={w.rootPath}
               type="button"
-              className={`flex flex-col items-start w-full px-2.5 py-2 rounded-md text-left cursor-pointer transition-colors relative gap-0.5 ${
+              className={cn(
+                "flex flex-col items-start w-full px-2.5 py-2 rounded-md text-left cursor-pointer transition-colors relative gap-0.5",
                 w.rootPath === currentRootPath ? "bg-secondary" : "hover:bg-accent"
-              }`}
+              )}
               onClick={() => {
                 if (w.rootPath !== currentRootPath) onSelect(w.rootPath);
                 onClose();
               }}
             >
               <span
-                className={`text-[13px] font-medium ${
+                className={cn(
+                  "text-[13px] font-medium",
                   w.rootPath === currentRootPath ? "text-primary" : "text-foreground"
-                }`}
+                )}
               >
                 {w.name}
               </span>

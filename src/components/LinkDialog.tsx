@@ -28,9 +28,7 @@ export function LinkDialog({ initialHref, onApply, onRemove, onCancel }: LinkDia
     >
       <DialogContent
         className="w-[360px] max-w-[calc(100vw-48px)]"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") e.stopPropagation();
-        }}
+        onEscapeKeyDown={(e) => e.stopPropagation()}
       >
         <DialogHeader>
           <DialogTitle>Insert link</DialogTitle>

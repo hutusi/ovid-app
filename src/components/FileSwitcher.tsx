@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FlatFile } from "../lib/fileSearch";
 import { flattenTree, score } from "../lib/fileSearch";
 import type { FileNode, RecentFile } from "../lib/types";
@@ -51,8 +51,8 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
     return { recentResults: [] as FlatFile[], otherResults: filtered };
   }, [allFiles, filesByPath, recentFiles, query]);
 
-  function renderItem(f: FlatFile) {
-    return (
+  const renderItem = useCallback(
+    (f: FlatFile) => (
       <CommandItem
         key={f.node.path}
         value={f.node.path}
@@ -64,8 +64,9 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
         </span>
         <span className="text-[11px] text-muted-foreground truncate w-full">{f.relativePath}</span>
       </CommandItem>
-    );
-  }
+    ),
+    [onSelect]
+  );
 
   return (
     <Dialog
@@ -77,6 +78,7 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
       <DialogContent
         className="overflow-hidden p-0 top-[80px] translate-y-0 max-w-[480px] shadow-2xl"
         aria-label="Quick file switcher"
+        hideCloseButton
       >
         <Command shouldFilter={false}>
           <CommandInput

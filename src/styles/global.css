@@ -100,6 +100,7 @@
   --accent: var(--color-bg-hover);
   --accent-foreground: var(--color-text);
   --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
   --border: var(--color-border);
   --input: var(--color-border-strong);
   --ring: var(--color-accent);
@@ -156,6 +157,7 @@
 
   /* shadcn/ui dark overrides */
   --destructive: #f87171;
+  --destructive-foreground: #ffffff;
 }
 
 html,

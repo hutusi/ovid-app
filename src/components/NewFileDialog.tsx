@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface NewFileDialogProps {
   contentTypes: ContentType[];
@@ -78,18 +79,18 @@ export function NewFileDialog({
               <Label htmlFor="new-file-type" className="text-xs text-muted-foreground shrink-0">
                 Type
               </Label>
-              <select
-                id="new-file-type"
-                className="flex-1 text-sm font-[var(--font-ui)] text-foreground bg-muted border border-input rounded-md px-2 py-1.5 outline-none focus:border-ring transition-colors cursor-pointer"
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-              >
-                {contentTypes.map((ct) => (
-                  <option key={ct.name} value={ct.name}>
-                    {ct.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger id="new-file-type" className="flex-1 h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {contentTypes.map((ct) => (
+                    <SelectItem key={ct.name} value={ct.name}>
+                      {ct.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>

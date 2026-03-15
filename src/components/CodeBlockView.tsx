@@ -26,6 +26,14 @@ const LANGUAGES = [
   "yaml",
 ];
 
+function optionClass(active: boolean) {
+  return `px-2 py-[5px] text-[12px] font-mono rounded text-left transition-colors cursor-pointer ${
+    active
+      ? "bg-primary/10 text-primary"
+      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+  }`;
+}
+
 export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
   const [open, setOpen] = useState(false);
   const language = (node.attrs.language as string | null) ?? "";
@@ -52,11 +60,7 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
           >
             <button
               type="button"
-              className={`px-2 py-[5px] text-[12px] font-mono rounded text-left transition-colors cursor-pointer ${
-                !language
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
+              className={optionClass(!language)}
               onClick={() => selectLang(null)}
             >
               plain
@@ -65,11 +69,7 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
               <button
                 key={lang}
                 type="button"
-                className={`px-2 py-[5px] text-[12px] font-mono rounded text-left transition-colors cursor-pointer ${
-                  language === lang
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
+                className={optionClass(language === lang)}
                 onClick={() => selectLang(lang)}
               >
                 {lang}

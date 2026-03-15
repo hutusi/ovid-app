@@ -69,10 +69,10 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string | null
 
   if (editing) {
     return (
-      <input
+      <Input
         ref={inputRef}
         type="date"
-        className="prop-date-input"
+        className="h-7 text-[12px] cursor-pointer"
         value={value}
         onChange={(e) => {
           onSave(e.target.value || null);
