@@ -24,17 +24,17 @@
 }
 
 .ws-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
 }
 
 .ws-item--active {
-  background: var(--color-bg-selected);
+  background: var(--color-surface-active);
 }
 
 .ws-item-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-fg);
 }
 
 .ws-item--active .ws-item-name {
@@ -43,7 +43,7 @@
 
 .ws-item-path {
   font-size: 11px;
-  color: var(--color-text-muted);
+  color: var(--color-fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -61,7 +61,7 @@
 
 .ws-empty {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--color-fg-muted);
   text-align: center;
   padding: 12px 10px;
   margin: 0;

@@ -25,7 +25,7 @@
 .modal-panel {
   position: relative;
   z-index: 1;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow:
@@ -41,7 +41,7 @@
 .modal-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-fg);
   line-height: 1;
   margin: 0;
 }
@@ -53,8 +53,8 @@
   padding: 0 10px;
   font-size: 13.5px;
   font-family: var(--font-ui);
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--color-fg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: 6px;
   outline: none;
@@ -80,7 +80,7 @@
 
 .modal-input::placeholder,
 .modal-textarea::placeholder {
-  color: var(--color-text-faint);
+  color: var(--color-fg-subtle);
 }
 
 /* ── Actions ──────────────────────────────────── */
@@ -110,14 +110,14 @@
 }
 
 .modal-btn-cancel {
-  color: var(--color-text-muted);
+  color: var(--color-fg-muted);
   background: transparent;
   border: 1px solid var(--color-border);
 }
 
 .modal-btn-cancel:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text);
+  background: var(--color-surface-hover);
+  color: var(--color-fg);
 }
 
 .modal-btn-primary {
@@ -142,7 +142,7 @@
 }
 
 .modal-btn-danger:hover {
-  background: var(--color-warning-light);
+  background: var(--color-warning-subtle);
 }
 
 /* ── Divider ──────────────────────────────────── */

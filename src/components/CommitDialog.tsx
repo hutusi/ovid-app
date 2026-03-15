@@ -38,14 +38,14 @@ export function CommitDialog({ defaultMessage, branch, onCommit, onCancel }: Com
         <p className="modal-title">Commit changes</p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11.5, color: "var(--color-text-muted)", flexShrink: 0 }}>
+          <span style={{ fontSize: 11.5, color: "var(--color-fg-muted)", flexShrink: 0 }}>
             Branch
           </span>
           <code
             style={{
               fontSize: 11.5,
-              color: "var(--color-text-muted)",
-              background: "var(--color-bg-sidebar)",
+              color: "var(--color-fg-muted)",
+              background: "var(--color-surface-subtle)",
               border: "1px solid var(--color-border)",
               borderRadius: 4,
               padding: "1px 6px",
@@ -71,7 +71,7 @@ export function CommitDialog({ defaultMessage, branch, onCommit, onCancel }: Com
             alignItems: "center",
             gap: 8,
             fontSize: 13,
-            color: "var(--color-text-muted)",
+            color: "var(--color-fg-muted)",
             cursor: "pointer",
           }}
         >

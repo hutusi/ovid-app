@@ -63,7 +63,7 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
         <span className="text-[13.5px] truncate w-full" style={{ opacity: f.node.draft ? 0.5 : 1 }}>
           {f.displayName}
         </span>
-        <span className="text-[11px] truncate w-full" style={{ color: "var(--color-text-muted)" }}>
+        <span className="text-[11px] truncate w-full" style={{ color: "var(--color-fg-muted)" }}>
           {f.relativePath}
         </span>
       </CommandItem>
