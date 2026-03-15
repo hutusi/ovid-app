@@ -577,11 +577,27 @@ fn git_commit(
     Ok(())
 }
 
+/// Compute a POSIX-style relative path from `from_dir` to `to`.
+fn relative_path_from(from_dir: &Path, to: &Path) -> String {
+    let from: Vec<_> = from_dir.components().collect();
+    let to_c: Vec<_> = to.components().collect();
+    let common = from.iter().zip(to_c.iter()).take_while(|(a, b)| a == b).count();
+    let mut rel = PathBuf::new();
+    for _ in common..from.len() {
+        rel.push("..");
+    }
+    for c in &to_c[common..] {
+        rel.push(c);
+    }
+    rel.to_string_lossy().replace('\\', "/")
+}
+
 /// Copy an image from an arbitrary path into `<workspace>/assets/` and return
-/// the relative markdown path (e.g. `assets/photo.png`).
+/// a path relative to the active markdown file (or `assets/<name>` as fallback).
 #[tauri::command]
 fn save_asset(
     src_path: String,
+    active_file_path: Option<String>,
     state: State<'_, WorkspaceState>,
 ) -> Result<String, String> {
     let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
@@ -613,7 +629,16 @@ fn save_asset(
     let dest = assets_dir.join(&dest_name);
     std::fs::copy(src, &dest).map_err(|e| format!("copy failed: {e}"))?;
 
-    Ok(format!("assets/{dest_name}"))
+    // Return a path relative to the active file's directory when available.
+    let rel = if let Some(active) = active_file_path {
+        let from_dir = PathBuf::from(&active);
+        let from_dir = from_dir.parent().unwrap_or(Path::new(""));
+        relative_path_from(from_dir, &dest)
+    } else {
+        format!("assets/{dest_name}")
+    };
+
+    Ok(rel)
 }
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
 
 interface EditorProps {
   content?: string;
+  filePath?: string;
   typewriterMode?: boolean;
   onWordCount?: (count: number) => void;
   onChange?: (markdown: string) => void;
@@ -24,6 +25,7 @@ interface EditorProps {
 
 export function Editor({
   content = "",
+  filePath,
   typewriterMode = false,
   onWordCount,
   onChange,
@@ -55,28 +57,34 @@ export function Editor({
     content,
     editorProps: {
       handleDrop(view, event) {
-        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
-          IMAGE_MIME.test(f.type)
-        );
-        if (files.length === 0) return false;
+        const imageFiles = Array.from(event.dataTransfer?.files ?? [])
+          .filter((f) => IMAGE_MIME.test(f.type))
+          .map((f) => ({ name: f.name, srcPath: (f as { path?: string }).path }))
+          .filter((f): f is { name: string; srcPath: string } => f.srcPath !== undefined);
+        if (imageFiles.length === 0) return false;
         event.preventDefault();
-        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
-        for (const file of files) {
-          const srcPath: string | undefined = (file as { path?: string }).path;
-          if (!srcPath) continue;
-          invoke<string>("save_asset", { srcPath })
-            .then((relPath) => {
-              if (pos !== undefined) {
-                view.dispatch(
-                  view.state.tr.insert(
-                    pos,
-                    view.state.schema.nodes.image.create({ src: relPath, alt: file.name })
-                  )
-                );
-              }
-            })
-            .catch((err) => console.error("save_asset failed:", err));
-        }
+        const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        if (dropPos === undefined) return true;
+        Promise.all(
+          imageFiles.map(({ name, srcPath }) =>
+            invoke<string>("save_asset", { srcPath, activeFilePath: filePath }).then((relPath) => ({
+              name,
+              relPath,
+            }))
+          )
+        )
+          .then((results) => {
+            // Apply all insertions in one transaction to avoid stale positions
+            const tr = view.state.tr;
+            let offset = 0;
+            for (const { name, relPath } of results) {
+              const node = view.state.schema.nodes.image.create({ src: relPath, alt: name });
+              tr.insert(dropPos + offset, node);
+              offset += node.nodeSize;
+            }
+            view.dispatch(tr);
+          })
+          .catch((err) => console.error("save_asset failed:", err));
         return true;
       },
     },

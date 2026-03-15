@@ -75,7 +75,7 @@
 
 .statusbar-session {
   font-size: 11px;
-  color: var(--color-success, #22c55e);
+  color: var(--color-success);
   font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   opacity: 0.8;

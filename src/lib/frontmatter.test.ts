@@ -131,19 +131,25 @@ describe("createTypedFrontmatter", () => {
     expect(result.endsWith("---\n")).toBe(true);
   });
 
-  it("includes the provided content type as a quoted string", () => {
+  it("includes the provided content type", () => {
     const result = createTypedFrontmatter("my-post", "note");
-    expect(result).toContain('type: "note"');
+    expect(result).toContain("type: note");
+  });
+
+  it("quotes type values that would be coerced by YAML (e.g. 'true')", () => {
+    const result = createTypedFrontmatter("my-post", "true");
+    // js-yaml must quote 'true' so it stays a string, not a boolean
+    expect(result).toMatch(/type: ['"]true['"]/);
   });
 
   it("converts slug to title case for the title field", () => {
     const result = createTypedFrontmatter("hello-world", "post");
-    expect(result).toContain('title: "Hello World"');
+    expect(result).toContain("title: Hello World");
   });
 
   it("converts underscores in slug to spaces in title", () => {
     const result = createTypedFrontmatter("hello_world", "page");
-    expect(result).toContain('title: "Hello World"');
+    expect(result).toContain("title: Hello World");
   });
 
   it("sets draft: true", () => {

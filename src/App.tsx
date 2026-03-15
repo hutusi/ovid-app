@@ -268,6 +268,7 @@ function App() {
             <Editor
               key={selectedFile.path}
               content={fileContent}
+              filePath={selectedFile.path}
               typewriterMode={typewriterMode}
               onWordCount={setWordCount}
               onChange={handleEditorChange}

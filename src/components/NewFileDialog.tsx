@@ -76,8 +76,11 @@ export function NewFileDialog({ contentTypes, onConfirm, onCancel }: NewFileDial
         />
         {contentTypes.length > 0 && (
           <div className="modal-type-row">
-            <span className="modal-type-label">Type</span>
+            <label htmlFor="new-file-type" className="modal-type-label">
+              Type
+            </label>
             <select
+              id="new-file-type"
               ref={selectRef}
               className="modal-type-select"
               value={selectedType}

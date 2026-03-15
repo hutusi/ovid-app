@@ -172,7 +172,7 @@
 /* ── Syntax highlighting (lowlight/highlight.js tokens) ─── */
 .hljs-comment,
 .hljs-quote {
-  color: var(--color-text-faint);
+  color: var(--color-syntax-comment);
   font-style: italic;
 }
 
@@ -181,7 +181,7 @@
 .hljs-built_in,
 .hljs-name,
 .hljs-tag {
-  color: #7c7fff;
+  color: var(--color-syntax-keyword);
 }
 
 .hljs-string,
@@ -193,19 +193,19 @@
 .hljs-template-variable,
 .hljs-type,
 .hljs-addition {
-  color: #22c55e;
+  color: var(--color-syntax-string);
 }
 
 .hljs-deletion,
 .hljs-selector-attr,
 .hljs-selector-pseudo,
 .hljs-meta {
-  color: #f59e0b;
+  color: var(--color-syntax-meta);
 }
 
 .hljs-doctag,
 .hljs-attr {
-  color: #6366f1;
+  color: var(--color-syntax-attr);
 }
 
 .hljs-symbol,
@@ -215,7 +215,7 @@
 .hljs-variable,
 .hljs-number,
 .hljs-regexp {
-  color: #f97316;
+  color: var(--color-syntax-number);
 }
 
 .hljs-emphasis {
