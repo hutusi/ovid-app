@@ -53,8 +53,8 @@
   --color-accent: #6366f1;
   --color-accent-light: rgba(99, 102, 241, 0.12);
 
-  --color-status-bg: #18181b;
-  --color-status-text: #a1a1aa;
+  --color-status-bg: var(--color-bg-sidebar);
+  --color-status-text: var(--color-text-faint);
 
   --color-warning: #f59e0b;
   --color-warning-light: rgba(245, 158, 11, 0.12);
