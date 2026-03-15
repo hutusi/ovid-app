@@ -136,11 +136,12 @@ function HighlightedLine({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
   const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`(${escaped})`, "gi");
+  const lowerQuery = query.trim().toLowerCase();
   const parts = text.split(regex);
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        part.toLowerCase() === lowerQuery ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: split parts have no stable key
           <mark key={i} className="search-highlight">
             {part}

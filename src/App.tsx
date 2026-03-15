@@ -330,8 +330,10 @@ function App() {
           defaultMessage={commitDialog.message}
           branch={commitDialog.branch}
           onCommit={(message, push) => {
-            setCommitDialog(null);
-            void handleCommit(message, push).catch((err) => showToast(`Commit failed: ${err}`));
+            void flushPendingSave()
+              .then(() => handleCommit(message, push))
+              .then(() => setCommitDialog(null))
+              .catch((err) => showToast(`Commit failed: ${err}`));
           }}
           onCancel={() => setCommitDialog(null)}
         />

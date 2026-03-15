@@ -528,7 +528,7 @@ fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>
         } else {
             path_part
         };
-        let abs_path = format!("{}/{}", git_root, file_path);
+        let abs_path = PathBuf::from(&git_root).join(file_path).to_string_lossy().into_owned();
         let status = if xy.starts_with('?') {
             "untracked"
         } else if xy.chars().next().map(|c| c != ' ').unwrap_or(false) {
@@ -543,11 +543,20 @@ fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>
 
 #[tauri::command]
 fn get_git_branch(state: State<'_, WorkspaceState>) -> Result<String, String> {
-    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
-    let root = root_guard.as_ref().ok_or("no workspace open")?.clone();
+    let root_guard = match state.tree_root.lock() {
+        Ok(g) => g,
+        Err(_) => return Ok(String::new()),
+    };
+    let root = match root_guard.as_ref() {
+        Some(r) => r.clone(),
+        None => return Ok(String::new()),
+    };
     drop(root_guard);
-    run_git(&root.to_string_lossy(), &["rev-parse", "--abbrev-ref", "HEAD"])
-        .map(|s| s.trim().to_string())
+    Ok(
+        run_git(&root.to_string_lossy(), &["rev-parse", "--abbrev-ref", "HEAD"])
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default(),
+    )
 }
 
 #[tauri::command]

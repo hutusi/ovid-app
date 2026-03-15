@@ -131,9 +131,9 @@ describe("createTypedFrontmatter", () => {
     expect(result.endsWith("---\n")).toBe(true);
   });
 
-  it("includes the provided content type", () => {
+  it("includes the provided content type as a quoted string", () => {
     const result = createTypedFrontmatter("my-post", "note");
-    expect(result).toContain("type: note");
+    expect(result).toContain('type: "note"');
   });
 
   it("converts slug to title case for the title field", () => {
