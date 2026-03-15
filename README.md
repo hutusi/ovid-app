@@ -101,7 +101,7 @@ Right-click any directory in the sidebar and choose **New folder** to create a s
 
 ## The Editor
 
-Ovid uses a **Typora-style WYSIWYG** editor (Tiptap / ProseMirror). Markdown renders inline as you type — no split pane. The on-disk format is always valid `.md`.
+Ovid uses a **Typora-style WYSIWYG** editor (Tiptap / ProseMirror). Markdown renders inline as you type — no split pane. Files are persisted as valid Markdown; `.md` and `.mdx` files are both supported and never coerced into a different format.
 
 ### Font & size
 
