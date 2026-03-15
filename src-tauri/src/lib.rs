@@ -2,7 +2,9 @@ use serde::Serialize;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::menu::{MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::{Emitter, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_dialog::DialogExt;
 
 // Holds workspace paths so file commands can validate against them.
@@ -36,24 +38,26 @@ struct FileNode {
     extension: Option<String>,
     title: Option<String>,
     draft: Option<bool>,
+    content_type: Option<String>,
 }
 
 /// Read the frontmatter block (between `---` fences) of a markdown file and
-/// extract the `title` and `draft` scalar values using simple line scanning.
-/// Returns `(None, None)` if the file can't be read or has no frontmatter.
+/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
+/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
 /// Uses a buffered reader so only the frontmatter is read, not the full file.
-fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
+fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
     use std::io::{BufRead, BufReader};
     let Ok(file) = std::fs::File::open(path) else {
-        return (None, None);
+        return (None, None, None);
     };
     let mut reader = BufReader::new(file);
     let mut first_line = String::new();
     if reader.read_line(&mut first_line).is_err() || first_line.trim() != "---" {
-        return (None, None);
+        return (None, None, None);
     }
     let mut title: Option<String> = None;
     let mut draft: Option<bool> = None;
+    let mut content_type: Option<String> = None;
     let mut line = String::new();
     while reader.read_line(&mut line).unwrap_or(0) > 0 {
         if line.trim() == "---" {
@@ -68,10 +72,15 @@ fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>) {
                 "false" => Some(false),
                 _ => None,
             };
+        } else if let Some(rest) = line.strip_prefix("type:") {
+            let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
+            if !val.is_empty() {
+                content_type = Some(val);
+            }
         }
         line.clear();
     }
-    (title, draft)
+    (title, draft, content_type)
 }
 
 #[derive(Serialize)]
@@ -113,6 +122,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                     extension: None,
                     title: None,
                     draft: None,
+                    content_type: None,
                 });
             }
         } else {
@@ -121,7 +131,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                 .and_then(|e| e.to_str())
                 .unwrap_or("");
             if ext == "md" || ext == "mdx" {
-                let (title, draft) = read_frontmatter_meta(&entry_path);
+                let (title, draft, content_type) = read_frontmatter_meta(&entry_path);
                 nodes.push(FileNode {
                     name,
                     path: entry_path.to_string_lossy().to_string(),
@@ -130,6 +140,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                     extension: Some(format!(".{}", ext)),
                     title,
                     draft,
+                    content_type,
                 });
             }
         }
@@ -368,7 +379,7 @@ fn search_dir(path: &Path, query: &str) -> Vec<SearchResult> {
                 })
                 .collect();
             if !matches.is_empty() {
-                let (title, _) = read_frontmatter_meta(&entry_path);
+                let (title, _, _) = read_frontmatter_meta(&entry_path);
                 results.push(SearchResult {
                     path: entry_path.to_string_lossy().to_string(),
                     title,
@@ -706,6 +717,193 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // ── Ovid (app menu) ───────────────────────────────────────────────
+            let ovid_menu = SubmenuBuilder::new(app, "Ovid")
+                .items(&[
+                    &PredefinedMenuItem::about(app, None, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::show_all(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ])
+                .build()?;
+
+            // ── File ──────────────────────────────────────────────────────────
+            let new_submenu = SubmenuBuilder::new(app, "New")
+                .items(&[
+                    &MenuItemBuilder::with_id("new-post", "New Post")
+                        .accelerator("CmdOrCtrl+N")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("new-flow", "New Flow").build(app)?,
+                    &MenuItemBuilder::with_id("new-note", "New Note").build(app)?,
+                    &MenuItemBuilder::with_id("new-series", "New Series").build(app)?,
+                    &MenuItemBuilder::with_id("new-book", "New Book").build(app)?,
+                    &MenuItemBuilder::with_id("new-page", "New Page").build(app)?,
+                ])
+                .build()?;
+
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .items(&[
+                    &new_submenu,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("open-workspace", "Open Workspace…")
+                        .accelerator("CmdOrCtrl+O")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("switch-workspace", "Switch Workspace…")
+                        .accelerator("CmdOrCtrl+Shift+O")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("save", "Save")
+                        .accelerator("CmdOrCtrl+S")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("close-file", "Close File")
+                        .accelerator("CmdOrCtrl+W")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("commit-push", "Commit & Push…")
+                        .accelerator("CmdOrCtrl+Shift+G")
+                        .build(app)?,
+                ])
+                .build()?;
+
+            // ── Edit ──────────────────────────────────────────────────────────
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .items(&[
+                    &PredefinedMenuItem::undo(app, None)?,
+                    &PredefinedMenuItem::redo(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::cut(app, None)?,
+                    &PredefinedMenuItem::copy(app, None)?,
+                    &PredefinedMenuItem::paste(app, None)?,
+                    &PredefinedMenuItem::select_all(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("toggle-search", "Find in Workspace…")
+                        .accelerator("CmdOrCtrl+Shift+F")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("file-switcher", "Open Quickly…")
+                        .accelerator("CmdOrCtrl+P")
+                        .build(app)?,
+                ])
+                .build()?;
+
+            // ── Insert ────────────────────────────────────────────────────────
+            let insert_menu = SubmenuBuilder::new(app, "Insert")
+                .items(&[
+                    &MenuItemBuilder::with_id("insert-link", "Link…")
+                        .accelerator("CmdOrCtrl+K")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("insert-code-block", "Code Block").build(app)?,
+                    &MenuItemBuilder::with_id("insert-hr", "Horizontal Rule").build(app)?,
+                ])
+                .build()?;
+
+            // ── Format ────────────────────────────────────────────────────────
+            let format_menu = SubmenuBuilder::new(app, "Format")
+                .items(&[
+                    &MenuItemBuilder::with_id("format-bold", "Bold")
+                        .accelerator("CmdOrCtrl+B")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("format-italic", "Italic")
+                        .accelerator("CmdOrCtrl+I")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("format-strike", "Strikethrough").build(app)?,
+                    &MenuItemBuilder::with_id("format-code", "Inline Code")
+                        .accelerator("CmdOrCtrl+E")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-heading-1", "Heading 1").build(app)?,
+                    &MenuItemBuilder::with_id("format-heading-2", "Heading 2").build(app)?,
+                    &MenuItemBuilder::with_id("format-heading-3", "Heading 3").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-blockquote", "Blockquote").build(app)?,
+                    &MenuItemBuilder::with_id("format-bullet-list", "Bullet List").build(app)?,
+                    &MenuItemBuilder::with_id("format-ordered-list", "Numbered List").build(app)?,
+                ])
+                .build()?;
+
+            // ── View ──────────────────────────────────────────────────────────
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .items(&[
+                    &MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
+                        .accelerator("CmdOrCtrl+\\")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("toggle-properties", "Toggle Properties Panel")
+                        .accelerator("CmdOrCtrl+Shift+P")
+                        .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("zen-mode", "Zen Mode")
+                        .accelerator("Ctrl+Cmd+Z")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("typewriter-mode", "Typewriter Mode").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("toggle-spell-check", "Toggle Spell Check")
+                        .build(app)?,
+                ])
+                .build()?;
+
+            // ── Window ────────────────────────────────────────────────────────
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .items(&[
+                    &PredefinedMenuItem::minimize(app, None)?,
+                    &PredefinedMenuItem::maximize(app, None)?,
+                ])
+                .build()?;
+
+            // ── Help ──────────────────────────────────────────────────────────
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .items(&[
+                    &MenuItemBuilder::with_id("help-docs", "Ovid Documentation").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("help-issues", "Report an Issue…").build(app)?,
+                ])
+                .build()?;
+
+            let menu = tauri::menu::Menu::with_items(
+                app,
+                &[
+                    &ovid_menu,
+                    &file_menu,
+                    &edit_menu,
+                    &insert_menu,
+                    &format_menu,
+                    &view_menu,
+                    &window_menu,
+                    &help_menu,
+                ],
+            )?;
+            app.set_menu(menu)?;
+
+            // Help links are resolved in Rust; everything else is forwarded to
+            // the frontend as a "menu-action" event.
+            let handle = app.handle().clone();
+            app.on_menu_event(move |_app, event| {
+                match event.id().as_ref() {
+                    "help-docs" => {
+                        let _ = handle.opener().open_url(
+                            "https://github.com/hutusi/ovid-app",
+                            None::<&str>,
+                        );
+                    }
+                    "help-issues" => {
+                        let _ = handle.opener().open_url(
+                            "https://github.com/hutusi/ovid-app/issues",
+                            None::<&str>,
+                        );
+                    }
+                    id => {
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let _ = window.emit("menu-action", id);
+                        }
+                    }
+                }
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             open_workspace,
             open_workspace_at_path,

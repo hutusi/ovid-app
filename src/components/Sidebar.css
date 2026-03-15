@@ -1,4 +1,5 @@
 .sidebar {
+  position: relative;
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   background: var(--color-bg-sidebar);
@@ -13,12 +14,86 @@
     border-right-color 0.2s ease;
 }
 
+.sidebar.resizing {
+  transition: none;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.sidebar-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.sidebar-resize-handle:hover::after {
+  background: var(--color-accent);
+  opacity: 0.5;
+}
+
 .sidebar.hidden {
   width: 0;
   min-width: 0;
   border-right-color: transparent;
   visibility: hidden;
   pointer-events: none;
+}
+
+.sidebar-filter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-filter-input {
+  flex: 1;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sidebar-filter-input:focus {
+  border-color: var(--color-accent);
+}
+
+.sidebar-filter-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.sidebar-filter-clear {
+  position: absolute;
+  right: 14px;
+  font-size: 9px;
+  color: var(--color-text-faint);
+  padding: 2px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.sidebar-filter-clear:hover {
+  color: var(--color-text);
 }
 
 .sidebar-header {
@@ -103,29 +178,6 @@
   padding-right: 6px;
 }
 
-.sidebar-dir-action {
-  opacity: 0;
-  font-size: 14px;
-  color: var(--color-text-faint);
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-left: auto;
-  transition:
-    color 0.15s,
-    opacity 0.15s,
-    background 0.15s;
-}
-
-.sidebar-dir-row:hover .sidebar-dir-action,
-.sidebar-dir-row:focus-within .sidebar-dir-action {
-  opacity: 1;
-}
-
-.sidebar-dir-action:hover {
-  color: var(--color-accent);
-  background: var(--color-accent-light);
-}
-
 .sidebar-dir {
   display: flex;
   align-items: center;
@@ -137,6 +189,7 @@
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  text-align: left;
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.1s;
@@ -144,11 +197,6 @@
 
 .sidebar-dir:hover {
   background: var(--color-bg-hover);
-}
-
-.sidebar-chevron {
-  font-size: 9px;
-  transition: none;
 }
 
 /* ── File rows ───────────────────────────────── */
@@ -175,6 +223,7 @@
   padding: 5px 4px 5px 0;
   font-size: 13.5px;
   color: var(--color-text);
+  text-align: left;
   cursor: pointer;
   transition: none;
 }
@@ -195,27 +244,19 @@
   opacity: 0.5;
 }
 
-.sidebar-delete-btn {
-  opacity: 0;
-  font-size: 10px;
-  color: var(--color-text-faint);
-  padding: 2px 4px;
-  border-radius: 3px;
+.sidebar-file-icon {
   flex-shrink: 0;
-  transition:
-    opacity 0.15s,
-    color 0.15s,
-    background 0.15s;
+  color: var(--color-text-faint);
+  opacity: 0.7;
 }
 
-.sidebar-file-row:hover .sidebar-delete-btn,
-.sidebar-file-row:focus-within .sidebar-delete-btn {
+.sidebar-file-row.selected .sidebar-file-icon {
+  color: var(--color-accent);
   opacity: 1;
 }
 
-.sidebar-delete-btn:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+.sidebar-dir-icon {
+  opacity: 0.6;
 }
 
 /* ── Inline rename ───────────────────────────── */
@@ -233,12 +274,6 @@
   border: 1px solid var(--color-accent);
   border-radius: 4px;
   outline: none;
-}
-
-.sidebar-icon {
-  font-size: 10px;
-  color: var(--color-text-faint);
-  flex-shrink: 0;
 }
 
 /* ── Empty workspace state ───────────────────── */
@@ -264,6 +299,14 @@
 
 .sidebar-open-workspace-btn:hover {
   background: var(--color-accent-light);
+}
+
+/* ── Pages section divider ───────────────────── */
+.sidebar-section-divider {
+  margin: 4px 10px;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  opacity: 0.6;
 }
 
 /* Git status indicators */

@@ -33,7 +33,7 @@ bun run validate      # Type-check + lint + test
 | `Cmd+\` | Toggle sidebar |
 | `Cmd+Shift+P` | Toggle properties panel |
 | `Cmd+Shift+F` | Toggle full-text search |
-| `Cmd+Shift+Z` | Toggle zen mode |
+| `Ctrl+Cmd+Z` | Toggle zen mode |
 | `Cmd+Shift+G` | Open commit dialog |
 | `Cmd+Shift+O` | Open workspace switcher |
 | `Cmd+P` | Open file switcher |
@@ -41,10 +41,31 @@ bun run validate      # Type-check + lint + test
 | `Cmd+S` | Force save (bypass debounce) |
 | `Cmd+W` | Close current file |
 | `Cmd+O` | Open workspace (folder picker) |
+| `Cmd+K` | Insert / edit link |
+| `Cmd+E` | Toggle inline code |
 | `F2` | Rename selected file |
 | `Esc` | Exit zen mode |
 
-> On Windows/Linux, substitute `Ctrl` for `Cmd`.
+> On Windows/Linux, substitute `Ctrl` for `Cmd`. Zen mode (`Ctrl+Cmd+Z`) is macOS-only.
+
+---
+
+## App Menu
+
+All major actions are accessible from the native menu bar, making features discoverable without knowing keyboard shortcuts.
+
+| Menu | Items |
+|---|---|
+| **Ovid** | About Ovid, Hide, Quit (standard macOS app menu) |
+| **File** | New File, Open Workspace, Switch Workspace, Save, Close File, Commit & Push |
+| **Edit** | Undo, Redo, Cut, Copy, Paste, Select All, Find in Workspace, Open Quickly |
+| **Insert** | Link…, Code Block, Horizontal Rule |
+| **Format** | Bold, Italic, Strikethrough, Inline Code, Heading 1/2/3, Blockquote, Bullet List, Numbered List |
+| **View** | Toggle Sidebar, Toggle Properties Panel, Zen Mode, Typewriter Mode, Toggle Spell Check |
+| **Window** | Minimize, Zoom (standard macOS window menu) |
+| **Help** | Ovid Documentation, Report an Issue… |
+
+Menu items show their keyboard shortcut where one exists. Insert and Format menu items work on the current editor selection.
 
 ---
 
@@ -71,10 +92,14 @@ Press `Cmd+Shift+O` or click the workspace name in the sidebar header to open th
 The sidebar shows the full file tree of the current workspace, filtered to `.md` / `.mdx` files.
 
 - **Toggle** — `Cmd+\` hides/shows the sidebar; state is remembered across sessions
-- **Directory expand/collapse** — click a directory name or chevron to toggle; expanded state is persisted per workspace
+- **Resize** — drag the right border to resize between 180 px and 480 px; width is persisted across sessions
+- **Directory expand/collapse** — click a directory to toggle; folder icon changes between open/closed state
+- **Filter** — type in the filter input below the header to narrow the file list by filename or frontmatter `title` in real time; press `Esc` or click `✕` to clear
 - **Titles** — frontmatter `title` is shown instead of the filename where available
 - **Draft indicator** — files with `draft: true` are dimmed
-- **Git status** — per-file `●` (modified), `+` (untracked), `S` (staged) markers appear when the workspace is a git repository
+- **Content type icons** — files show an icon based on their frontmatter `type:` field (`post`, `flow`, `series`, `book`, `page`, `note`); a generic file icon is used when the field is absent
+- **Git status** — per-file coloured dot appears when the workspace is a git repository (modified, staged, untracked); a rollup dot appears on a collapsed directory if any child has uncommitted changes
+- **Context menu** — right-click any file or directory to rename, delete, or create a new file inside that directory
 - **Workspace name** — click it to open the workspace switcher
 
 ---
@@ -95,7 +120,7 @@ Moves the file to the system Trash (not permanent delete). A confirmation dialog
 
 ### New folder
 
-Right-click any directory in the sidebar and choose **New folder** to create a subdirectory. Useful for organising Amytis content collections.
+Right-click any directory in the sidebar and choose **New file here** to create a file inside it. Subdirectories can be created the same way.
 
 ---
 
@@ -116,17 +141,25 @@ Preferences are persisted across sessions.
 
 Toggle native OS spell check from the **Aa** popover. The preference is persisted. Misspellings are underlined by the OS without disrupting the editor.
 
-### Zen mode (`Cmd+Shift+Z`)
+### Zen mode (`Ctrl+Cmd+Z`)
 
-Hides the sidebar, properties panel, and status bar. The editor expands to full width with generous vertical margins. Press `Esc` or `Cmd+Shift+Z` again to exit. Works even when the editor has focus.
+Hides the sidebar, properties panel, and status bar. The editor expands to full width with generous vertical margins. Press `Esc` or `Ctrl+Cmd+Z` again to exit. Works even when the editor has focus.
 
 ### Typewriter mode
 
 Toggle from the status bar (⌨ button). Keeps the active line vertically centred as you type, reducing eye movement during long writing sessions.
 
+### Links (`Cmd+K`)
+
+Press `Cmd+K` while the editor has focus to open the link dialog. If the cursor is already inside a link, the dialog pre-fills with the current URL and shows a **Remove** button to unset the link.
+
+### Inline code (`Cmd+E`)
+
+Select text and press `Cmd+E` to wrap it in backticks as inline code. Press again to remove the formatting.
+
 ### Code blocks
 
-Fenced code blocks are rendered with syntax highlighting via `lowlight`. Highlighting is display-only — the saved markdown is unchanged.
+Fenced code blocks are rendered with syntax highlighting via `lowlight`. A language label appears in the top-right corner of each block — click it to open a dropdown and select a language. Highlighting and the label are display-only; the saved markdown is unchanged.
 
 ### Image drag-and-drop
 

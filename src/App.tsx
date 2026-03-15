@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { CommitDialog } from "./components/CommitDialog";
 import { Editor } from "./components/Editor";
@@ -22,7 +23,7 @@ import { useWorkspace } from "./lib/useWorkspace";
 import "./styles/global.css";
 import "./App.css";
 
-type ModalState = { type: "new-file"; dirPath: string } | null;
+type ModalState = { type: "new-file"; dirPath: string; contentType?: string } | null;
 type CommitDialogState = { message: string; branch: string } | null;
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
@@ -152,12 +153,13 @@ function App() {
         return;
       }
       if (!e.metaKey && !e.ctrlKey) return;
-      // Mode toggles work even when editor has focus
-      if (e.shiftKey && e.key === "Z") {
+      // Ctrl+Cmd+Z — zen mode (macOS); avoids conflict with Redo (Cmd+Shift+Z)
+      if (e.metaKey && e.ctrlKey && e.key === "z") {
         e.preventDefault();
         setZenMode((v) => !v);
         return;
       }
+      // Mode toggles work even when editor has focus
       if (e.shiftKey && e.key === "P") {
         e.preventDefault();
         setPropertiesOpen((v) => !v);
@@ -210,7 +212,8 @@ function App() {
           break;
         case "n":
           e.preventDefault();
-          if (workspaceRoot) setModal({ type: "new-file", dirPath: workspaceRoot });
+          if (workspaceRoot)
+            setModal({ type: "new-file", dirPath: workspaceRoot, contentType: "post" });
           break;
         case "s":
           e.preventDefault();
@@ -246,6 +249,105 @@ function App() {
   useEffect(() => {
     if (saveStatus === "saved" && isGitRepo) void refreshGitStatus();
   }, [saveStatus, isGitRepo, refreshGitStatus]);
+
+  // Forward native menu events to the same handlers as keyboard shortcuts
+  useEffect(() => {
+    let mounted = true;
+    let unlisten: (() => void) | undefined;
+    listen<string>("menu-action", (event) => {
+      const hasBlockingOverlay =
+        modal !== null || commitDialog !== null || switcherOpen || workspaceSwitcherOpen;
+      switch (event.payload) {
+        case "new-post":
+        case "new-flow":
+        case "new-note":
+        case "new-series":
+        case "new-book":
+        case "new-page":
+          if (!hasBlockingOverlay && workspaceRoot)
+            setModal({
+              type: "new-file",
+              dirPath: workspaceRoot,
+              contentType: event.payload.replace("new-", ""),
+            });
+          break;
+        case "open-workspace":
+          void handleOpenWorkspace();
+          break;
+        case "switch-workspace":
+          if (!hasBlockingOverlay) setWorkspaceSwitcherOpen(true);
+          break;
+        case "save":
+          void flushPendingSave();
+          break;
+        case "close-file":
+          void handleCloseFile();
+          break;
+        case "toggle-sidebar":
+          setSidebarVisible((v) => {
+            const next = !v;
+            localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next));
+            return next;
+          });
+          break;
+        case "toggle-properties":
+          setPropertiesOpen((v) => !v);
+          break;
+        case "toggle-search":
+          if (workspaceRoot) setSearchOpen((v) => !v);
+          break;
+        case "zen-mode":
+          setZenMode((v) => !v);
+          break;
+        case "typewriter-mode":
+          setTypewriterMode((v) => !v);
+          break;
+        case "file-switcher":
+          if (!hasBlockingOverlay && tree.length > 0) setSwitcherOpen(true);
+          break;
+        case "toggle-spell-check":
+          updatePrefs({ spellCheck: !prefs.spellCheck });
+          break;
+        case "commit-push":
+          if (!hasBlockingOverlay && isGitRepo) {
+            void getBranch()
+              .then((branch) => {
+                const title = parsedFrontmatter.title ?? selectedFile?.name ?? "";
+                setCommitDialog({ message: `Update: ${title}`, branch });
+              })
+              .catch(() => showToast("Failed to get git branch"));
+          }
+          break;
+      }
+    }).then((fn) => {
+      if (mounted) {
+        unlisten = fn;
+      } else {
+        fn();
+      }
+    });
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, [
+    modal,
+    commitDialog,
+    switcherOpen,
+    workspaceSwitcherOpen,
+    workspaceRoot,
+    tree,
+    isGitRepo,
+    getBranch,
+    parsedFrontmatter,
+    selectedFile,
+    showToast,
+    flushPendingSave,
+    handleCloseFile,
+    handleOpenWorkspace,
+    prefs,
+    updatePrefs,
+  ]);
 
   const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;
 
@@ -289,7 +391,6 @@ function App() {
             renamingPath={renamingPath}
             visible={sidebarVisible}
             workspaceName={workspaceName}
-            workspaceRoot={workspaceRoot}
             gitStatusMap={gitStatusMap}
             onSelect={(node) => {
               void handleSelectFile(node);
@@ -386,6 +487,7 @@ function App() {
       {modal?.type === "new-file" && (
         <NewFileDialog
           contentTypes={contentTypes}
+          preselectedType={modal.contentType}
           onConfirm={(name, contentType) => {
             void handleNewFile(modal.dirPath, name, contentType);
             setModal(null);

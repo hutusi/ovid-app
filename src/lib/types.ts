@@ -6,6 +6,7 @@ export interface FileNode {
   extension?: string;
   title?: string;
   draft?: boolean;
+  contentType?: string;
 }
 
 export interface WorkspaceState {

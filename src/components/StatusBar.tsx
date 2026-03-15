@@ -100,7 +100,7 @@ export function StatusBar({
           type="button"
           className={`statusbar-mode-btn${zenMode ? " active" : ""}`}
           onClick={onToggleZen}
-          title={zenMode ? "Exit zen mode (Esc)" : "Enter zen mode (⌘⇧Z)"}
+          title={zenMode ? "Exit zen mode (Esc)" : "Enter zen mode (⌃⌘Z)"}
           aria-label="Toggle zen mode"
           aria-pressed={zenMode}
         >

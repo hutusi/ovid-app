@@ -1,15 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
+import { CodeBlockView } from "./CodeBlockView";
+import { LinkDialog } from "./LinkDialog";
 import "../styles/editor.css";
 
 const lowlight = createLowlight(common);
@@ -39,10 +42,16 @@ export function Editor({
     typewriterRef.current = typewriterMode;
   }, [typewriterMode]);
 
+  const [linkDialog, setLinkDialog] = useState<{ href: string } | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: false }),
-      CodeBlockLowlight.configure({ lowlight }),
+      CodeBlockLowlight.extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(CodeBlockView);
+        },
+      }).configure({ lowlight }),
       Markdown.configure({
         transformPastedText: true,
         transformCopiedText: true,
@@ -131,11 +140,112 @@ export function Editor({
     });
   }, [editor, spellCheck]);
 
+  // Cmd+K — open link dialog when editor is focused
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key?.toLowerCase() !== "k") return;
+      if (!editor?.isFocused) return;
+      e.preventDefault();
+      const href = editor.getAttributes("link").href ?? "";
+      setLinkDialog({ href });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor]);
+
+  // Cmd+E — toggle inline code; intercept before WKWebView's "Use Selection for Find"
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key?.toLowerCase() !== "e") return;
+      if (!editor?.isFocused) return;
+      e.preventDefault();
+      editor.chain().focus().toggleCode().run();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor]);
+
+  // Insert / Format menu commands forwarded from the native menu bar
+  useEffect(() => {
+    let mounted = true;
+    let unlisten: (() => void) | undefined;
+    listen<string>("menu-action", (event) => {
+      if (!editor || linkDialog) return;
+      switch (event.payload) {
+        case "format-bold":
+          editor.chain().focus().toggleBold().run();
+          break;
+        case "format-italic":
+          editor.chain().focus().toggleItalic().run();
+          break;
+        case "format-strike":
+          editor.chain().focus().toggleStrike().run();
+          break;
+        case "format-code":
+          editor.chain().focus().toggleCode().run();
+          break;
+        case "format-heading-1":
+          editor.chain().focus().toggleHeading({ level: 1 }).run();
+          break;
+        case "format-heading-2":
+          editor.chain().focus().toggleHeading({ level: 2 }).run();
+          break;
+        case "format-heading-3":
+          editor.chain().focus().toggleHeading({ level: 3 }).run();
+          break;
+        case "format-blockquote":
+          editor.chain().focus().toggleBlockquote().run();
+          break;
+        case "format-bullet-list":
+          editor.chain().focus().toggleBulletList().run();
+          break;
+        case "format-ordered-list":
+          editor.chain().focus().toggleOrderedList().run();
+          break;
+        case "insert-link": {
+          const href = editor.getAttributes("link").href ?? "";
+          setLinkDialog({ href });
+          break;
+        }
+        case "insert-code-block":
+          editor.chain().focus().toggleCodeBlock().run();
+          break;
+        case "insert-hr":
+          editor.chain().focus().setHorizontalRule().run();
+          break;
+      }
+    }).then((fn) => {
+      if (mounted) {
+        unlisten = fn;
+      } else {
+        fn();
+      }
+    });
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, [editor, linkDialog]);
+
   return (
     <div className="editor-wrapper">
       <div ref={scrollRef} className="editor-scroll">
         <EditorContent editor={editor} />
       </div>
+      {linkDialog && (
+        <LinkDialog
+          initialHref={linkDialog.href}
+          onApply={(url) => {
+            editor?.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+            setLinkDialog(null);
+          }}
+          onRemove={() => {
+            editor?.chain().focus().extendMarkRange("link").unsetLink().run();
+            setLinkDialog(null);
+          }}
+          onCancel={() => setLinkDialog(null)}
+        />
+      )}
     </div>
   );
 }
