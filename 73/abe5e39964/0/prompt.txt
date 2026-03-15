@@ -143,3 +143,7 @@ the context menu is much better. how about the new file dialog? it still ugly.
 ---
 
 there is no padding, and I can't see the OK button, lots of problems!
+
+---
+
+No, the problem still exists! I doubt it is actually using the Radix UI dialog component. Is it still handwritten CSS? Something is wrong in the code because I haven't seen any changes!
