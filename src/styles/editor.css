@@ -235,6 +235,31 @@
   font-weight: bold;
 }
 
+/* ── Typora-style inline syntax reveal ─────────── */
+.inline-syntax {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.55;
+  letter-spacing: 0;
+}
+
+.inline-syntax-bold {
+  font-weight: 700;
+  color: var(--color-fg-muted);
+}
+
+.inline-syntax-italic {
+  font-style: italic;
+  color: var(--color-fg-muted);
+}
+
+.inline-syntax-link {
+  color: var(--color-accent);
+  opacity: 0.75;
+}
+
 /* ── Math / LaTeX (KaTeX) ──────────────────────── */
 .tiptap-mathematics-render {
   cursor: pointer;

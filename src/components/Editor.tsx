@@ -16,6 +16,7 @@ import { common, createLowlight } from "lowlight";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { FindReplace } from "../lib/tiptap/FindReplace";
+import { InlineEditMode } from "../lib/tiptap/InlineEditMode";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import { TextFolding } from "../lib/tiptap/TextFolding";
 import { BubbleMenu } from "./BubbleMenu";
@@ -85,6 +86,7 @@ export function Editor({
       LinkPreview,
       FindReplace,
       TextFolding,
+      InlineEditMode,
     ],
     content,
     editorProps: {
