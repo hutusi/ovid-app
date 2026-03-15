@@ -653,15 +653,31 @@ fn save_asset(
     std::fs::create_dir_all(&assets_dir)
         .map_err(|e| format!("could not create assets dir: {e}"))?;
 
-    // Avoid collisions by inserting a timestamp prefix when the file exists.
-    let dest_name = if assets_dir.join(&file_name).exists() {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
-        format!("{ts}_{file_name}")
-    } else {
-        file_name
+    // Atomically reserve a destination path to avoid TOCTOU races.
+    // Try the original name first; fall back to timestamp-prefixed candidates.
+    let dest_name = match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(assets_dir.join(&file_name))
+    {
+        Ok(_) => file_name.clone(),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => loop {
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            let candidate = format!("{ts}_{file_name}");
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(assets_dir.join(&candidate))
+            {
+                Ok(_) => break candidate,
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(format!("could not reserve asset path: {e}")),
+            }
+        },
+        Err(e) => return Err(format!("could not reserve asset path: {e}")),
     };
 
     let dest = assets_dir.join(&dest_name);

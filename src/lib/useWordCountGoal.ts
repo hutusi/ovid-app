@@ -17,7 +17,8 @@ export function useWordCountGoal() {
   const [goal, setGoalState] = useState<number | null>(loadGoal);
 
   const setGoal = useCallback((n: number | null) => {
-    const normalized = n !== null && Number.isFinite(n) && n > 0 ? n : null;
+    const truncated = n !== null && Number.isFinite(n) ? Math.trunc(n) : null;
+    const normalized = truncated !== null && truncated > 0 ? truncated : null;
     setGoalState(normalized);
     try {
       if (normalized === null) {

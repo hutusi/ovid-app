@@ -68,8 +68,10 @@ export function Editor({
           .filter((f): f is { name: string; srcPath: string } => f.srcPath !== undefined);
         if (imageFiles.length === 0) return false;
         event.preventDefault();
-        const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
-        if (dropPos === undefined) return true;
+        // Capture coords now; recompute position after async uploads settle
+        // to avoid using a stale absolute offset if the document changes.
+        const dropX = event.clientX;
+        const dropY = event.clientY;
         Promise.allSettled(
           imageFiles.map(({ name, srcPath }) =>
             invoke<string>("save_asset", { srcPath, activeFilePath: filePath }).then((relPath) => ({
@@ -84,6 +86,8 @@ export function Editor({
             return [];
           });
           if (saved.length === 0) return;
+          const dropPos = view.posAtCoords({ left: dropX, top: dropY })?.pos;
+          if (dropPos === undefined) return;
           // Apply all insertions in one transaction to avoid stale positions
           const tr = view.state.tr;
           let offset = 0;

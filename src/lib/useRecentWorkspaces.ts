@@ -19,7 +19,7 @@ function loadWorkspaces(): RecentWorkspace[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidWorkspace);
+    return parsed.filter(isValidWorkspace).slice(0, MAX_WORKSPACES);
   } catch {
     return [];
   }
