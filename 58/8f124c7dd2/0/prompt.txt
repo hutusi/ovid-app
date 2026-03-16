@@ -1,0 +1,13 @@
+Would it be better to show the coverImage meta info(if the post has) in the right panel? It could be editable, and we could add a preview button to toggle the visibility of the cover image. What do you think?
+
+---
+
+the coverImage row only appear when the frontmatter key already exists. and for the preview, the editor banner seems good, because the thumbnail is too small, or both? what do you think?
+
+---
+
+above the content or on top of the content? what do you think?
+
+---
+
+OK, go ahead.

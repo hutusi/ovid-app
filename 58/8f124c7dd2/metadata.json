@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "588f124c7dd2",
+  "strategy": "manual-commit",
+  "branch": "images",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/App.css",
+    "src/App.tsx",
+    "src/components/PropertiesPanel.css",
+    "src/components/PropertiesPanel.tsx",
+    "src/lib/imageUtils.ts",
+    "src/lib/tiptap/ImageRenderer.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/58/8f124c7dd2/0/metadata.json",
+      "transcript": "/58/8f124c7dd2/0/full.jsonl",
+      "content_hash": "/58/8f124c7dd2/0/content_hash.txt",
+      "prompt": "/58/8f124c7dd2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 39,
+    "cache_creation_tokens": 31932,
+    "cache_read_tokens": 3186234,
+    "output_tokens": 13050,
+    "api_call_count": 31
+  }
+}
