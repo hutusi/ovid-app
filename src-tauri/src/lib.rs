@@ -89,6 +89,10 @@ struct WorkspaceResult {
     name: String,
     root_path: String,
     tree_root: String,
+    /// Directory to resolve root-relative image paths against.
+    /// Set to `<workspace>/public` when that directory exists (static-site
+    /// convention), otherwise falls back to the workspace root.
+    asset_root: String,
     tree: Vec<FileNode>,
     is_amytis_workspace: bool,
     cdn_base: Option<String>,
@@ -225,11 +229,14 @@ async fn open_workspace_at_path(
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
     let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
+    let pub_dir = root.join("public");
+    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.clone() };
 
     Ok(Some(WorkspaceResult {
         name,
         root_path: root.to_string_lossy().to_string(),
         tree_root: tree_root.to_string_lossy().to_string(),
+        asset_root: asset_root.to_string_lossy().to_string(),
         tree,
         is_amytis_workspace,
         cdn_base,
@@ -274,11 +281,14 @@ async fn open_workspace(
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
     let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
+    let pub_dir = root.join("public");
+    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.clone() };
 
     Ok(Some(WorkspaceResult {
         name,
         root_path: root.to_string_lossy().to_string(),
         tree_root: tree_root.to_string_lossy().to_string(),
+        asset_root: asset_root.to_string_lossy().to_string(),
         tree,
         is_amytis_workspace,
         cdn_base,

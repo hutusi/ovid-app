@@ -8,6 +8,7 @@ export interface WorkspaceResult {
   name: string;
   rootPath: string;
   treeRoot: string;
+  assetRoot: string;
   tree: FileNode[];
   isAmytisWorkspace: boolean;
   cdnBase?: string;
@@ -49,6 +50,7 @@ export function useWorkspace({
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [workspaceRootPath, setWorkspaceRootPath] = useState<string | null>(null);
   const [isAmytisWorkspace, setIsAmytisWorkspace] = useState(false);
+  const [assetRoot, setAssetRoot] = useState<string | undefined>(undefined);
   const [cdnBase, setCdnBase] = useState<string | undefined>(undefined);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function useWorkspace({
       setWorkspaceRoot(result.treeRoot);
       setWorkspaceRootPath(result.rootPath);
       setIsAmytisWorkspace(result.isAmytisWorkspace);
+      setAssetRoot(result.assetRoot);
       setCdnBase(result.cdnBase ?? undefined);
       resetFileState();
       if (!result.isAmytisWorkspace) {
@@ -166,6 +169,7 @@ export function useWorkspace({
     workspaceRoot,
     workspaceRootPath,
     isAmytisWorkspace,
+    assetRoot,
     cdnBase,
     renamingPath,
     setRenamingPath,
