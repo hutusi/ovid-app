@@ -418,7 +418,7 @@ function App() {
             <div className="cover-image-banner">
               <img
                 src={resolveImageSrc(coverImagePath, selectedFile.path, assetRoot, cdnBase)}
-                alt=""
+                alt={parsedFrontmatter.title ? String(parsedFrontmatter.title) : ""}
               />
             </div>
           )}
