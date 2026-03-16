@@ -1,42 +1,9 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import Image from "@tiptap/extension-image";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { resolveImageSrc } from "../imageUtils";
 
-function resolveRelativePath(baseDir: string, relative: string): string {
-  const parts = baseDir.split("/");
-  for (const seg of relative.split("/")) {
-    if (seg === "..") parts.pop();
-    else if (seg !== ".") parts.push(seg);
-  }
-  return parts.join("/");
-}
-
-export function resolveImageSrc(
-  src: string,
-  filePath: string | undefined,
-  workspaceRootPath: string | undefined,
-  cdnBase: string | undefined
-): string {
-  if (!src) return src;
-  // External URLs, data URIs, blob URLs, and already-resolved asset URLs pass through
-  if (/^(https?|data|blob|asset):/.test(src)) return src;
-
-  // Root-relative paths (e.g. /images/foo.png)
-  if (src.startsWith("/")) {
-    if (cdnBase) return `${cdnBase.replace(/\/$/, "")}${src}`;
-    if (workspaceRootPath) return convertFileSrc(`${workspaceRootPath}${src}`);
-    return src;
-  }
-
-  // Relative paths (e.g. ../assets/foo.png or ./images/bar.png)
-  if (filePath) {
-    const dir = filePath.substring(0, filePath.lastIndexOf("/"));
-    return convertFileSrc(resolveRelativePath(dir, src));
-  }
-
-  return src;
-}
+export { resolveImageSrc };
 
 export interface ImageRendererOptions {
   filePath?: string;

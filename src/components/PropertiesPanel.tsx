@@ -7,10 +7,12 @@ interface PropertiesPanelProps {
   frontmatter: ParsedFrontmatter;
   visible: boolean;
   slug?: string;
+  coverImageVisible?: boolean;
   onFieldChange?: (key: string, value: FrontmatterValue) => void;
+  onToggleCoverImage?: () => void;
 }
 
-const STANDARD_FIELDS = new Set(["title", "type", "draft", "date", "tags"]);
+const STANDARD_FIELDS = new Set(["title", "type", "draft", "date", "tags", "coverImage"]);
 const STANDARD_TYPES = ["post", "flow", "note", "series", "book", "page"];
 
 function formatDate(value: string): string {
@@ -303,6 +305,77 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
 }
 
 // ---------------------------------------------------------------------------
+// Cover image field with preview toggle
+// ---------------------------------------------------------------------------
+
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+function CoverImageField({
+  value,
+  previewVisible,
+  onTogglePreview,
+  onSave,
+}: {
+  value: string;
+  previewVisible: boolean;
+  onTogglePreview: () => void;
+  onSave: (v: FrontmatterValue) => void;
+}) {
+  return (
+    <div className="prop-field">
+      <div className="prop-cover-header">
+        <span className="prop-label">Cover Image</span>
+        <button
+          type="button"
+          className="prop-cover-eye-btn"
+          aria-label={previewVisible ? "Hide cover image preview" : "Show cover image preview"}
+          aria-pressed={previewVisible}
+          onClick={onTogglePreview}
+        >
+          <EyeIcon open={previewVisible} />
+        </button>
+      </div>
+      <EditableValue label="Cover image path" value={value} onSave={onSave} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PropertiesPanel
 // ---------------------------------------------------------------------------
 
@@ -310,13 +383,17 @@ export function PropertiesPanel({
   frontmatter,
   visible,
   slug,
+  coverImageVisible = false,
   onFieldChange,
+  onToggleCoverImage,
 }: PropertiesPanelProps) {
   const type = frontmatter.type as string | undefined;
   const draft = frontmatter.draft as boolean | undefined;
   const title = frontmatter.title;
   const date = frontmatter.date as string | undefined;
   const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]) : undefined;
+  const coverImage =
+    frontmatter.coverImage !== undefined ? String(frontmatter.coverImage) : undefined;
   const customKeys = Object.keys(frontmatter)
     .filter((k) => !STANDARD_FIELDS.has(k))
     .sort();
@@ -368,6 +445,15 @@ export function PropertiesPanel({
             <span className="prop-label">Tags</span>
             <TagInput tags={tags} onSave={(v) => onFieldChange?.("tags", v)} />
           </div>
+        )}
+
+        {coverImage !== undefined && (
+          <CoverImageField
+            value={coverImage}
+            previewVisible={coverImageVisible}
+            onTogglePreview={() => onToggleCoverImage?.()}
+            onSave={(v) => onFieldChange?.("coverImage", v)}
+          />
         )}
 
         {/* ── Custom fields ─────────────────────────── */}
