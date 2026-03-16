@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "1afcdebf2b73",
+  "strategy": "manual-commit",
+  "branch": "images",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src-tauri/src/lib.rs",
+    "src/components/Editor.tsx",
+    "src/lib/tiptap/ImageRenderer.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/1a/fcdebf2b73/0/metadata.json",
+      "transcript": "/1a/fcdebf2b73/0/full.jsonl",
+      "content_hash": "/1a/fcdebf2b73/0/content_hash.txt",
+      "prompt": "/1a/fcdebf2b73/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 68,
+    "cache_creation_tokens": 127260,
+    "cache_read_tokens": 2850785,
+    "output_tokens": 21562,
+    "api_call_count": 36
+  }
+}

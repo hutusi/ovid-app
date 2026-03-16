@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "1afcdebf2b73",
+  "session_id": "50d7b24a-4d03-4a47-9c74-10e39e1df889",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T14:01:14.200323Z",
+  "branch": "images",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src-tauri/src/lib.rs",
+    "src/components/Editor.tsx",
+    "src/lib/tiptap/ImageRenderer.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-haiku-4-5-20251001",
+  "turn_id": "c61b78c1c595",
+  "checkpoint_transcript_start": 731,
+  "transcript_lines_at_start": 731,
+  "token_usage": {
+    "input_tokens": 68,
+    "cache_creation_tokens": 127260,
+    "cache_read_tokens": 2850785,
+    "output_tokens": 21562,
+    "api_call_count": 36
+  },
+  "session_metrics": {
+    "turn_count": 21
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T14:01:11.711546Z",
+    "agent_lines": 0,
+    "human_added": 203,
+    "human_modified": 6,
+    "human_removed": 0,
+    "total_committed": 203,
+    "agent_percentage": 0
+  }
+}
