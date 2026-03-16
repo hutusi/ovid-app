@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { InputRule } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,6 +16,7 @@ import { common, createLowlight } from "lowlight";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { FindReplace } from "../lib/tiptap/FindReplace";
+import { ImageRenderer } from "../lib/tiptap/ImageRenderer";
 import { InlineEditMode } from "../lib/tiptap/InlineEditMode";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import { TextFolding } from "../lib/tiptap/TextFolding";
@@ -35,6 +35,8 @@ const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
 interface EditorProps {
   content?: string;
   filePath?: string;
+  workspaceRootPath?: string;
+  cdnBase?: string;
   typewriterMode?: boolean;
   spellCheck?: boolean;
   onWordCount?: (count: number) => void;
@@ -44,6 +46,8 @@ interface EditorProps {
 export function Editor({
   content = "",
   filePath,
+  workspaceRootPath,
+  cdnBase,
   typewriterMode = false,
   spellCheck = true,
   onWordCount,
@@ -98,7 +102,7 @@ export function Editor({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer" },
       }),
-      Image,
+      ImageRenderer.configure({ filePath, workspaceRootPath, cdnBase }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,

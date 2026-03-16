@@ -91,6 +91,7 @@ struct WorkspaceResult {
     tree_root: String,
     tree: Vec<FileNode>,
     is_amytis_workspace: bool,
+    cdn_base: Option<String>,
 }
 
 fn walk_dir(path: &Path) -> Vec<FileNode> {
@@ -223,6 +224,7 @@ async fn open_workspace_at_path(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
+    let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
 
     Ok(Some(WorkspaceResult {
         name,
@@ -230,6 +232,7 @@ async fn open_workspace_at_path(
         tree_root: tree_root.to_string_lossy().to_string(),
         tree,
         is_amytis_workspace,
+        cdn_base,
     }))
 }
 
@@ -270,6 +273,7 @@ async fn open_workspace(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
+    let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
 
     Ok(Some(WorkspaceResult {
         name,
@@ -277,6 +281,7 @@ async fn open_workspace(
         tree_root: tree_root.to_string_lossy().to_string(),
         tree,
         is_amytis_workspace,
+        cdn_base,
     }))
 }
 
@@ -421,6 +426,44 @@ fn create_dir(path: String, state: State<'_, WorkspaceState>) -> Result<(), Stri
 #[serde(rename_all = "camelCase")]
 struct ContentType {
     name: String,
+}
+
+/// Extract the first quoted string value from the beginning of `s`.
+fn extract_quoted_string(s: &str) -> Option<String> {
+    let s = s.trim();
+    let quote = s.chars().next()?;
+    if quote != '\'' && quote != '"' && quote != '`' {
+        return None;
+    }
+    let inner = &s[quote.len_utf8()..];
+    let end = inner.find(quote)?;
+    Some(inner[..end].to_string())
+}
+
+/// Best-effort scanner: look for `cdnBase` or `cdnUrl` keys in `site.config.ts`
+/// and return the URL value. Returns `None` on any parse failure.
+fn parse_cdn_base(config_path: &Path) -> Option<String> {
+    use std::io::{BufRead, BufReader};
+    let file = std::fs::File::open(config_path).ok()?;
+    let reader = BufReader::new(file);
+    for line in reader.lines().flatten() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with('*') {
+            continue;
+        }
+        for key in &["cdnBase", "cdnUrl"] {
+            if let Some(rest) = trimmed.strip_prefix(key) {
+                let rest = rest.trim_start();
+                let Some(rest) = rest.strip_prefix(':') else { continue };
+                if let Some(url) = extract_quoted_string(rest) {
+                    if url.starts_with("http://") || url.starts_with("https://") {
+                        return Some(url);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Best-effort scanner: find `contentTypes` in `site.config.ts` and extract

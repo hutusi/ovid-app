@@ -73,6 +73,7 @@ function App() {
     workspaceRoot,
     workspaceRootPath,
     isAmytisWorkspace,
+    cdnBase,
     renamingPath,
     setRenamingPath,
     handleOpenWorkspace,
@@ -413,6 +414,8 @@ function App() {
                 key={selectedFile.path}
                 content={fileContent}
                 filePath={selectedFile.path}
+                workspaceRootPath={workspaceRootPath ?? undefined}
+                cdnBase={cdnBase}
                 typewriterMode={typewriterMode}
                 spellCheck={prefs.spellCheck}
                 onWordCount={setWordCount}
