@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "e6fb8e678794",
+  "strategy": "manual-commit",
+  "branch": "images",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src-tauri/src/lib.rs",
+    "src/App.tsx",
+    "src/lib/useWorkspace.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e6/fb8e678794/0/metadata.json",
+      "transcript": "/e6/fb8e678794/0/full.jsonl",
+      "content_hash": "/e6/fb8e678794/0/content_hash.txt",
+      "prompt": "/e6/fb8e678794/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 11273,
+    "cache_read_tokens": 1477510,
+    "output_tokens": 6618,
+    "api_call_count": 18
+  }
+}

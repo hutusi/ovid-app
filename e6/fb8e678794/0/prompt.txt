@@ -1,0 +1,5 @@
+Images using the root path (in the /public folder) do not seem to be rendering.
+
+---
+
+/images/antelope-canyon.jpg
