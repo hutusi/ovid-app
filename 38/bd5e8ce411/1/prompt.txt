@@ -1,0 +1,21 @@
+Please add a command to create a new Daily Flow for today.
+
+---
+
+Please add a command to create a new Daily Flow for today. what do you think?
+
+---
+
+I want a new menu command "File -> New -> New Today Flow", what do you think? this command should have a keyboard shotcut.
+
+---
+
+name "New Today Flow" or others, what is your suggestion?
+
+---
+
+OK, and the file should located in "flows/year/month/day.md", what do you think?
+
+---
+
+OK
