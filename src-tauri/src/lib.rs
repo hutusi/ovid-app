@@ -205,9 +205,24 @@ fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
     })
 }
 
+/// Compute the asset-serving root and CDN base for a workspace.
+/// `asset_root` is `<workspace>/public/` when that directory exists (static-site
+/// convention), falling back to the workspace root itself.
+fn derive_workspace_meta(root: &Path, is_amytis_workspace: bool) -> (PathBuf, Option<String>) {
+    let pub_dir = root.join("public");
+    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.to_path_buf() };
+    let cdn_base = if is_amytis_workspace {
+        parse_cdn_base(&root.join("site.config.ts"))
+    } else {
+        None
+    };
+    (asset_root, cdn_base)
+}
+
 #[tauri::command]
 async fn open_workspace_at_path(
     path: String,
+    app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
 ) -> Result<Option<WorkspaceResult>, String> {
     let root = PathBuf::from(&path);
@@ -228,9 +243,10 @@ async fn open_workspace_at_path(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
-    let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
-    let pub_dir = root.join("public");
-    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.clone() };
+    let (asset_root, cdn_base) = derive_workspace_meta(&root, is_amytis_workspace);
+
+    // Narrow the asset protocol scope to this workspace's asset root
+    let _ = app.asset_protocol_scope().allow_directory(&asset_root, true);
 
     Ok(Some(WorkspaceResult {
         name,
@@ -280,9 +296,10 @@ async fn open_workspace(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
-    let cdn_base = if is_amytis_workspace { parse_cdn_base(&root.join("site.config.ts")) } else { None };
-    let pub_dir = root.join("public");
-    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.clone() };
+    let (asset_root, cdn_base) = derive_workspace_meta(&root, is_amytis_workspace);
+
+    // Narrow the asset protocol scope to this workspace's asset root
+    let _ = app.asset_protocol_scope().allow_directory(&asset_root, true);
 
     Ok(Some(WorkspaceResult {
         name,
@@ -450,8 +467,16 @@ fn extract_quoted_string(s: &str) -> Option<String> {
     Some(inner[..end].to_string())
 }
 
+/// Strip an optional leading quote char that matches `quote` from `s`.
+fn strip_quote_pair<'a>(s: &'a str, key: &str, quote: char) -> Option<&'a str> {
+    let s = s.strip_prefix(quote)?;
+    let s = s.strip_prefix(key)?;
+    s.strip_prefix(quote)
+}
+
 /// Best-effort scanner: look for `cdnBase` or `cdnUrl` keys in `site.config.ts`
-/// and return the URL value. Returns `None` on any parse failure.
+/// and return the URL value. Handles both bare (`cdnBase:`) and quoted
+/// (`"cdnBase":` / `'cdnBase':`) key forms. Returns `None` on any parse failure.
 fn parse_cdn_base(config_path: &Path) -> Option<String> {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(config_path).ok()?;
@@ -462,7 +487,12 @@ fn parse_cdn_base(config_path: &Path) -> Option<String> {
             continue;
         }
         for key in &["cdnBase", "cdnUrl"] {
-            if let Some(rest) = trimmed.strip_prefix(key) {
+            // Match: cdnBase, "cdnBase", or 'cdnBase'
+            let after_key = trimmed
+                .strip_prefix(key)
+                .or_else(|| strip_quote_pair(trimmed, key, '"'))
+                .or_else(|| strip_quote_pair(trimmed, key, '\''));
+            if let Some(rest) = after_key {
                 let rest = rest.trim_start();
                 let Some(rest) = rest.strip_prefix(':') else { continue };
                 if let Some(url) = extract_quoted_string(rest) {

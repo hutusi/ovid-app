@@ -7,7 +7,7 @@ export { resolveImageSrc };
 
 export interface ImageRendererOptions {
   filePath?: string;
-  workspaceRootPath?: string;
+  assetRoot?: string;
   cdnBase?: string;
   inline?: boolean;
   allowBase64?: boolean;
@@ -15,9 +15,9 @@ export interface ImageRendererOptions {
 }
 
 function ImageNodeView({ node, extension }: NodeViewProps) {
-  const { filePath, workspaceRootPath, cdnBase } = extension.options as ImageRendererOptions;
+  const { filePath, assetRoot, cdnBase } = extension.options as ImageRendererOptions;
   const { src, alt, title } = node.attrs as { src: string; alt?: string; title?: string };
-  const resolvedSrc = resolveImageSrc(src, filePath, workspaceRootPath, cdnBase);
+  const resolvedSrc = resolveImageSrc(src, filePath, assetRoot, cdnBase);
 
   return (
     <NodeViewWrapper as="span" contentEditable={false}>
@@ -31,7 +31,7 @@ export const ImageRenderer = Image.extend<ImageRendererOptions>({
     return {
       ...this.parent?.(),
       filePath: undefined,
-      workspaceRootPath: undefined,
+      assetRoot: undefined,
       cdnBase: undefined,
     };
   },

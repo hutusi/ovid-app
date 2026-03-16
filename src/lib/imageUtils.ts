@@ -37,7 +37,8 @@ export function resolveImageSrc(
   }
 
   if (filePath) {
-    const dir = filePath.substring(0, filePath.lastIndexOf("/"));
+    const slashIdx = filePath.lastIndexOf("/");
+    const dir = slashIdx >= 0 ? filePath.substring(0, slashIdx) : ".";
     return toFileUrl(resolveRelativePath(dir, src));
   }
 

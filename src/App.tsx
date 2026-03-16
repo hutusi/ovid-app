@@ -428,7 +428,7 @@ function App() {
                 key={selectedFile.path}
                 content={fileContent}
                 filePath={selectedFile.path}
-                workspaceRootPath={assetRoot}
+                assetRoot={assetRoot}
                 cdnBase={cdnBase}
                 typewriterMode={typewriterMode}
                 spellCheck={prefs.spellCheck}

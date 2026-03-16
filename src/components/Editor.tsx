@@ -35,7 +35,7 @@ const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
 interface EditorProps {
   content?: string;
   filePath?: string;
-  workspaceRootPath?: string;
+  assetRoot?: string;
   cdnBase?: string;
   typewriterMode?: boolean;
   spellCheck?: boolean;
@@ -46,7 +46,7 @@ interface EditorProps {
 export function Editor({
   content = "",
   filePath,
-  workspaceRootPath,
+  assetRoot,
   cdnBase,
   typewriterMode = false,
   spellCheck = true,
@@ -102,7 +102,7 @@ export function Editor({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer" },
       }),
-      ImageRenderer.configure({ filePath, workspaceRootPath, cdnBase }),
+      ImageRenderer.configure({ filePath, assetRoot, cdnBase }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,

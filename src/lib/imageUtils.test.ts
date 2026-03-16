@@ -141,6 +141,13 @@ describe("resolveImageSrc — relative paths", () => {
     );
   });
 
+  it("handles bare filePath with no directory component", () => {
+    // lastIndexOf('/') === -1 → dir falls back to '.'
+    expect(resolveImageSrc("photo.jpg", "file.md", ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file://./photo.jpg"
+    );
+  });
+
   it("ignores assetRoot for relative paths", () => {
     const result = resolveImageSrc("photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl);
     expect(result).not.toContain("/workspace/public");
