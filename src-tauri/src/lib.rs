@@ -1012,3 +1012,218 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
 }
+
+// ── Unit tests ──────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // ── extract_quoted_string ────────────────────────────────────────────────
+
+    #[test]
+    fn extract_quoted_string_double_quotes() {
+        assert_eq!(
+            extract_quoted_string(r#" "https://cdn.example.com" "#),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_single_quotes() {
+        assert_eq!(
+            extract_quoted_string(" 'https://cdn.example.com' "),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_backtick() {
+        assert_eq!(
+            extract_quoted_string("`https://cdn.example.com`"),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_no_quote_returns_none() {
+        assert_eq!(extract_quoted_string("https://cdn.example.com"), None);
+    }
+
+    #[test]
+    fn extract_quoted_string_empty_returns_none() {
+        assert_eq!(extract_quoted_string(""), None);
+    }
+
+    // ── strip_quote_pair ─────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_quote_pair_matches_double_quote() {
+        assert_eq!(strip_quote_pair(r#""cdnBase":"#, "cdnBase", '"'), Some(":"));
+    }
+
+    #[test]
+    fn strip_quote_pair_matches_single_quote() {
+        assert_eq!(strip_quote_pair("'cdnBase':", "cdnBase", '\''), Some(":"));
+    }
+
+    #[test]
+    fn strip_quote_pair_wrong_quote_returns_none() {
+        assert_eq!(strip_quote_pair("\"cdnBase\":", "cdnBase", '\''), None);
+    }
+
+    #[test]
+    fn strip_quote_pair_no_closing_quote_returns_none() {
+        assert_eq!(strip_quote_pair("\"cdnBase:", "cdnBase", '"'), None);
+    }
+
+    // ── parse_cdn_base ───────────────────────────────────────────────────────
+
+    fn write_config(dir: &TempDir, content: &str) -> PathBuf {
+        let path = dir.path().join("site.config.ts");
+        fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn parse_cdn_base_bare_key_single_quotes() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnBase: 'https://cdn.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_bare_key_double_quotes() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnBase: \"https://cdn.example.com\",\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_double_quoted_key() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  \"cdnBase\": \"https://cdn.example.com\",\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_single_quoted_key() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  'cdnBase': 'https://cdn.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_cdn_url_variant() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnUrl: 'https://assets.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://assets.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_skips_line_comments() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "// cdnBase: 'https://cdn.example.com'\nexport const config = {};\n",
+        );
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_skips_block_comment_lines() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "/**\n * cdnBase: 'https://cdn.example.com'\n */\nexport const config = {};\n",
+        );
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_non_http_value_returns_none() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(&dir, "export const config = { cdnBase: 'relative/path' };");
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_missing_file_returns_none() {
+        assert_eq!(parse_cdn_base(Path::new("/nonexistent/site.config.ts")), None);
+    }
+
+    // ── derive_workspace_meta ────────────────────────────────────────────────
+
+    #[test]
+    fn derive_workspace_meta_uses_public_dir_when_present() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir(dir.path().join("public")).unwrap();
+        let (asset_root, cdn_base) = derive_workspace_meta(dir.path(), false);
+        assert_eq!(asset_root, dir.path().join("public"));
+        assert_eq!(cdn_base, None);
+    }
+
+    #[test]
+    fn derive_workspace_meta_falls_back_to_workspace_root() {
+        let dir = TempDir::new().unwrap();
+        let (asset_root, cdn_base) = derive_workspace_meta(dir.path(), false);
+        assert_eq!(asset_root, dir.path().to_path_buf());
+        assert_eq!(cdn_base, None);
+    }
+
+    #[test]
+    fn derive_workspace_meta_extracts_cdn_base_for_amytis() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join("site.config.ts"),
+            "export const config = {\n  cdnBase: 'https://cdn.example.com',\n};\n",
+        )
+        .unwrap();
+        let (_, cdn_base) = derive_workspace_meta(dir.path(), true);
+        assert_eq!(cdn_base, Some("https://cdn.example.com".to_string()));
+    }
+
+    #[test]
+    fn derive_workspace_meta_ignores_cdn_for_non_amytis() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join("site.config.ts"),
+            "export const config = { cdnBase: 'https://cdn.example.com' };",
+        )
+        .unwrap();
+        let (_, cdn_base) = derive_workspace_meta(dir.path(), false);
+        assert_eq!(cdn_base, None);
+    }
+}
