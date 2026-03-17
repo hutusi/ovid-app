@@ -173,7 +173,7 @@ export function Editor({
         ).then((results) => {
           const saved = results.flatMap((r) => {
             if (r.status === "fulfilled") return [r.value];
-            console.error("save_asset failed:", r.reason);
+            onError?.(`Failed to drop image: ${r.reason}`);
             return [];
           });
           if (saved.length === 0) return;

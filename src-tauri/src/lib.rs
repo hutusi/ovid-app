@@ -205,6 +205,13 @@ fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
     })
 }
 
+/// Normalize a path to forward-slash separators for JSON serialization.
+/// The frontend's `resolveImageSrc` splits on "/" so native Windows backslashes
+/// would produce wrong results; this keeps paths consistent across platforms.
+fn to_slash(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 /// Compute the asset-serving root and CDN base for a workspace.
 /// `asset_root` is `<workspace>/public/` when that directory exists (static-site
 /// convention), falling back to the workspace root itself.
@@ -246,13 +253,15 @@ async fn open_workspace_at_path(
     // Grant asset protocol access to the entire workspace root so that both
     // root-relative paths (resolved inside public/) and relative paths
     // (resolved anywhere within the workspace) can be served.
-    let _ = app.asset_protocol_scope().allow_directory(&root, true);
+    if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
+        eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
+    }
 
     Ok(Some(WorkspaceResult {
         name,
-        root_path: root.to_string_lossy().to_string(),
-        tree_root: tree_root.to_string_lossy().to_string(),
-        asset_root: asset_root.to_string_lossy().to_string(),
+        root_path: to_slash(&root),
+        tree_root: to_slash(&tree_root),
+        asset_root: to_slash(&asset_root),
         tree,
         is_amytis_workspace,
         cdn_base,
@@ -301,13 +310,19 @@ async fn open_workspace(
     // Grant asset protocol access to the entire workspace root so that both
     // root-relative paths (resolved inside public/) and relative paths
     // (resolved anywhere within the workspace) can be served.
-    let _ = app.asset_protocol_scope().allow_directory(&root, true);
+    // Note: Tauri 2's Scope API has no reset/clear, so allowances from prior
+    // workspace sessions accumulate in long-running processes. This is an
+    // accepted trade-off; the scope is bounded to workspace roots the user
+    // explicitly opened.
+    if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
+        eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
+    }
 
     Ok(Some(WorkspaceResult {
         name,
-        root_path: root.to_string_lossy().to_string(),
-        tree_root: tree_root.to_string_lossy().to_string(),
-        asset_root: asset_root.to_string_lossy().to_string(),
+        root_path: to_slash(&root),
+        tree_root: to_slash(&tree_root),
+        asset_root: to_slash(&asset_root),
         tree,
         is_amytis_workspace,
         cdn_base,
