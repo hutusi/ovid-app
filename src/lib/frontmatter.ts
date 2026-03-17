@@ -47,6 +47,10 @@ export function createTypedFrontmatter(slug: string, type: string): string {
   return `---\ntitle: ${yamlScalar(title)}\ndate: ${today}\ntype: ${yamlScalar(type)}\ndraft: true\n---\n`;
 }
 
+export function createTodayFlowFrontmatter(): string {
+  return `---\ntags: []\n---\n`;
+}
+
 export function parseYamlFrontmatter(raw: string): ParsedFrontmatter {
   const match = YAML_INNER_RE.exec(raw);
   if (!match) return {};

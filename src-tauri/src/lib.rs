@@ -464,6 +464,38 @@ fn create_dir(path: String, state: State<'_, WorkspaceState>) -> Result<(), Stri
     std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())
 }
 
+/// Resolve `.` and `..` components without requiring the path to exist on disk.
+fn normalize_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::ParentDir => { out.pop(); }
+            Component::CurDir => {}
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Create a directory (and all ancestors) inside the workspace, succeeding if
+/// it already exists. Unlike `create_dir`, the parent need not exist yet.
+#[tauri::command]
+fn ensure_dir(path: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+    let root = root_guard.as_ref().ok_or("no workspace open")?.clone();
+    drop(root_guard);
+    let canonical_root = std::fs::canonicalize(&root).map_err(|e| format!("workspace root: {e}"))?;
+    let new_path = normalize_path(Path::new(&path));
+    if !new_path.is_absolute() {
+        return Err("path must be absolute".to_string());
+    }
+    if !new_path.starts_with(&canonical_root) {
+        return Err("path is outside the opened workspace".to_string());
+    }
+    std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())
+}
+
 // ── Content types ──────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -883,6 +915,9 @@ pub fn run() {
             let file_menu = SubmenuBuilder::new(app, "File")
                 .items(&[
                     &new_submenu,
+                    &MenuItemBuilder::with_id("today-flow", "Today's Flow")
+                        .accelerator("CmdOrCtrl+Shift+T")
+                        .build(app)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItemBuilder::with_id("open-workspace", "Open Workspace…")
                         .accelerator("CmdOrCtrl+O")
@@ -1053,6 +1088,7 @@ pub fn run() {
             rename_file,
             trash_file,
             create_dir,
+            ensure_dir,
             search_workspace,
             get_content_types,
             get_git_status,
@@ -1072,6 +1108,49 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    // ── normalize_path ───────────────────────────────────────────────────────
+
+    #[test]
+    fn normalize_path_resolves_parent_components() {
+        assert_eq!(
+            normalize_path(Path::new("/a/b/../c")),
+            PathBuf::from("/a/c")
+        );
+    }
+
+    #[test]
+    fn normalize_path_removes_current_dir_components() {
+        assert_eq!(
+            normalize_path(Path::new("/a/./b/./c")),
+            PathBuf::from("/a/b/c")
+        );
+    }
+
+    #[test]
+    fn normalize_path_handles_multiple_parent_jumps() {
+        assert_eq!(
+            normalize_path(Path::new("/a/b/c/../../d")),
+            PathBuf::from("/a/d")
+        );
+    }
+
+    #[test]
+    fn normalize_path_plain_path_unchanged() {
+        assert_eq!(
+            normalize_path(Path::new("/a/b/c")),
+            PathBuf::from("/a/b/c")
+        );
+    }
+
+    #[test]
+    fn normalize_path_parent_cannot_escape_root() {
+        // Popping past the root stays at root on all platforms
+        assert_eq!(
+            normalize_path(Path::new("/a/../../etc/passwd")),
+            PathBuf::from("/etc/passwd")
+        );
+    }
 
     // ── extract_quoted_string ────────────────────────────────────────────────
 

@@ -82,6 +82,7 @@ function App() {
     handleOpenWorkspace,
     openWorkspaceAtPath,
     handleNewFile,
+    handleNewTodayFlow,
     handleRename,
     handleDelete,
   } = useWorkspace({
@@ -221,6 +222,12 @@ function App() {
           if (workspaceRoot)
             setModal({ type: "new-file", dirPath: workspaceRoot, contentType: "post" });
           break;
+        case "T":
+          if (e.shiftKey) {
+            e.preventDefault();
+            if (workspaceRoot) void handleNewTodayFlow();
+          }
+          break;
         case "s":
           e.preventDefault();
           void flushPendingSave();
@@ -237,6 +244,7 @@ function App() {
     flushPendingSave,
     handleCloseFile,
     handleOpenWorkspace,
+    handleNewTodayFlow,
     workspaceRoot,
     tree,
     isGitRepo,
@@ -276,6 +284,9 @@ function App() {
               dirPath: workspaceRoot,
               contentType: event.payload.replace("new-", ""),
             });
+          break;
+        case "today-flow":
+          if (!hasBlockingOverlay && workspaceRoot) void handleNewTodayFlow();
           break;
         case "open-workspace":
           void handleOpenWorkspace();
@@ -351,6 +362,7 @@ function App() {
     flushPendingSave,
     handleCloseFile,
     handleOpenWorkspace,
+    handleNewTodayFlow,
     prefs,
     updatePrefs,
   ]);

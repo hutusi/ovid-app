@@ -1,7 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
 import { useCallback, useState } from "react";
-import { createAmytisFrontmatter, createTypedFrontmatter } from "./frontmatter";
+import {
+  createAmytisFrontmatter,
+  createTodayFlowFrontmatter,
+  createTypedFrontmatter,
+} from "./frontmatter";
 import type { FileNode } from "./types";
 
 export interface WorkspaceResult {
@@ -108,6 +112,30 @@ export function useWorkspace({
     }
   }, [flushPendingSave, showToast, applyWorkspaceResult]);
 
+  const handleNewTodayFlow = useCallback(async () => {
+    if (!workspaceRoot) return;
+    const now = new Date();
+    const year = now.getFullYear().toString();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const dirPath = `${workspaceRoot}/flows/${year}/${month}`;
+    const filePath = `${dirPath}/${day}.md`;
+    try {
+      await invoke("ensure_dir", { path: dirPath });
+      try {
+        await invoke("create_file", { path: filePath, content: createTodayFlowFrontmatter() });
+      } catch (err) {
+        if (!String(err).includes("already exists")) throw err;
+      }
+      const updated = await refreshTree();
+      const node = findNode(updated, filePath);
+      if (node) await handleSelectFile(node);
+    } catch (err) {
+      console.error("Failed to open today's flow:", err);
+      showToast(`Failed to open today's flow: ${err}`);
+    }
+  }, [workspaceRoot, refreshTree, handleSelectFile, showToast]);
+
   async function handleNewFile(dirPath: string, filename: string, contentType?: string) {
     const slug = filename.replace(/\.md$/, "");
     const filePath = `${dirPath}/${slug}.md`;
@@ -176,6 +204,7 @@ export function useWorkspace({
     handleOpenWorkspace,
     openWorkspaceAtPath,
     handleNewFile,
+    handleNewTodayFlow,
     handleRename,
     handleDelete,
   };
