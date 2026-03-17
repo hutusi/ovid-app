@@ -11,6 +11,7 @@ import { SearchPanel } from "./components/SearchPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
+import { resolveImageSrc } from "./lib/imageUtils";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
 import { useFileEditor } from "./lib/useFileEditor";
@@ -45,6 +46,7 @@ function App() {
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
+  const [coverImageVisible, setCoverImageVisible] = useState(false);
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -73,6 +75,8 @@ function App() {
     workspaceRoot,
     workspaceRootPath,
     isAmytisWorkspace,
+    assetRoot,
+    cdnBase,
     renamingPath,
     setRenamingPath,
     handleOpenWorkspace,
@@ -123,11 +127,12 @@ function App() {
     void openWorkspaceAtPath(recentWorkspaces[0].rootPath);
   }, [recentWorkspaces, openWorkspaceAtPath, workspaceRootPath]);
 
-  // Reset session baseline when switching files (selectedFile is the trigger, not used in body)
+  // Reset per-file UI state when switching files (selectedFile is the trigger, not used in body)
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectedFile is the intended trigger
   useEffect(() => {
     setSessionBaseline(null);
     setBaselineCaptured(false);
+    setCoverImageVisible(false);
   }, [selectedFile]);
 
   // Capture baseline on first word-count event for the new file (including empty files)
@@ -351,6 +356,10 @@ function App() {
   ]);
 
   const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;
+  const coverImagePath =
+    parsedFrontmatter.coverImage != null && parsedFrontmatter.coverImage !== ""
+      ? String(parsedFrontmatter.coverImage)
+      : undefined;
 
   async function handlePublishAwareFieldChange(key: string, value: unknown) {
     await handleFieldChange(key, value as Parameters<typeof handleFieldChange>[1]);
@@ -407,16 +416,27 @@ function App() {
           />
         )}
         <div className="editor-column">
+          {selectedFile && coverImageVisible && coverImagePath && (
+            <div className="cover-image-banner">
+              <img
+                src={resolveImageSrc(coverImagePath, selectedFile.path, assetRoot, cdnBase)}
+                alt={parsedFrontmatter.title ? String(parsedFrontmatter.title) : ""}
+              />
+            </div>
+          )}
           {selectedFile ? (
             <ErrorBoundary key={selectedFile.path}>
               <Editor
                 key={selectedFile.path}
                 content={fileContent}
                 filePath={selectedFile.path}
+                assetRoot={assetRoot}
+                cdnBase={cdnBase}
                 typewriterMode={typewriterMode}
                 spellCheck={prefs.spellCheck}
                 onWordCount={setWordCount}
                 onChange={handleEditorChange}
+                onError={showToast}
               />
             </ErrorBoundary>
           ) : (
@@ -433,7 +453,9 @@ function App() {
             frontmatter={parsedFrontmatter}
             visible={propertiesOpen}
             slug={selectedFile.name.replace(/\.mdx?$/, "")}
+            coverImageVisible={coverImageVisible}
             onFieldChange={handlePublishAwareFieldChange}
+            onToggleCoverImage={() => setCoverImageVisible((v) => !v)}
           />
         )}
       </div>

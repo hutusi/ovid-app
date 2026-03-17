@@ -1,0 +1,155 @@
+import { describe, expect, it } from "bun:test";
+import { resolveImageSrc, resolveRelativePath } from "./imageUtils";
+
+// Stub convertFileSrc: just prefix with "file://" so we can assert on the resolved path
+const toFileUrl = (p: string) => `file://${p}`;
+
+const FILE = "/workspace/content/posts/hello.md";
+const ASSET_ROOT = "/workspace/public";
+
+// ---------------------------------------------------------------------------
+// resolveRelativePath
+// ---------------------------------------------------------------------------
+
+describe("resolveRelativePath", () => {
+  it("resolves a simple sibling file", () => {
+    expect(resolveRelativePath("/a/b", "c.png")).toBe("/a/b/c.png");
+  });
+
+  it("resolves ../ correctly", () => {
+    expect(resolveRelativePath("/a/b/c", "../img.png")).toBe("/a/b/img.png");
+  });
+
+  it("resolves multiple ../ steps", () => {
+    expect(resolveRelativePath("/a/b/c/d", "../../img.png")).toBe("/a/b/img.png");
+  });
+
+  it("resolves ./ prefix", () => {
+    expect(resolveRelativePath("/a/b", "./img.png")).toBe("/a/b/img.png");
+  });
+
+  it("handles nested relative path", () => {
+    expect(resolveRelativePath("/workspace/content/posts", "../assets/photo.jpg")).toBe(
+      "/workspace/content/assets/photo.jpg"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveImageSrc — pass-through cases
+// ---------------------------------------------------------------------------
+
+describe("resolveImageSrc — pass-through", () => {
+  it("returns empty string unchanged", () => {
+    expect(resolveImageSrc("", FILE, ASSET_ROOT, undefined, toFileUrl)).toBe("");
+  });
+
+  it("passes through https URL", () => {
+    const url = "https://example.com/img.jpg";
+    expect(resolveImageSrc(url, FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(url);
+  });
+
+  it("passes through http URL", () => {
+    const url = "http://example.com/img.jpg";
+    expect(resolveImageSrc(url, FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(url);
+  });
+
+  it("passes through data URI", () => {
+    const url = "data:image/png;base64,abc123";
+    expect(resolveImageSrc(url, FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(url);
+  });
+
+  it("passes through blob URL", () => {
+    const url = "blob:http://localhost/abc";
+    expect(resolveImageSrc(url, FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(url);
+  });
+
+  it("passes through asset:// URL", () => {
+    const url = "asset://localhost/some/path.png";
+    expect(resolveImageSrc(url, FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(url);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveImageSrc — root-relative paths
+// ---------------------------------------------------------------------------
+
+describe("resolveImageSrc — root-relative", () => {
+  it("resolves against assetRoot when no CDN", () => {
+    expect(resolveImageSrc("/images/photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file:///workspace/public/images/photo.jpg"
+    );
+  });
+
+  it("prepends CDN base when configured (trailing slash stripped)", () => {
+    expect(
+      resolveImageSrc("/images/photo.jpg", FILE, ASSET_ROOT, "https://cdn.example.com/", toFileUrl)
+    ).toBe("https://cdn.example.com/images/photo.jpg");
+  });
+
+  it("prepends CDN base without trailing slash", () => {
+    expect(
+      resolveImageSrc("/images/photo.jpg", FILE, ASSET_ROOT, "https://cdn.example.com", toFileUrl)
+    ).toBe("https://cdn.example.com/images/photo.jpg");
+  });
+
+  it("CDN takes priority over assetRoot", () => {
+    const result = resolveImageSrc(
+      "/img.png",
+      FILE,
+      ASSET_ROOT,
+      "https://cdn.example.com",
+      toFileUrl
+    );
+    expect(result).toBe("https://cdn.example.com/img.png");
+    expect(result).not.toContain("file://");
+  });
+
+  it("returns src unchanged when no assetRoot and no CDN", () => {
+    expect(resolveImageSrc("/images/photo.jpg", FILE, undefined, undefined, toFileUrl)).toBe(
+      "/images/photo.jpg"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveImageSrc — relative paths
+// ---------------------------------------------------------------------------
+
+describe("resolveImageSrc — relative paths", () => {
+  it("resolves path relative to file's directory", () => {
+    expect(resolveImageSrc("../assets/photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file:///workspace/content/assets/photo.jpg"
+    );
+  });
+
+  it("resolves ./ prefix relative to file's directory", () => {
+    expect(resolveImageSrc("./photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file:///workspace/content/posts/photo.jpg"
+    );
+  });
+
+  it("resolves bare filename relative to file's directory", () => {
+    expect(resolveImageSrc("photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file:///workspace/content/posts/photo.jpg"
+    );
+  });
+
+  it("returns src unchanged when filePath is undefined", () => {
+    expect(resolveImageSrc("photo.jpg", undefined, ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "photo.jpg"
+    );
+  });
+
+  it("handles bare filePath with no directory component", () => {
+    // lastIndexOf('/') === -1 → dir falls back to '.'
+    expect(resolveImageSrc("photo.jpg", "file.md", ASSET_ROOT, undefined, toFileUrl)).toBe(
+      "file://./photo.jpg"
+    );
+  });
+
+  it("ignores assetRoot for relative paths", () => {
+    const result = resolveImageSrc("photo.jpg", FILE, ASSET_ROOT, undefined, toFileUrl);
+    expect(result).not.toContain("/workspace/public");
+  });
+});

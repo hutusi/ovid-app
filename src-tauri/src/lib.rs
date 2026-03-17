@@ -89,8 +89,13 @@ struct WorkspaceResult {
     name: String,
     root_path: String,
     tree_root: String,
+    /// Directory to resolve root-relative image paths against.
+    /// Set to `<workspace>/public` when that directory exists (static-site
+    /// convention), otherwise falls back to the workspace root.
+    asset_root: String,
     tree: Vec<FileNode>,
     is_amytis_workspace: bool,
+    cdn_base: Option<String>,
 }
 
 fn walk_dir(path: &Path) -> Vec<FileNode> {
@@ -200,9 +205,29 @@ fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
     })
 }
 
+/// Normalize a path to forward-slash separators for JSON serialization.
+/// The frontend's `resolveImageSrc` splits on "/" so native Windows backslashes
+/// would produce wrong results; this keeps paths consistent across platforms.
+fn to_slash(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+/// Compute the asset-serving root and CDN base for a workspace.
+/// `asset_root` is `<workspace>/public/` when that directory exists (static-site
+/// convention), falling back to the workspace root itself.
+/// `cdn_base` is read from `site.config.ts` whenever that file exists,
+/// regardless of whether the full Amytis structure (content/ dir) is present.
+fn derive_workspace_meta(root: &Path) -> (PathBuf, Option<String>) {
+    let pub_dir = root.join("public");
+    let asset_root = if pub_dir.is_dir() { pub_dir } else { root.to_path_buf() };
+    let cdn_base = parse_cdn_base(&root.join("site.config.ts"));
+    (asset_root, cdn_base)
+}
+
 #[tauri::command]
 async fn open_workspace_at_path(
     path: String,
+    app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
 ) -> Result<Option<WorkspaceResult>, String> {
     let root = PathBuf::from(&path);
@@ -223,13 +248,23 @@ async fn open_workspace_at_path(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
+    let (asset_root, cdn_base) = derive_workspace_meta(&root);
+
+    // Grant asset protocol access to the entire workspace root so that both
+    // root-relative paths (resolved inside public/) and relative paths
+    // (resolved anywhere within the workspace) can be served.
+    if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
+        eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
+    }
 
     Ok(Some(WorkspaceResult {
         name,
-        root_path: root.to_string_lossy().to_string(),
-        tree_root: tree_root.to_string_lossy().to_string(),
+        root_path: to_slash(&root),
+        tree_root: to_slash(&tree_root),
+        asset_root: to_slash(&asset_root),
         tree,
         is_amytis_workspace,
+        cdn_base,
     }))
 }
 
@@ -270,13 +305,27 @@ async fn open_workspace(
 
     let is_amytis_workspace = root.join("site.config.ts").is_file() && root.join("content").is_dir();
     let tree = walk_dir(&tree_root);
+    let (asset_root, cdn_base) = derive_workspace_meta(&root);
+
+    // Grant asset protocol access to the entire workspace root so that both
+    // root-relative paths (resolved inside public/) and relative paths
+    // (resolved anywhere within the workspace) can be served.
+    // Note: Tauri 2's Scope API has no reset/clear, so allowances from prior
+    // workspace sessions accumulate in long-running processes. This is an
+    // accepted trade-off; the scope is bounded to workspace roots the user
+    // explicitly opened.
+    if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
+        eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
+    }
 
     Ok(Some(WorkspaceResult {
         name,
-        root_path: root.to_string_lossy().to_string(),
-        tree_root: tree_root.to_string_lossy().to_string(),
+        root_path: to_slash(&root),
+        tree_root: to_slash(&tree_root),
+        asset_root: to_slash(&asset_root),
         tree,
         is_amytis_workspace,
+        cdn_base,
     }))
 }
 
@@ -421,6 +470,71 @@ fn create_dir(path: String, state: State<'_, WorkspaceState>) -> Result<(), Stri
 #[serde(rename_all = "camelCase")]
 struct ContentType {
     name: String,
+}
+
+/// Extract the first quoted string value from the beginning of `s`.
+fn extract_quoted_string(s: &str) -> Option<String> {
+    let s = s.trim();
+    let quote = s.chars().next()?;
+    if quote != '\'' && quote != '"' && quote != '`' {
+        return None;
+    }
+    let inner = &s[quote.len_utf8()..];
+    let end = inner.find(quote)?;
+    Some(inner[..end].to_string())
+}
+
+/// Strip an optional leading quote char that matches `quote` from `s`.
+fn strip_quote_pair<'a>(s: &'a str, key: &str, quote: char) -> Option<&'a str> {
+    let s = s.strip_prefix(quote)?;
+    let s = s.strip_prefix(key)?;
+    s.strip_prefix(quote)
+}
+
+/// Best-effort scanner: look for `cdnBase` or `cdnUrl` keys in `site.config.ts`
+/// and return the URL value. Handles both bare (`cdnBase:`) and quoted
+/// (`"cdnBase":` / `'cdnBase':`) key forms. Returns `None` on any parse failure.
+fn parse_cdn_base(config_path: &Path) -> Option<String> {
+    use std::io::{BufRead, BufReader};
+    let file = std::fs::File::open(config_path).ok()?;
+    let reader = BufReader::new(file);
+    let mut in_block_comment = false;
+    for line in reader.lines().flatten() {
+        let trimmed = line.trim();
+        // Track /* ... */ block comments that may span multiple lines
+        if in_block_comment {
+            if trimmed.contains("*/") {
+                in_block_comment = false;
+            }
+            continue;
+        }
+        if trimmed.starts_with("/*") {
+            if !trimmed.contains("*/") {
+                in_block_comment = true;
+            }
+            continue;
+        }
+        if trimmed.starts_with("//") || trimmed.starts_with('*') {
+            continue;
+        }
+        for key in &["cdnBase", "cdnUrl"] {
+            // Match: cdnBase, "cdnBase", or 'cdnBase'
+            let after_key = trimmed
+                .strip_prefix(key)
+                .or_else(|| strip_quote_pair(trimmed, key, '"'))
+                .or_else(|| strip_quote_pair(trimmed, key, '\''));
+            if let Some(rest) = after_key {
+                let rest = rest.trim_start();
+                let Some(rest) = rest.strip_prefix(':') else { continue };
+                if let Some(url) = extract_quoted_string(rest) {
+                    if url.starts_with("http://") || url.starts_with("https://") {
+                        return Some(url);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Best-effort scanner: find `contentTypes` in `site.config.ts` and extract
@@ -640,6 +754,27 @@ fn relative_path_from(from_dir: &Path, to: &Path) -> String {
 /// a path relative to the active markdown file (or `assets/<name>` as fallback).
 ///
 /// Note: unlike `read_file`/`write_file`, `src_path` is intentionally not
+/// Open a native file picker filtered to image types and return the chosen path.
+#[tauri::command]
+async fn pick_image_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<tauri_plugin_dialog::FilePath>>();
+    app.dialog()
+        .file()
+        .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"])
+        .pick_file(move |file| {
+            tx.send(file).ok();
+        });
+    let file = match rx.await.ok().flatten() {
+        Some(f) => f,
+        None => return Ok(None),
+    };
+    let path = match file {
+        tauri_plugin_dialog::FilePath::Path(p) => p.to_string_lossy().to_string(),
+        tauri_plugin_dialog::FilePath::Url(u) => u.path().to_string(),
+    };
+    Ok(Some(path))
+}
+
 /// validated against the workspace root — drag-and-drop sources originate from
 /// external locations (desktop, downloads, etc.). The destination is safely
 /// constrained to `<workspace>/assets/`.
@@ -795,6 +930,9 @@ pub fn run() {
                     &MenuItemBuilder::with_id("insert-link", "Link…")
                         .accelerator("CmdOrCtrl+K")
                         .build(app)?,
+                    &MenuItemBuilder::with_id("insert-image", "Image…")
+                        .accelerator("CmdOrCtrl+Shift+I")
+                        .build(app)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItemBuilder::with_id("insert-code-block", "Code Block").build(app)?,
                     &MenuItemBuilder::with_id("insert-table", "Table").build(app)?,
@@ -921,7 +1059,229 @@ pub fn run() {
             get_git_branch,
             git_commit,
             save_asset,
+            pick_image_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
+}
+
+// ── Unit tests ──────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // ── extract_quoted_string ────────────────────────────────────────────────
+
+    #[test]
+    fn extract_quoted_string_double_quotes() {
+        assert_eq!(
+            extract_quoted_string(r#" "https://cdn.example.com" "#),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_single_quotes() {
+        assert_eq!(
+            extract_quoted_string(" 'https://cdn.example.com' "),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_backtick() {
+        assert_eq!(
+            extract_quoted_string("`https://cdn.example.com`"),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_quoted_string_no_quote_returns_none() {
+        assert_eq!(extract_quoted_string("https://cdn.example.com"), None);
+    }
+
+    #[test]
+    fn extract_quoted_string_empty_returns_none() {
+        assert_eq!(extract_quoted_string(""), None);
+    }
+
+    // ── strip_quote_pair ─────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_quote_pair_matches_double_quote() {
+        assert_eq!(strip_quote_pair(r#""cdnBase":"#, "cdnBase", '"'), Some(":"));
+    }
+
+    #[test]
+    fn strip_quote_pair_matches_single_quote() {
+        assert_eq!(strip_quote_pair("'cdnBase':", "cdnBase", '\''), Some(":"));
+    }
+
+    #[test]
+    fn strip_quote_pair_wrong_quote_returns_none() {
+        assert_eq!(strip_quote_pair("\"cdnBase\":", "cdnBase", '\''), None);
+    }
+
+    #[test]
+    fn strip_quote_pair_no_closing_quote_returns_none() {
+        assert_eq!(strip_quote_pair("\"cdnBase:", "cdnBase", '"'), None);
+    }
+
+    // ── parse_cdn_base ───────────────────────────────────────────────────────
+
+    fn write_config(dir: &TempDir, content: &str) -> PathBuf {
+        let path = dir.path().join("site.config.ts");
+        fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn parse_cdn_base_bare_key_single_quotes() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnBase: 'https://cdn.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_bare_key_double_quotes() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnBase: \"https://cdn.example.com\",\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_double_quoted_key() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  \"cdnBase\": \"https://cdn.example.com\",\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_single_quoted_key() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  'cdnBase': 'https://cdn.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_cdn_url_variant() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnUrl: 'https://assets.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://assets.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_cdn_base_skips_line_comments() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "// cdnBase: 'https://cdn.example.com'\nexport const config = {};\n",
+        );
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_skips_block_comment_lines() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "/**\n * cdnBase: 'https://cdn.example.com'\n */\nexport const config = {};\n",
+        );
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_non_http_value_returns_none() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(&dir, "export const config = { cdnBase: 'relative/path' };");
+        assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    fn parse_cdn_base_missing_file_returns_none() {
+        assert_eq!(parse_cdn_base(Path::new("/nonexistent/site.config.ts")), None);
+    }
+
+    // ── derive_workspace_meta ────────────────────────────────────────────────
+
+    #[test]
+    fn derive_workspace_meta_uses_public_dir_when_present() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir(dir.path().join("public")).unwrap();
+        let (asset_root, cdn_base) = derive_workspace_meta(dir.path());
+        assert_eq!(asset_root, dir.path().join("public"));
+        assert_eq!(cdn_base, None);
+    }
+
+    #[test]
+    fn derive_workspace_meta_falls_back_to_workspace_root() {
+        let dir = TempDir::new().unwrap();
+        let (asset_root, cdn_base) = derive_workspace_meta(dir.path());
+        assert_eq!(asset_root, dir.path().to_path_buf());
+        assert_eq!(cdn_base, None);
+    }
+
+    #[test]
+    fn derive_workspace_meta_extracts_cdn_base_when_config_present() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join("site.config.ts"),
+            "export const config = {\n  cdnBase: 'https://cdn.example.com',\n};\n",
+        )
+        .unwrap();
+        let (_, cdn_base) = derive_workspace_meta(dir.path());
+        assert_eq!(cdn_base, Some("https://cdn.example.com".to_string()));
+    }
+
+    #[test]
+    fn derive_workspace_meta_no_cdn_without_config() {
+        let dir = TempDir::new().unwrap();
+        // No site.config.ts — cdn_base must be None regardless of workspace type
+        let (_, cdn_base) = derive_workspace_meta(dir.path());
+        assert_eq!(cdn_base, None);
+    }
+
+    #[test]
+    fn parse_cdn_base_skips_multi_line_block_comments() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "/* This config has no CDN\n  cdnBase: 'https://cdn.example.com'\n*/\nexport const config = {};\n",
+        );
+        assert_eq!(parse_cdn_base(&path), None);
+    }
 }

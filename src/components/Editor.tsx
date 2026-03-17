@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { InputRule } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,6 +16,7 @@ import { common, createLowlight } from "lowlight";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
 import { FindReplace } from "../lib/tiptap/FindReplace";
+import { ImageRenderer } from "../lib/tiptap/ImageRenderer";
 import { InlineEditMode } from "../lib/tiptap/InlineEditMode";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import { TextFolding } from "../lib/tiptap/TextFolding";
@@ -32,22 +32,48 @@ const lowlight = createLowlight(common);
 
 const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
 
+async function pickAndInsertImage(
+  editor: ReturnType<typeof useEditor>,
+  filePath: string | undefined,
+  onError?: (msg: string) => void
+) {
+  if (!editor) return;
+  try {
+    const srcPath = await invoke<string | null>("pick_image_file");
+    if (!srcPath) return;
+    const relPath = await invoke<string>("save_asset", { srcPath, activeFilePath: filePath });
+    // Split on both / and \ to handle Windows paths correctly
+    const fileName = (srcPath.split(/[/\\]/).pop() ?? "image").replace(/\.[^.]+$/, "");
+    editor.chain().focus().setImage({ src: relPath, alt: fileName }).run();
+  } catch (err) {
+    const msg = `Failed to insert image: ${err instanceof Error ? err.message : err}`;
+    if (onError) onError(msg);
+    else console.error(msg);
+  }
+}
+
 interface EditorProps {
   content?: string;
   filePath?: string;
+  assetRoot?: string;
+  cdnBase?: string;
   typewriterMode?: boolean;
   spellCheck?: boolean;
   onWordCount?: (count: number) => void;
   onChange?: (markdown: string) => void;
+  onError?: (msg: string) => void;
 }
 
 export function Editor({
   content = "",
   filePath,
+  assetRoot,
+  cdnBase,
   typewriterMode = false,
   spellCheck = true,
   onWordCount,
   onChange,
+  onError,
 }: EditorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const typewriterRef = useRef(typewriterMode);
@@ -98,7 +124,7 @@ export function Editor({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer" },
       }),
-      Image,
+      ImageRenderer.configure({ filePath, assetRoot, cdnBase }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -147,7 +173,9 @@ export function Editor({
         ).then((results) => {
           const saved = results.flatMap((r) => {
             if (r.status === "fulfilled") return [r.value];
-            console.error("save_asset failed:", r.reason);
+            const msg = `Failed to drop image: ${r.reason}`;
+            if (onError) onError(msg);
+            else console.error(msg);
             return [];
           });
           if (saved.length === 0) return;
@@ -259,6 +287,18 @@ export function Editor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editor]);
 
+  // Cmd+Shift+I — open file picker and insert image
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key?.toLowerCase() !== "i") return;
+      if (!editor?.isFocused) return;
+      e.preventDefault();
+      pickAndInsertImage(editor, filePath, onError);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor, filePath, onError]);
+
   // Cmd+H — open / close find & replace bar
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -316,6 +356,9 @@ export function Editor({
           setLinkDialog({ href });
           break;
         }
+        case "insert-image":
+          pickAndInsertImage(editor, filePath, onError);
+          break;
         case "insert-code-block":
           editor.chain().focus().toggleCodeBlock().run();
           break;
@@ -337,7 +380,7 @@ export function Editor({
       mounted = false;
       unlisten?.();
     };
-  }, [editor, linkDialog]);
+  }, [editor, linkDialog, filePath, onError]);
 
   return (
     <div className="editor-wrapper">
