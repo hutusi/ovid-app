@@ -136,6 +136,35 @@
   margin-bottom: 0.25em;
 }
 
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ProseMirror li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6em;
+}
+
+.ProseMirror li[data-type="taskItem"] > label {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.2em;
+}
+
+.ProseMirror li[data-type="taskItem"] > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ProseMirror li[data-type="taskItem"] input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
 /* Horizontal rule */
 .ProseMirror hr {
   border: none;

@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { InputRule } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Link from "@tiptap/extension-link";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table } from "@tiptap/extension-table";
@@ -123,6 +124,10 @@ export function Editor({
       }).configure({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer" },
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
       }),
       ImageRenderer.configure({ filePath, assetRoot, cdnBase }),
       Table.configure({ resizable: true }),
@@ -350,6 +355,9 @@ export function Editor({
           break;
         case "format-ordered-list":
           editor.chain().focus().toggleOrderedList().run();
+          break;
+        case "format-task-list":
+          editor.chain().focus().toggleTaskList().run();
           break;
         case "insert-link": {
           const href = editor.getAttributes("link").href ?? "";
