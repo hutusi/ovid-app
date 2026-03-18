@@ -240,7 +240,7 @@ export function Editor({
     if (!editor) return;
     const normalized = normalizeTaskLists(editor.getJSON());
     if (JSON.stringify(normalized) === JSON.stringify(editor.getJSON())) return;
-    editor.commands.setContent(normalized, false);
+    editor.commands.setContent(normalized, { emitUpdate: false });
   }, [editor]);
 
   // Click on the ](url) hint from InlineEditMode → open link dialog

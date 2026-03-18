@@ -1,22 +1,15 @@
 import { describe, expect, it } from "bun:test";
+import type {
+  JSONContent,
+  MarkdownLexerConfiguration,
+  MarkdownParseHelpers,
+  MarkdownRendererHelpers,
+  MarkdownToken,
+  RenderContext,
+} from "@tiptap/core";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 
-type MarkdownNode = {
-  type: string;
-  attrs?: Record<string, unknown>;
-  content?: MarkdownNode[];
-  text?: string;
-};
-
-type MarkdownToken = {
-  type: string;
-  checked?: boolean;
-  text?: string;
-  items?: MarkdownToken[];
-  tokens?: MarkdownToken[];
-  nestedTokens?: MarkdownToken[];
-  raw?: string;
-};
+type MarkdownNode = JSONContent;
 
 function parseTaskMarkdown(markdown: string): MarkdownNode {
   const tokenizer = TaskList.config.markdownTokenizer;
@@ -24,20 +17,22 @@ function parseTaskMarkdown(markdown: string): MarkdownNode {
     throw new Error("TaskList markdown tokenizer is unavailable");
   }
 
-  const token = tokenizer.tokenize(markdown, [], {
+  const lexer: MarkdownLexerConfiguration = {
     inlineTokens(text: string) {
-      return [{ type: "text", text, raw: text }];
+      return [{ type: "text", text, raw: text } as MarkdownToken];
     },
     blockTokens(content: string) {
-      return [{ type: "text", text: content, raw: content }];
+      return [{ type: "text", text: content, raw: content } as MarkdownToken];
     },
-  });
+  };
+
+  const token = tokenizer.tokenize(markdown, [], lexer);
 
   if (!token) {
     throw new Error("Task list markdown did not tokenize");
   }
 
-  return parseToken(token);
+  return parseToken(token as MarkdownToken);
 }
 
 function parseToken(token: MarkdownToken): MarkdownNode {
@@ -53,9 +48,15 @@ function parseToken(token: MarkdownToken): MarkdownNode {
   }
 }
 
-const parserHelper = {
-  createNode(type: string, attrs: Record<string, unknown>, content: MarkdownNode[] = []) {
+const parserHelper: MarkdownParseHelpers = {
+  createNode(type: string, attrs?: Record<string, unknown>, content: MarkdownNode[] = []) {
     return { type, attrs, content };
+  },
+  createTextNode(text: string, marks = []) {
+    return marks.length > 0 ? { type: "text", text, marks } : { type: "text", text };
+  },
+  applyMark(markType: string, content: MarkdownNode[], attrs?: Record<string, unknown>) {
+    return { mark: markType, content, attrs };
   },
   parseChildren(tokens: MarkdownToken[]) {
     return tokens.map(parseToken);
@@ -65,26 +66,40 @@ const parserHelper = {
   },
 };
 
+const renderContext: RenderContext = {
+  index: 0,
+  level: 0,
+  parentType: null,
+};
+
 function renderNode(node: MarkdownNode): string {
   switch (node.type) {
     case "taskList":
       return (
-        TaskList.config.renderMarkdown?.(node, {
-          renderChildren(nodes: MarkdownNode[]) {
-            return nodes.map(renderNode).join("\n");
-          },
-        }) ?? ""
+        TaskList.config.renderMarkdown?.(
+          node,
+          {
+            renderChildren(nodes: MarkdownNode[]) {
+              return nodes.map(renderNode).join("\n");
+            },
+          } as MarkdownRendererHelpers,
+          renderContext
+        ) ?? ""
       );
     case "taskItem":
       return (
-        TaskItem.config.renderMarkdown?.(node, {
-          renderChildren(nodes: MarkdownNode[]) {
-            return nodes.map(renderNode).join("");
-          },
-          indent(text: string) {
-            return `  ${text}`;
-          },
-        }) ?? ""
+        TaskItem.config.renderMarkdown?.(
+          node,
+          {
+            renderChildren(nodes: MarkdownNode[]) {
+              return nodes.map(renderNode).join("");
+            },
+            indent(text: string) {
+              return `  ${text}`;
+            },
+          } as MarkdownRendererHelpers,
+          renderContext
+        ) ?? ""
       );
     case "paragraph":
       return (node.content ?? []).map(renderNode).join("");
@@ -111,5 +126,41 @@ describe("task list markdown support", () => {
     ].join("\n");
 
     expect(renderNode(parseTaskMarkdown(markdown))).toBe(markdown);
+  });
+
+  it("serializes checked-state changes back to markdown", () => {
+    const unchecked = {
+      type: "taskList",
+      content: [
+        {
+          type: "taskItem",
+          attrs: { checked: false },
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "draft intro" }],
+            },
+          ],
+        },
+      ],
+    };
+    const checked = {
+      type: "taskList",
+      content: [
+        {
+          type: "taskItem",
+          attrs: { checked: true },
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "draft intro" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(renderNode(unchecked)).toBe("- [ ] draft intro");
+    expect(renderNode(checked)).toBe("- [x] draft intro");
   });
 });

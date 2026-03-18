@@ -87,4 +87,109 @@ describe("normalizeTaskLists", () => {
 
     expect(normalizeTaskLists(doc)).toEqual(doc);
   });
+
+  it("leaves mixed bullet lists unchanged", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "[ ] draft intro" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "plain bullet" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(normalizeTaskLists(doc)).toEqual(doc);
+  });
+
+  it("converts nested task bullet lists into nested task lists", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "[ ] launch" }],
+                },
+                {
+                  type: "bulletList",
+                  content: [
+                    {
+                      type: "listItem",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "[x] write changelog" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(normalizeTaskLists(doc)).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { checked: false },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "launch" }],
+                },
+                {
+                  type: "taskList",
+                  content: [
+                    {
+                      type: "taskItem",
+                      attrs: { checked: true },
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "write changelog" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });
