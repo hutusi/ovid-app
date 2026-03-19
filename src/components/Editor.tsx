@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { InputRule } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Link from "@tiptap/extension-link";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table } from "@tiptap/extension-table";
@@ -20,6 +21,7 @@ import { ImageRenderer } from "../lib/tiptap/ImageRenderer";
 import { InlineEditMode } from "../lib/tiptap/InlineEditMode";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import { TextFolding } from "../lib/tiptap/TextFolding";
+import { normalizeTaskLists } from "../lib/tiptap/taskLists";
 import { BubbleMenu } from "./BubbleMenu";
 import { CodeBlockView } from "./CodeBlockView";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -92,6 +94,10 @@ export function Editor({
           return ReactNodeViewRenderer(CodeBlockView);
         },
       }).configure({ lowlight }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
       Markdown.configure({
         transformPastedText: true,
         transformCopiedText: true,
@@ -227,6 +233,19 @@ export function Editor({
     }
   }, [editor, spellCheck]);
 
+  // Some Markdown inputs still parse task syntax as plain bullet items
+  // with a leading "[ ]" or "[x]" text token. Normalize that once on load
+  // so opened files render as real task lists with interactive checkboxes.
+  useEffect(() => {
+    if (!editor) return;
+    const original = editor.getJSON();
+    const originalStr = JSON.stringify(original);
+    const normalized = normalizeTaskLists(original);
+    const normalizedStr = JSON.stringify(normalized);
+    if (normalizedStr === originalStr) return;
+    editor.commands.setContent(normalized, { emitUpdate: false });
+  }, [editor]);
+
   // Click on the ](url) hint from InlineEditMode → open link dialog
   // Use scrollRef instead of editor.view.dom to avoid accessing the view before it's mounted
   useEffect(() => {
@@ -350,6 +369,9 @@ export function Editor({
           break;
         case "format-ordered-list":
           editor.chain().focus().toggleOrderedList().run();
+          break;
+        case "format-task-list":
+          editor.chain().focus().toggleTaskList().run();
           break;
         case "insert-link": {
           const href = editor.getAttributes("link").href ?? "";
