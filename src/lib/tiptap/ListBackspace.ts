@@ -2,7 +2,7 @@ import { Extension, type Editor } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 
 export type BackspaceAction =
-  | { type: "liftListItem" }
+  | { type: "liftListItem"; itemType: "listItem" | "taskItem" }
   | { type: "liftBlockquote" }
   | { type: "unwrapHeading" };
 
@@ -34,7 +34,11 @@ export function getBackspaceAction(state: EditorState): BackspaceAction | null {
     const node = $from.node(depth);
 
     if (node.type.name === "listItem") {
-      return $from.index(depth) === 0 ? { type: "liftListItem" } : null;
+      return $from.index(depth) === 0 ? { type: "liftListItem", itemType: "listItem" } : null;
+    }
+
+    if (node.type.name === "taskItem") {
+      return $from.index(depth) === 0 ? { type: "liftListItem", itemType: "taskItem" } : null;
     }
 
     if (node.type.name === "blockquote") {
@@ -52,7 +56,7 @@ export function applyBackspaceAction(editor: Editor): boolean {
   }
 
   if (action.type === "liftListItem") {
-    return editor.commands.liftListItem("listItem");
+    return editor.commands.liftListItem(action.itemType);
   }
 
   if (action.type === "liftBlockquote") {

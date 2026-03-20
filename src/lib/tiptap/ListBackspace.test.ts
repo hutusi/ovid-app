@@ -1,12 +1,13 @@
 import { describe, expect, it } from "bun:test";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import StarterKit from "@tiptap/starter-kit";
-import { Editor } from "@tiptap/core";
+import { type AnyExtension, Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { applyBackspaceAction, getBackspaceAction, ListBackspace } from "./ListBackspace";
 
-function createEditor(content: Record<string, unknown>) {
+function createEditor(content: Record<string, unknown>, extensions: AnyExtension[] = [StarterKit]) {
   return new Editor({
-    extensions: [StarterKit],
+    extensions,
     content,
   });
 }
@@ -45,7 +46,7 @@ describe("ListBackspace", () => {
     const betaStart = 12;
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, betaStart)));
 
-    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem" });
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem", itemType: "listItem" });
 
     editor.destroy();
   });
@@ -107,6 +108,41 @@ describe("ListBackspace", () => {
     editor.destroy();
   });
 
+  it("detects a non-empty task item at text start", () => {
+    const editor = createEditor(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "taskList",
+            content: [
+              {
+                type: "taskItem",
+                attrs: { checked: false },
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "todo" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      [StarterKit, TaskList, TaskItem]
+    );
+
+    const taskStart = 3;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, taskStart))
+    );
+
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem", itemType: "taskItem" });
+
+    editor.destroy();
+  });
+
   it("detects a non-empty blockquote paragraph at text start", () => {
     const editor = createEditor({
       type: "doc",
@@ -150,6 +186,78 @@ describe("ListBackspace", () => {
     );
 
     expect(getBackspaceAction(editor.state)).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("unwraps the nearest blockquote layer before lifting the parent list item", () => {
+    const editor = createEditor({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "blockquote",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "quoted" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const quoteStart = 4;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, quoteStart))
+    );
+
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftBlockquote" });
+
+    editor.destroy();
+  });
+
+  it("lifts the nearest list item layer before unwrapping an outer blockquote", () => {
+    const editor = createEditor({
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "bulletList",
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "item" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const itemStart = 4;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, itemStart))
+    );
+
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem", itemType: "listItem" });
 
     editor.destroy();
   });
