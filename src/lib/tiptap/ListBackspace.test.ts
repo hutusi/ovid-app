@@ -37,6 +37,15 @@ function findNthNodeStart(editor: Editor, nodeType: string, occurrence = 1): num
   return pos;
 }
 
+function findNthNodeOffset(
+  editor: Editor,
+  nodeType: string,
+  offset: number,
+  occurrence = 1
+): number {
+  return findNthNodeStart(editor, nodeType, occurrence) + offset;
+}
+
 describe("ListBackspace", () => {
   it("detects a non-empty list item at text start", () => {
     const editor = createEditor({
@@ -68,7 +77,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const betaStart = 12;
+    const betaStart = findNthNodeStart(editor, "paragraph", 2);
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, betaStart))
     );
@@ -102,7 +111,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const middleOfAlpha = 4;
+    const middleOfAlpha = findNthNodeOffset(editor, "paragraph", 3);
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, middleOfAlpha))
     );
@@ -128,7 +137,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const emptyItemStart = 3;
+    const emptyItemStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyItemStart))
     );
@@ -166,7 +175,7 @@ describe("ListBackspace", () => {
       [StarterKit, TaskList, TaskItem]
     );
 
-    const taskStart = 3;
+    const taskStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, taskStart))
     );
@@ -199,7 +208,7 @@ describe("ListBackspace", () => {
       [StarterKit, TaskList, TaskItem]
     );
 
-    const taskStart = 3;
+    const taskStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, taskStart))
     );
@@ -228,7 +237,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const quoteStart = 2;
+    const quoteStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, quoteStart))
     );
@@ -249,7 +258,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const emptyQuoteStart = 2;
+    const emptyQuoteStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyQuoteStart))
     );
@@ -285,7 +294,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const quoteStart = 4;
+    const quoteStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, quoteStart))
     );
@@ -321,7 +330,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const itemStart = 4;
+    const itemStart = findNthNodeStart(editor, "paragraph");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, itemStart))
     );
@@ -346,7 +355,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const headingStart = 1;
+    const headingStart = findNthNodeStart(editor, "heading");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, headingStart))
     );
@@ -367,7 +376,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const codeStart = 1;
+    const codeStart = findNthNodeStart(editor, "codeBlock");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, codeStart))
     );
@@ -388,7 +397,7 @@ describe("ListBackspace", () => {
       ],
     });
 
-    const codeStart = 1;
+    const codeStart = findNthNodeStart(editor, "codeBlock");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, codeStart))
     );
@@ -413,7 +422,7 @@ describe("ListBackspace", () => {
       },
     });
 
-    const headingStart = 1;
+    const headingStart = findNthNodeStart(editor, "heading");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, headingStart))
     );
@@ -448,7 +457,7 @@ describe("ListBackspace", () => {
       },
     });
 
-    const headingStart = 1;
+    const headingStart = findNthNodeStart(editor, "heading");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, headingStart))
     );
@@ -482,7 +491,7 @@ describe("ListBackspace", () => {
       },
     });
 
-    const codeStart = 1;
+    const codeStart = findNthNodeStart(editor, "codeBlock");
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, codeStart))
     );

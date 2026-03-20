@@ -87,7 +87,12 @@ export function applyBackspaceAction(editor: Editor): boolean {
     return true;
   }
 
-  return editor.commands.setParagraph();
+  if (action.type === "unwrapHeading") {
+    return editor.commands.setParagraph();
+  }
+
+  const _exhaustive: never = action;
+  return _exhaustive;
 }
 
 export const ListBackspace = Extension.create({

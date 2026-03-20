@@ -120,8 +120,12 @@ export const ImageRenderer = Image.extend<ImageRendererOptions>({
   addStorage() {
     return {
       markdown: {
-        serialize(...args: [MarkdownSerializerState, ProseMirrorNode, ProseMirrorNode, number]) {
-          const [state, node, parent, index] = args;
+        serialize(
+          state: MarkdownSerializerState,
+          node: ProseMirrorNode,
+          parent: ProseMirrorNode,
+          index: number
+        ) {
           defaultMarkdownSerializer.nodes.image(state, node, parent, index);
           if (!node.type.spec.inline) {
             state.closeBlock(node);
