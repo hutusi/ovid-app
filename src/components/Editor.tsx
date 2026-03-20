@@ -20,6 +20,7 @@ import { FindReplace } from "../lib/tiptap/FindReplace";
 import { ActiveHeadingIndicator } from "../lib/tiptap/ActiveHeadingIndicator";
 import { ImageRenderer } from "../lib/tiptap/ImageRenderer";
 import { InlineEditMode } from "../lib/tiptap/InlineEditMode";
+import { ListBackspace } from "../lib/tiptap/ListBackspace";
 import { LinkPreview } from "../lib/tiptap/LinkPreview";
 import { TextFolding } from "../lib/tiptap/TextFolding";
 import { normalizeTaskLists } from "../lib/tiptap/taskLists";
@@ -140,6 +141,7 @@ export function Editor({
       LinkPreview,
       FindReplace,
       ActiveHeadingIndicator,
+      ListBackspace,
       TextFolding,
       InlineEditMode,
     ],
