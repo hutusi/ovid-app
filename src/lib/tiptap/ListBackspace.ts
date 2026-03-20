@@ -18,11 +18,13 @@ export function getBackspaceAction(state: EditorState): BackspaceAction | null {
     return null;
   }
 
-  if ($from.parent.content.size === 0) {
-    return null;
-  }
+  const isEmptyTextblock = $from.parent.content.size === 0;
 
   if ($from.parent.type.name === "heading") {
+    if (isEmptyTextblock) {
+      return null;
+    }
+
     return { type: "unwrapHeading" };
   }
 
@@ -42,6 +44,10 @@ export function getBackspaceAction(state: EditorState): BackspaceAction | null {
     }
 
     if (node.type.name === "blockquote") {
+      if (isEmptyTextblock) {
+        return null;
+      }
+
       return { type: "liftBlockquote" };
     }
   }

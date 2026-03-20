@@ -12,6 +12,31 @@ function createEditor(content: Record<string, unknown>, extensions: AnyExtension
   });
 }
 
+function findNthNodeStart(editor: Editor, nodeType: string, occurrence = 1): number {
+  let count = 0;
+  let pos = -1;
+
+  editor.state.doc.descendants((node, nodePos) => {
+    if (node.type.name !== nodeType) {
+      return true;
+    }
+
+    count += 1;
+    if (count === occurrence) {
+      pos = nodePos + 1;
+      return false;
+    }
+
+    return true;
+  });
+
+  if (pos === -1) {
+    throw new Error(`Could not find ${occurrence} occurrence of node type ${nodeType}`);
+  }
+
+  return pos;
+}
+
 describe("ListBackspace", () => {
   it("detects a non-empty list item at text start", () => {
     const editor = createEditor({
@@ -82,7 +107,7 @@ describe("ListBackspace", () => {
     editor.destroy();
   });
 
-  it("falls through for empty list items", () => {
+  it("detects empty list items at text start", () => {
     const editor = createEditor({
       type: "doc",
       content: [
@@ -103,7 +128,7 @@ describe("ListBackspace", () => {
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyItemStart))
     );
 
-    expect(getBackspaceAction(editor.state)).toBeNull();
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem", itemType: "listItem" });
 
     editor.destroy();
   });
@@ -125,6 +150,36 @@ describe("ListBackspace", () => {
                     content: [{ type: "text", text: "todo" }],
                   },
                 ],
+              },
+            ],
+          },
+        ],
+      },
+      [StarterKit, TaskList, TaskItem]
+    );
+
+    const taskStart = 3;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, taskStart))
+    );
+
+    expect(getBackspaceAction(editor.state)).toEqual({ type: "liftListItem", itemType: "taskItem" });
+
+    editor.destroy();
+  });
+
+  it("detects empty task items at text start", () => {
+    const editor = createEditor(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "taskList",
+            content: [
+              {
+                type: "taskItem",
+                attrs: { checked: false },
+                content: [{ type: "paragraph" }],
               },
             ],
           },
@@ -347,6 +402,67 @@ describe("ListBackspace", () => {
         {
           type: "paragraph",
           content: [{ type: "text", text: "Title" }],
+        },
+      ],
+    });
+
+    editor.destroy();
+  });
+
+  it("unwraps empty list items instead of merging backward", () => {
+    const editor = new Editor({
+      extensions: [StarterKit, ListBackspace],
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "bulletList",
+            content: [
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "alpha" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [{ type: "paragraph" }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const emptyItemStart = findNthNodeStart(editor, "paragraph", 2);
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyItemStart))
+    );
+
+    expect(applyBackspaceAction(editor)).toBe(true);
+
+    expect(editor.getJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "alpha" }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
         },
       ],
     });
