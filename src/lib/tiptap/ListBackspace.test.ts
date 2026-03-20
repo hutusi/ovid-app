@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import StarterKit from "@tiptap/starter-kit";
 import { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
-import { shouldLiftListItemOnBackspace } from "./ListBackspace";
+import { shouldUnwrapBlockOnBackspace } from "./ListBackspace";
 
 function createEditor(content: Record<string, unknown>) {
   return new Editor({
@@ -45,7 +45,7 @@ describe("ListBackspace", () => {
     const betaStart = 12;
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, betaStart)));
 
-    expect(shouldLiftListItemOnBackspace(editor.state)).toBe(true);
+    expect(shouldUnwrapBlockOnBackspace(editor.state)).toBe("listItem");
 
     editor.destroy();
   });
@@ -76,7 +76,7 @@ describe("ListBackspace", () => {
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, middleOfAlpha))
     );
 
-    expect(shouldLiftListItemOnBackspace(editor.state)).toBe(false);
+    expect(shouldUnwrapBlockOnBackspace(editor.state)).toBeNull();
 
     editor.destroy();
   });
@@ -102,7 +102,54 @@ describe("ListBackspace", () => {
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyItemStart))
     );
 
-    expect(shouldLiftListItemOnBackspace(editor.state)).toBe(false);
+    expect(shouldUnwrapBlockOnBackspace(editor.state)).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("detects a non-empty blockquote paragraph at text start", () => {
+    const editor = createEditor({
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "quoted" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const quoteStart = 2;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, quoteStart))
+    );
+
+    expect(shouldUnwrapBlockOnBackspace(editor.state)).toBe("blockquote");
+
+    editor.destroy();
+  });
+
+  it("falls through for empty blockquote paragraphs", () => {
+    const editor = createEditor({
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    });
+
+    const emptyQuoteStart = 2;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyQuoteStart))
+    );
+
+    expect(shouldUnwrapBlockOnBackspace(editor.state)).toBeNull();
 
     editor.destroy();
   });

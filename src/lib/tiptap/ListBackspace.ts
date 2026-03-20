@@ -1,28 +1,35 @@
 import { Extension } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 
-export function shouldLiftListItemOnBackspace(state: EditorState): boolean {
+export function shouldUnwrapBlockOnBackspace(state: EditorState): "listItem" | "blockquote" | null {
   const { selection } = state;
 
   if (!selection.empty) {
-    return false;
+    return null;
   }
 
   const { $from } = selection;
   if ($from.parent.type.name !== "paragraph" || $from.parentOffset !== 0) {
-    return false;
+    return null;
   }
 
   if ($from.parent.content.size === 0) {
-    return false;
+    return null;
   }
 
-  const listItemDepth = $from.depth - 1;
-  if (listItemDepth < 0 || $from.node(listItemDepth).type.name !== "listItem") {
-    return false;
+  for (let depth = $from.depth - 1; depth >= 0; depth--) {
+    const node = $from.node(depth);
+
+    if (node.type.name === "listItem") {
+      return $from.index(depth) === 0 ? "listItem" : null;
+    }
+
+    if (node.type.name === "blockquote") {
+      return "blockquote";
+    }
   }
 
-  return $from.index(listItemDepth) === 0;
+  return null;
 }
 
 export const ListBackspace = Extension.create({
@@ -32,11 +39,16 @@ export const ListBackspace = Extension.create({
     return {
       Backspace: () => {
         const { state, commands } = this.editor;
-        if (!shouldLiftListItemOnBackspace(state)) {
+        const target = shouldUnwrapBlockOnBackspace(state);
+        if (!target) {
           return false;
         }
 
-        return commands.liftListItem("listItem");
+        if (target === "listItem") {
+          return commands.liftListItem("listItem");
+        }
+
+        return commands.lift("blockquote");
       },
     };
   },
