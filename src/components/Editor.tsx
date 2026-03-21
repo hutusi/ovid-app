@@ -365,6 +365,15 @@ export function Editor({
         case "format-heading-3":
           editor.chain().focus().toggleHeading({ level: 3 }).run();
           break;
+        case "format-heading-4":
+          editor.chain().focus().toggleHeading({ level: 4 }).run();
+          break;
+        case "format-heading-5":
+          editor.chain().focus().toggleHeading({ level: 5 }).run();
+          break;
+        case "format-heading-6":
+          editor.chain().focus().toggleHeading({ level: 6 }).run();
+          break;
         case "format-blockquote":
           editor.chain().focus().toggleBlockquote().run();
           break;
