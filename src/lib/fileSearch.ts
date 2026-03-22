@@ -1,3 +1,4 @@
+import { collapseIndexNodes } from "./sidebarUtils";
 import type { FileNode } from "./types";
 
 export interface FlatFile {
@@ -8,7 +9,7 @@ export interface FlatFile {
 
 export function flattenTree(nodes: FileNode[], prefix = ""): FlatFile[] {
   const result: FlatFile[] = [];
-  for (const node of nodes) {
+  for (const node of collapseIndexNodes(nodes)) {
     if (node.isDirectory) {
       const dir = prefix ? `${prefix}/${node.name}` : node.name;
       if (node.children) result.push(...flattenTree(node.children, dir));

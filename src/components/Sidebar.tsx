@@ -1,7 +1,13 @@
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { Folder, FolderOpen } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
-import { filterTree, needsPageDivider, rollupGitStatus, sortNodes } from "../lib/sidebarUtils";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  collapseIndexNodes,
+  filterTree,
+  needsPageDivider,
+  rollupGitStatus,
+  sortNodes,
+} from "../lib/sidebarUtils";
 import type { FileNode, GitStatus } from "../lib/types";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./Sidebar.css";
@@ -222,6 +228,7 @@ export function Sidebar({
   onCancelRename,
 }: SidebarProps) {
   const [filterQuery, setFilterQuery] = useState("");
+  const visibleTree = useMemo(() => collapseIndexNodes(tree), [tree]);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -304,7 +311,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {tree.length > 0 && (
+      {visibleTree.length > 0 && (
         <div className="sidebar-filter">
           <div className="relative flex-1">
             <Input
@@ -332,7 +339,7 @@ export function Sidebar({
       )}
 
       <div className="sidebar-tree">
-        {tree.length === 0 ? (
+        {visibleTree.length === 0 ? (
           <div className="sidebar-empty">
             <p>No workspace open.</p>
             <button type="button" className="sidebar-open-workspace-btn" onClick={onOpenWorkspace}>
@@ -340,25 +347,27 @@ export function Sidebar({
             </button>
           </div>
         ) : (
-          sortNodes(filterQuery ? filterTree(tree, filterQuery) : tree).map((node, idx, sorted) => (
-            <Fragment key={node.path}>
-              {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
-              <FileItem
-                node={node}
-                depth={0}
-                selectedPath={selectedPath}
-                renamingPath={renamingPath}
-                gitStatusMap={gitStatusMap}
-                forceExpand={filterQuery.length > 0}
-                onSelect={onSelect}
-                onNewFile={onNewFile}
-                onRename={onRename}
-                onDelete={onDelete}
-                onStartRename={onStartRename}
-                onCancelRename={onCancelRename}
-              />
-            </Fragment>
-          ))
+          sortNodes(filterQuery ? filterTree(visibleTree, filterQuery) : visibleTree).map(
+            (node, idx, sorted) => (
+              <Fragment key={node.path}>
+                {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
+                <FileItem
+                  node={node}
+                  depth={0}
+                  selectedPath={selectedPath}
+                  renamingPath={renamingPath}
+                  gitStatusMap={gitStatusMap}
+                  forceExpand={filterQuery.length > 0}
+                  onSelect={onSelect}
+                  onNewFile={onNewFile}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onStartRename={onStartRename}
+                  onCancelRename={onCancelRename}
+                />
+              </Fragment>
+            )
+          )
         )}
       </div>
 
