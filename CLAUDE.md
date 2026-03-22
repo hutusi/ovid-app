@@ -55,6 +55,11 @@ Three-zone layout managed by `src/App.tsx`:
 - `ui/command.tsx` — Thin wrapper around `cmdk` for the file switcher; styled with design tokens
 - `ui/input.tsx` — Plain input wrapper used by Sidebar filter and SearchPanel
 
+Sidebar/session behavior:
+- Folders containing only `index.md` or `index.mdx` are presented as a single content item in the sidebar and file switcher
+- Sidebar expansion is selective: shallow folders open by default, deeper branches fold by default, and manual collapse overrides auto-expansion
+- On launch, the app auto-reopens the last workspace and attempts to restore the most recently opened file in that workspace
+
 **`src/lib/`**
 - `types.ts` — Shared interfaces (`FileNode`, `WorkspaceState`)
 - `frontmatter.ts` — `parseFrontmatter` / `joinFrontmatter` (raw round-trip) + `parseYamlFrontmatter` (js-yaml)
@@ -149,6 +154,8 @@ These rules encode hard-won lessons about what works in Tauri's WebView. Violati
 ## Amytis Workspace
 
 An Amytis workspace is identified by the presence of `site.config.ts` + `content/` directory. Content files are `.md` with YAML frontmatter. Frontmatter is parsed with `js-yaml`, stripped from the editor view, and displayed in the properties panel. The raw frontmatter block is always written back verbatim to preserve formatting.
+
+When persisting per-workspace UI state that depends on the file tree, note that Amytis workspaces may use `content/` as the tree root even when the workspace root is the project root; recent-file restore logic must account for both paths.
 
 ## Error Handling
 
