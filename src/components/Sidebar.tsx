@@ -15,6 +15,7 @@ import { Input } from "./ui/input";
 
 interface SidebarProps {
   tree: FileNode[];
+  workspaceKey?: string | null;
   selectedPath: string | null;
   renamingPath: string | null;
   visible: boolean;
@@ -33,6 +34,8 @@ interface SidebarProps {
 interface FileItemProps {
   node: FileNode;
   depth: number;
+  isExpanded: (node: FileNode, depth: number) => boolean;
+  onToggleExpand: (path: string, depth: number) => void;
   selectedPath: string | null;
   renamingPath: string | null;
   gitStatusMap: Map<string, GitStatus>;
@@ -48,6 +51,8 @@ interface FileItemProps {
 function FileItem({
   node,
   depth,
+  isExpanded,
+  onToggleExpand,
   selectedPath,
   renamingPath,
   gitStatusMap,
@@ -59,8 +64,7 @@ function FileItem({
   onStartRename,
   onCancelRename,
 }: FileItemProps) {
-  const [expanded, setExpanded] = useState(true);
-  const isExpanded = forceExpand || expanded;
+  const expanded = forceExpand || isExpanded(node, depth);
   const isSelected = node.path === selectedPath;
   const isRenaming = renamingPath === node.path;
   const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
@@ -90,8 +94,8 @@ function FileItem({
   }
 
   if (node.isDirectory) {
-    const DirIcon = isExpanded ? FolderOpen : Folder;
-    const dirRollup = !isExpanded ? rollupGitStatus(node, gitStatusMap) : undefined;
+    const DirIcon = expanded ? FolderOpen : Folder;
+    const dirRollup = !expanded ? rollupGitStatus(node, gitStatusMap) : undefined;
     return (
       <div>
         <div
@@ -103,7 +107,11 @@ function FileItem({
             showDirContextMenu();
           }}
         >
-          <button type="button" className="sidebar-dir" onClick={() => setExpanded((v) => !v)}>
+          <button
+            type="button"
+            className="sidebar-dir"
+            onClick={() => onToggleExpand(node.path, depth)}
+          >
             <DirIcon size={13} className="sidebar-file-icon sidebar-dir-icon" />
             {node.name}
             {dirRollup && (
@@ -114,13 +122,15 @@ function FileItem({
             )}
           </button>
         </div>
-        {isExpanded &&
+        {expanded &&
           sortNodes(node.children ?? []).map((child, idx, sorted) => (
             <Fragment key={child.path}>
               {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
               <FileItem
                 node={child}
                 depth={depth + 1}
+                isExpanded={isExpanded}
+                onToggleExpand={onToggleExpand}
                 selectedPath={selectedPath}
                 renamingPath={renamingPath}
                 gitStatusMap={gitStatusMap}
@@ -217,12 +227,42 @@ function FileItem({
 }
 
 const SIDEBAR_WIDTH_KEY = "ovid:sidebarWidth";
+const SIDEBAR_EXPANDED_KEY = "ovid:sidebarExpanded";
 const SIDEBAR_MIN = 180;
 const SIDEBAR_MAX = 480;
 const SIDEBAR_DEFAULT = 240;
 
+function buildExpandedStorageKey(workspaceKey: string | null | undefined): string {
+  return workspaceKey ? `${SIDEBAR_EXPANDED_KEY}:${workspaceKey}` : SIDEBAR_EXPANDED_KEY;
+}
+
+function shouldDefaultExpand(depth: number): boolean {
+  return depth < 2;
+}
+
+function findAncestorPaths(nodes: FileNode[], selectedPath: string | null): Set<string> {
+  const ancestors = new Set<string>();
+  if (!selectedPath) return ancestors;
+
+  function visit(node: FileNode, lineage: string[]): boolean {
+    if (node.path === selectedPath) {
+      for (const path of lineage) ancestors.add(path);
+      return true;
+    }
+    if (!node.isDirectory) return false;
+    const nextLineage = [...lineage, node.path];
+    return (node.children ?? []).some((child) => visit(child, nextLineage));
+  }
+
+  for (const node of nodes) {
+    if (visit(node, [])) break;
+  }
+  return ancestors;
+}
+
 export function Sidebar({
   tree,
+  workspaceKey,
   selectedPath,
   renamingPath,
   visible,
@@ -239,6 +279,8 @@ export function Sidebar({
 }: SidebarProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const visibleTree = useMemo(() => collapseIndexNodes(tree), [tree]);
+  const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -265,6 +307,58 @@ export function Sidebar({
       isMounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(expandedStorageKey);
+    if (!stored) {
+      setExpandedPaths({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      setExpandedPaths(typeof parsed === "object" && parsed ? parsed : {});
+    } catch {
+      setExpandedPaths({});
+    }
+  }, [expandedStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(expandedStorageKey, JSON.stringify(expandedPaths));
+  }, [expandedPaths, expandedStorageKey]);
+
+  const selectedAncestorPaths = useMemo(
+    () => findAncestorPaths(visibleTree, selectedPath),
+    [visibleTree, selectedPath]
+  );
+
+  useEffect(() => {
+    if (selectedAncestorPaths.size === 0) return;
+    setExpandedPaths((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const path of selectedAncestorPaths) {
+        if (next[path] === undefined) {
+          next[path] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [selectedAncestorPaths]);
+
+  function isNodeExpanded(node: FileNode, depth: number): boolean {
+    const persisted = expandedPaths[node.path];
+    if (persisted !== undefined) return persisted;
+    return shouldDefaultExpand(depth);
+  }
+
+  function handleToggleExpand(path: string, depth: number) {
+    setExpandedPaths((current) => {
+      const next = { ...current };
+      next[path] = !(current[path] ?? shouldDefaultExpand(depth));
+      return next;
+    });
+  }
 
   function handleResizeMouseDown(e: React.MouseEvent) {
     e.preventDefault();
@@ -364,6 +458,8 @@ export function Sidebar({
                 <FileItem
                   node={node}
                   depth={0}
+                  isExpanded={isNodeExpanded}
+                  onToggleExpand={handleToggleExpand}
                   selectedPath={selectedPath}
                   renamingPath={renamingPath}
                   gitStatusMap={gitStatusMap}

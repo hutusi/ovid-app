@@ -409,6 +409,7 @@ function App() {
         ) : (
           <Sidebar
             tree={tree}
+            workspaceKey={workspaceRootPath}
             selectedPath={selectedFile?.path ?? null}
             renamingPath={renamingPath}
             visible={sidebarVisible}
