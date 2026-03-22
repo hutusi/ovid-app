@@ -60,7 +60,7 @@ All major actions are accessible from the native menu bar, making features disco
 | **File** | New File, Open Workspace, Switch Workspace, Save, Close File, Commit & Push |
 | **Edit** | Undo, Redo, Cut, Copy, Paste, Select All, Find in Workspace, Open Quickly |
 | **Insert** | Link…, Code Block, Horizontal Rule |
-| **Format** | Bold, Italic, Strikethrough, Inline Code, Heading 1/2/3, Blockquote, Bullet List, Numbered List |
+| **Format** | Bold, Italic, Strikethrough, Inline Code, Heading 1-6, Blockquote, Bullet List, Numbered List, Task List |
 | **View** | Toggle Sidebar, Toggle Properties Panel, Zen Mode, Typewriter Mode, Toggle Spell Check |
 | **Window** | Minimize, Zoom (standard macOS window menu) |
 | **Help** | Ovid Documentation, Report an Issue… |
@@ -159,7 +159,21 @@ Select text and press `Cmd+E` to wrap it in backticks as inline code. Press agai
 
 ### Code blocks
 
-Fenced code blocks are rendered with syntax highlighting via `lowlight`. A language label appears in the top-right corner of each block — click it to open a dropdown and select a language. Highlighting and the label are display-only; the saved markdown is unchanged.
+Fenced code blocks are rendered with syntax highlighting via `lowlight`. Each block has a small toolbar:
+
+- **Language picker** — choose from a curated preset list or enter a custom language label
+- **Copy button** — copy the code block contents to the system clipboard with one click
+
+The saved markdown remains a normal fenced code block. If you use a custom language label, Ovid preserves that label on disk even if syntax highlighting falls back to plain/auto highlighting.
+
+### Footnotes
+
+Ovid preserves standard Markdown footnote syntax such as `[^note]` and `[^note]: ...`.
+
+- **References** are visually styled like superscript markers while editing
+- **Definitions** are visually offset so footnote blocks are easier to scan
+
+This is an editor-side presentation layer, not a special document model. Footnotes remain plain Markdown text on disk.
 
 ### Structural backspace
 
