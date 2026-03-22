@@ -2,6 +2,11 @@ import type { JSONContent } from "@tiptap/core";
 
 const TASK_PREFIX = /^\[([ xX])\]\s+/;
 
+export interface TaskListTypingNormalization {
+  normalized: JSONContent;
+  targetPos: number;
+}
+
 function getLeadingText(node: JSONContent | undefined): string {
   if (!node?.content) return "";
   for (const child of node.content) {
@@ -57,6 +62,27 @@ export function getTypedTaskPrefixLength(content: JSONContent | undefined): numb
   if (content?.type !== "paragraph") return null;
   const match = getLeadingText(content).match(TASK_PREFIX);
   return match ? match[0].length : null;
+}
+
+export function getTaskListTypingNormalization(
+  content: JSONContent,
+  currentBlock: JSONContent | undefined,
+  selectionFrom: number,
+  ancestorNodeNames: string[]
+): TaskListTypingNormalization | null {
+  const taskPrefixLength = getTypedTaskPrefixLength(currentBlock);
+  if (taskPrefixLength === null) return null;
+  if (!ancestorNodeNames.includes("bulletList")) return null;
+
+  const normalized = normalizeTaskLists(content);
+  if (JSON.stringify(normalized) === JSON.stringify(content)) {
+    return null;
+  }
+
+  return {
+    normalized,
+    targetPos: Math.max(1, selectionFrom - taskPrefixLength),
+  };
 }
 
 export function normalizeTaskLists(content: JSONContent): JSONContent {
