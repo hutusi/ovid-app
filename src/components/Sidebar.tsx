@@ -166,6 +166,7 @@ function FileItem({
 
   const displayName = node.title || baseName;
   const gitStatus = gitStatusMap.get(node.path);
+  const isIndexBackedItem = Boolean(node.containerDirPath);
 
   async function showFileContextMenu() {
     const menu = await Menu.new({
@@ -196,7 +197,16 @@ function FileItem({
           if (e.key === "F2") onStartRename(node.path);
         }}
       >
-        <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
+        <span className="sidebar-file-icon-wrap">
+          <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
+          {isIndexBackedItem && (
+            <span
+              className="sidebar-file-icon-badge"
+              aria-hidden="true"
+              title="Folder-backed item"
+            />
+          )}
+        </span>
         <span className={node.draft ? "sidebar-file-name draft" : "sidebar-file-name"}>
           {displayName}
         </span>
