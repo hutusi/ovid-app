@@ -72,7 +72,7 @@
 }
 
 .code-block-copy-btn.is-error {
-  color: var(--color-danger, #c95555);
+  color: var(--color-danger);
 }
 
 /* ── Language picker panel ────────────────────── */

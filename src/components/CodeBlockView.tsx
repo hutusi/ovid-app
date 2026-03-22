@@ -88,7 +88,7 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
         </button>
 
         {open && (
-          <div className="code-block-lang-picker" role="dialog" aria-label="Code block language">
+          <div className="code-block-lang-picker">
             <button
               type="button"
               className={`code-block-lang-option${!language ? " active" : ""}`}
