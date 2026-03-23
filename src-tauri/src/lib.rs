@@ -779,6 +779,10 @@ fn parse_git_branches(git_root: &str) -> Result<Vec<GitBranch>, String> {
         ],
     )?;
 
+    Ok(parse_git_branch_lines(&refs))
+}
+
+fn parse_git_branch_lines(refs: &str) -> Vec<GitBranch> {
     let mut branches = Vec::new();
     for line in refs.lines() {
         let mut parts = line.split('\t');
@@ -802,7 +806,7 @@ fn parse_git_branches(git_root: &str) -> Result<Vec<GitBranch>, String> {
             .cmp(&a.is_current)
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
-    Ok(branches)
+    branches
 }
 
 fn parse_remote_name(upstream: &str) -> Option<String> {
@@ -865,6 +869,26 @@ fn get_git_remote_info_inner(git_root: &str) -> Result<GitRemoteInfo, String> {
 
 fn get_current_branch_inner(git_root: &str) -> Result<String, String> {
     run_git(git_root, &["rev-parse", "--abbrev-ref", "HEAD"]).map(|s| s.trim().to_string())
+}
+
+fn git_push_args(remote: &GitRemoteInfo, current_branch: &str) -> Result<Vec<String>, String> {
+    if remote.upstream.is_some() {
+        return Ok(vec!["push".to_string()]);
+    }
+
+    let remote_name = remote
+        .remote_name
+        .clone()
+        .ok_or("no remote configured".to_string())?;
+    if current_branch.trim().is_empty() {
+        return Err("could not determine current branch".to_string());
+    }
+    Ok(vec![
+        "push".to_string(),
+        "-u".to_string(),
+        remote_name,
+        current_branch.to_string(),
+    ])
 }
 
 #[tauri::command]
@@ -966,14 +990,10 @@ fn git_commit(
 fn git_push(state: State<'_, WorkspaceState>) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     let remote = get_git_remote_info_inner(&git_root)?;
-    if remote.upstream.is_some() {
-        run_git(&git_root, &["push"])?;
-        return Ok(());
-    }
-
-    let remote_name = remote.remote_name.ok_or("no remote configured")?;
     let branch = get_current_branch_inner(&git_root)?;
-    run_git(&git_root, &["push", "-u", &remote_name, &branch])?;
+    let args = git_push_args(&remote, &branch)?;
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    run_git(&git_root, &arg_refs)?;
     Ok(())
 }
 
@@ -1640,5 +1660,111 @@ mod tests {
             "/* This config has no CDN\n  cdnBase: 'https://cdn.example.com'\n*/\nexport const config = {};\n",
         );
         assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    // ── git helpers ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_git_branch_lines_marks_current_branch_and_sorts_it_first() {
+        let branches = parse_git_branch_lines(
+            "feature/test\torigin/feature/test\t>\t \nmain\torigin/main\t<>\t*\n",
+        );
+
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].name, "main");
+        assert!(branches[0].is_current);
+        assert_eq!(branches[0].upstream.as_deref(), Some("origin/main"));
+        assert_eq!(branches[0].ahead_behind.as_deref(), Some("<>"));
+        assert_eq!(branches[1].name, "feature/test");
+        assert!(!branches[1].is_current);
+    }
+
+    #[test]
+    fn parse_remote_name_extracts_remote_prefix() {
+        assert_eq!(
+            parse_remote_name("origin/feature/test"),
+            Some("origin".to_string())
+        );
+    }
+
+    #[test]
+    fn normalize_remote_url_handles_https_and_ssh_forms() {
+        assert_eq!(
+            normalize_remote_url("https://github.com/hutusi/ovid-codex.git"),
+            Some("https://github.com/hutusi/ovid-codex".to_string())
+        );
+        assert_eq!(
+            normalize_remote_url("git@github.com:hutusi/ovid-codex.git"),
+            Some("https://github.com/hutusi/ovid-codex".to_string())
+        );
+        assert_eq!(
+            normalize_remote_url("ssh://git@github.com/hutusi/ovid-codex.git"),
+            Some("https://github.com/hutusi/ovid-codex".to_string())
+        );
+    }
+
+    #[test]
+    fn get_primary_remote_name_prefers_current_branch_upstream() {
+        let branches = vec![
+            GitBranch {
+                name: "main".to_string(),
+                upstream: Some("origin/main".to_string()),
+                ahead_behind: None,
+                is_current: true,
+            },
+            GitBranch {
+                name: "feature/test".to_string(),
+                upstream: Some("backup/feature/test".to_string()),
+                ahead_behind: None,
+                is_current: false,
+            },
+        ];
+
+        assert_eq!(
+            get_primary_remote_name("/definitely/not/a/repo", &branches),
+            Some("origin".to_string())
+        );
+    }
+
+    #[test]
+    fn git_push_args_uses_plain_push_when_upstream_exists() {
+        let remote = GitRemoteInfo {
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
+            upstream: Some("origin/main".to_string()),
+            ahead_behind: None,
+        };
+
+        assert_eq!(git_push_args(&remote, "main").unwrap(), vec!["push"]);
+    }
+
+    #[test]
+    fn git_push_args_sets_upstream_for_new_branch() {
+        let remote = GitRemoteInfo {
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
+            upstream: None,
+            ahead_behind: None,
+        };
+
+        assert_eq!(
+            git_push_args(&remote, "feature/test").unwrap(),
+            vec!["push", "-u", "origin", "feature/test"]
+        );
+    }
+
+    #[test]
+    fn git_push_args_errors_when_no_remote_exists() {
+        let remote = GitRemoteInfo {
+            remote_name: None,
+            remote_url: None,
+            upstream: None,
+            ahead_behind: None,
+        };
+
+        assert_eq!(
+            git_push_args(&remote, "feature/test"),
+            Err("no remote configured".to_string())
+        );
     }
 }
