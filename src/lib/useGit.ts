@@ -46,6 +46,30 @@ export function useGit(workspaceRoot: string | null) {
     return invoke<string>("get_git_branch");
   }
 
+  async function handlePush(): Promise<void> {
+    try {
+      await invoke("git_push");
+    } finally {
+      void refreshGitStatus();
+    }
+  }
+
+  async function handlePull(): Promise<void> {
+    try {
+      await invoke("git_pull");
+    } finally {
+      void refreshGitStatus();
+    }
+  }
+
+  async function handleFetch(): Promise<void> {
+    try {
+      await invoke("git_fetch");
+    } finally {
+      void refreshGitStatus();
+    }
+  }
+
   async function handleCommit(message: string, paths: string[], push: boolean): Promise<void> {
     try {
       await invoke("git_commit", { message, push, paths });
@@ -54,5 +78,15 @@ export function useGit(workspaceRoot: string | null) {
     }
   }
 
-  return { gitStatusMap, isGitRepo, refreshGitStatus, handleCommit, getCommitChanges, getBranch };
+  return {
+    gitStatusMap,
+    isGitRepo,
+    refreshGitStatus,
+    handleCommit,
+    handlePush,
+    handlePull,
+    handleFetch,
+    getCommitChanges,
+    getBranch,
+  };
 }

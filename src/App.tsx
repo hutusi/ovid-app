@@ -101,8 +101,17 @@ function App() {
 
   const { recentFiles, pushRecent, resetRecent } = useRecentFiles(workspaceRoot);
   const { recentWorkspaces, pushRecentWorkspace } = useRecentWorkspaces();
-  const { gitStatusMap, isGitRepo, refreshGitStatus, handleCommit, getCommitChanges, getBranch } =
-    useGit(workspaceRoot);
+  const {
+    gitStatusMap,
+    isGitRepo,
+    refreshGitStatus,
+    handleCommit,
+    handlePush,
+    handlePull,
+    handleFetch,
+    getCommitChanges,
+    getBranch,
+  } = useGit(workspaceRoot);
   const contentTypes = useContentTypes(workspaceRoot, isAmytisWorkspace);
 
   const openCommitDialog = useCallback(
@@ -119,6 +128,20 @@ function App() {
       }
     },
     [getBranch, getCommitChanges, showToast]
+  );
+
+  const runGitAction = useCallback(
+    async (action: "push" | "pull" | "fetch", run: () => Promise<void>, successMessage: string) => {
+      try {
+        await flushPendingSave();
+        await run();
+        showToast(successMessage);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showToast(`${action} failed: ${message}`);
+      }
+    },
+    [flushPendingSave, showToast]
   );
 
   // Sync recent files list when workspace changes
@@ -353,10 +376,25 @@ function App() {
         case "toggle-spell-check":
           updatePrefs({ spellCheck: !prefs.spellCheck });
           break;
-        case "commit-push":
+        case "git-commit":
           if (!hasBlockingOverlay && isGitRepo) {
             const title = parsedFrontmatter.title ?? selectedFile?.name ?? "";
             void openCommitDialog(`Update: ${title}`);
+          }
+          break;
+        case "git-push":
+          if (!hasBlockingOverlay && isGitRepo) {
+            void runGitAction("push", handlePush, "Pushed to remote");
+          }
+          break;
+        case "git-pull":
+          if (!hasBlockingOverlay && isGitRepo) {
+            void runGitAction("pull", handlePull, "Pulled latest changes");
+          }
+          break;
+        case "git-fetch":
+          if (!hasBlockingOverlay && isGitRepo) {
+            void runGitAction("fetch", handleFetch, "Fetched remote updates");
           }
           break;
       }
@@ -380,6 +418,10 @@ function App() {
     tree,
     isGitRepo,
     openCommitDialog,
+    runGitAction,
+    handlePush,
+    handlePull,
+    handleFetch,
     parsedFrontmatter,
     selectedFile,
     flushPendingSave,

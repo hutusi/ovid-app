@@ -792,6 +792,12 @@ fn get_git_branch(state: State<'_, WorkspaceState>) -> Result<String, String> {
         .unwrap_or_default())
 }
 
+fn run_repo_git(state: State<'_, WorkspaceState>, args: &[&str]) -> Result<(), String> {
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    run_git(&git_root, args)?;
+    Ok(())
+}
+
 #[tauri::command]
 fn git_commit(
     message: String,
@@ -819,6 +825,21 @@ fn git_commit(
         run_git(&git_root, &["push"])?;
     }
     Ok(())
+}
+
+#[tauri::command]
+fn git_push(state: State<'_, WorkspaceState>) -> Result<(), String> {
+    run_repo_git(state, &["push"])
+}
+
+#[tauri::command]
+fn git_pull(state: State<'_, WorkspaceState>) -> Result<(), String> {
+    run_repo_git(state, &["pull", "--ff-only"])
+}
+
+#[tauri::command]
+fn git_fetch(state: State<'_, WorkspaceState>) -> Result<(), String> {
+    run_repo_git(state, &["fetch"])
 }
 
 /// Compute a POSIX-style relative path from `from_dir` to `to`.
@@ -986,10 +1007,19 @@ pub fn run() {
                     &MenuItemBuilder::with_id("close-file", "Close File")
                         .accelerator("CmdOrCtrl+W")
                         .build(app)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &MenuItemBuilder::with_id("commit-push", "Commit & Push…")
+                ])
+                .build()?;
+
+            // ── Git ───────────────────────────────────────────────────────────
+            let git_menu = SubmenuBuilder::new(app, "Git")
+                .items(&[
+                    &MenuItemBuilder::with_id("git-commit", "Commit Changes…")
                         .accelerator("CmdOrCtrl+Shift+G")
                         .build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("git-push", "Push").build(app)?,
+                    &MenuItemBuilder::with_id("git-pull", "Pull").build(app)?,
+                    &MenuItemBuilder::with_id("git-fetch", "Fetch").build(app)?,
                 ])
                 .build()?;
 
@@ -1099,6 +1129,7 @@ pub fn run() {
                 &[
                     &ovid_menu,
                     &file_menu,
+                    &git_menu,
                     &edit_menu,
                     &insert_menu,
                     &format_menu,
@@ -1153,6 +1184,9 @@ pub fn run() {
             get_git_commit_changes,
             get_git_branch,
             git_commit,
+            git_push,
+            git_pull,
+            git_fetch,
             save_asset,
             pick_image_file,
         ])
