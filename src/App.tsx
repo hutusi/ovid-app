@@ -14,6 +14,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
+import { getGitBranchTitle, getPushSuccessMessage } from "./lib/gitUi";
 import { resolveImageSrc } from "./lib/imageUtils";
 import type { GitBranch, GitCommitChange } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
@@ -156,8 +157,7 @@ function App() {
     [flushPendingSave, showToast]
   );
 
-  const pushSuccessMessage =
-    !remoteInfo.upstream && remoteInfo.remoteName ? "Pushed and set upstream" : "Pushed to remote";
+  const pushSuccessMessage = getPushSuccessMessage(remoteInfo);
 
   const reloadWorkspaceAfterGitChange = useCallback(async () => {
     if (!workspaceRootPath) return;
@@ -675,17 +675,7 @@ function App() {
         fontSize={prefs.fontSize}
         spellCheck={prefs.spellCheck}
         gitBranch={isGitRepo ? currentBranch : null}
-        gitBranchTitle={
-          isGitRepo
-            ? [
-                `Current branch: ${currentBranch}`,
-                remoteInfo.upstream ? `Upstream: ${remoteInfo.upstream}` : "No upstream configured",
-                remoteInfo.aheadBehind ? `Tracking: ${remoteInfo.aheadBehind}` : null,
-              ]
-                .filter(Boolean)
-                .join("\n")
-            : undefined
-        }
+        gitBranchTitle={isGitRepo ? getGitBranchTitle(currentBranch, remoteInfo) : undefined}
         onOpenBranches={() => void openBranchSwitcher()}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
         onToggleZen={() => setZenMode((v) => !v)}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getRemoteSummary } from "../lib/gitUi";
 import type { GitBranch, GitRemoteInfo } from "../lib/types";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import "./Modal.css";
@@ -69,12 +70,7 @@ export function BranchSwitcher({
           <div className="modal-branch-row">
             <span className="modal-branch-label">Remote</span>
             <div className="modal-inline-actions">
-              <span className="modal-selection-count">
-                {remoteInfo.upstream ??
-                  (remoteInfo.remoteName
-                    ? `${remoteInfo.remoteName}${remoteInfo.aheadBehind ? ` ${remoteInfo.aheadBehind}` : ""}`
-                    : "No upstream")}
-              </span>
+              <span className="modal-selection-count">{getRemoteSummary(remoteInfo)}</span>
               {!remoteInfo.upstream && remoteInfo.remoteName && onPushAndTrack && (
                 <button type="button" className="modal-inline-btn" onClick={onPushAndTrack}>
                   Push + Track
