@@ -156,6 +156,9 @@ function App() {
     [flushPendingSave, showToast]
   );
 
+  const pushSuccessMessage =
+    !remoteInfo.upstream && remoteInfo.remoteName ? "Pushed and set upstream" : "Pushed to remote";
+
   const reloadWorkspaceAfterGitChange = useCallback(async () => {
     if (!workspaceRootPath) return;
     await openWorkspaceAtPath(workspaceRootPath);
@@ -491,7 +494,7 @@ function App() {
           break;
         case "git-push":
           if (!hasBlockingOverlay && isGitRepo) {
-            void runGitAction("push", handlePush, "Pushed to remote");
+            void runGitAction("push", handlePush, pushSuccessMessage);
           }
           break;
         case "git-open-remote":
@@ -541,6 +544,7 @@ function App() {
     openRemote,
     copyRemoteUrl,
     runGitAction,
+    pushSuccessMessage,
     handlePush,
     handlePull,
     handleFetch,
@@ -755,6 +759,11 @@ function App() {
             setBranchSwitcher(null);
             setNewBranchDialogOpen(true);
           }}
+          onPushAndTrack={
+            !remoteInfo.upstream && remoteInfo.remoteName
+              ? () => void runGitAction("push", handlePush, "Pushed and set upstream")
+              : undefined
+          }
           onOpenRemote={() => void openRemote()}
           onCopyRemoteUrl={() => void copyRemoteUrl()}
           onClose={() => setBranchSwitcher(null)}

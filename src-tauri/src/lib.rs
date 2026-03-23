@@ -863,6 +863,10 @@ fn get_git_remote_info_inner(git_root: &str) -> Result<GitRemoteInfo, String> {
     })
 }
 
+fn get_current_branch_inner(git_root: &str) -> Result<String, String> {
+    run_git(git_root, &["rev-parse", "--abbrev-ref", "HEAD"]).map(|s| s.trim().to_string())
+}
+
 #[tauri::command]
 fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>, String> {
     let git_root = match resolve_git_root(state)? {
@@ -899,9 +903,7 @@ fn get_git_branch(state: State<'_, WorkspaceState>) -> Result<String, String> {
     let Some(git_root) = resolve_git_root(state)? else {
         return Ok(String::new());
     };
-    Ok(run_git(&git_root, &["rev-parse", "--abbrev-ref", "HEAD"])
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default())
+    Ok(get_current_branch_inner(&git_root).unwrap_or_default())
 }
 
 #[tauri::command]
@@ -962,7 +964,17 @@ fn git_commit(
 
 #[tauri::command]
 fn git_push(state: State<'_, WorkspaceState>) -> Result<(), String> {
-    run_repo_git(state, &["push"])
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    let remote = get_git_remote_info_inner(&git_root)?;
+    if remote.upstream.is_some() {
+        run_git(&git_root, &["push"])?;
+        return Ok(());
+    }
+
+    let remote_name = remote.remote_name.ok_or("no remote configured")?;
+    let branch = get_current_branch_inner(&git_root)?;
+    run_git(&git_root, &["push", "-u", &remote_name, &branch])?;
+    Ok(())
 }
 
 #[tauri::command]

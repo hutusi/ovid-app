@@ -9,6 +9,7 @@ interface BranchSwitcherProps {
   remoteInfo: GitRemoteInfo;
   onSelect: (branch: string) => void;
   onCreateBranch: () => void;
+  onPushAndTrack?: () => void;
   onOpenRemote: () => void;
   onCopyRemoteUrl: () => void;
   onClose: () => void;
@@ -19,6 +20,7 @@ export function BranchSwitcher({
   remoteInfo,
   onSelect,
   onCreateBranch,
+  onPushAndTrack,
   onOpenRemote,
   onCopyRemoteUrl,
   onClose,
@@ -73,6 +75,11 @@ export function BranchSwitcher({
                     ? `${remoteInfo.remoteName}${remoteInfo.aheadBehind ? ` ${remoteInfo.aheadBehind}` : ""}`
                     : "No upstream")}
               </span>
+              {!remoteInfo.upstream && remoteInfo.remoteName && onPushAndTrack && (
+                <button type="button" className="modal-inline-btn" onClick={onPushAndTrack}>
+                  Push + Track
+                </button>
+              )}
               {remoteInfo.remoteUrl && (
                 <>
                   <button type="button" className="modal-inline-btn" onClick={onOpenRemote}>
