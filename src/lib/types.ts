@@ -42,6 +42,13 @@ export interface GitCommitChange {
   staged: boolean;
 }
 
+export interface GitBranch {
+  name: string;
+  upstream: string | null;
+  aheadBehind: string | null;
+  isCurrent: boolean;
+}
+
 export interface SearchMatch {
   lineNumber: number;
   lineContent: string;

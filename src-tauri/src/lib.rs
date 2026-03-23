@@ -676,6 +676,15 @@ struct GitCommitChange {
     staged: bool,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GitBranch {
+    name: String,
+    upstream: Option<String>,
+    ahead_behind: Option<String>,
+    is_current: bool,
+}
+
 /// Run a git subcommand rooted at `root`. Returns stdout on success or an
 /// error string (stderr) on failure. Returns an empty string if git is not
 /// found, so callers can treat a missing git as a graceful no-op.
@@ -751,6 +760,42 @@ fn parse_git_status(git_root: &str) -> Result<Vec<GitCommitChange>, String> {
     Ok(changes)
 }
 
+fn parse_git_branches(git_root: &str) -> Result<Vec<GitBranch>, String> {
+    let refs = run_git(
+        git_root,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)\t%(upstream:short)\t%(upstream:trackshort)\t%(HEAD)",
+            "refs/heads",
+        ],
+    )?;
+
+    let mut branches = Vec::new();
+    for line in refs.lines() {
+        let mut parts = line.split('\t');
+        let name = parts.next().unwrap_or("").trim();
+        if name.is_empty() {
+            continue;
+        }
+        let upstream = parts.next().map(str::trim).filter(|s| !s.is_empty());
+        let ahead_behind = parts.next().map(str::trim).filter(|s| !s.is_empty());
+        let head = parts.next().unwrap_or("").trim();
+        branches.push(GitBranch {
+            name: name.to_string(),
+            upstream: upstream.map(ToString::to_string),
+            ahead_behind: ahead_behind.map(ToString::to_string),
+            is_current: head == "*",
+        });
+    }
+
+    branches.sort_by(|a, b| {
+        b.is_current
+            .cmp(&a.is_current)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(branches)
+}
+
 #[tauri::command]
 fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>, String> {
     let git_root = match resolve_git_root(state)? {
@@ -790,6 +835,14 @@ fn get_git_branch(state: State<'_, WorkspaceState>) -> Result<String, String> {
     Ok(run_git(&git_root, &["rev-parse", "--abbrev-ref", "HEAD"])
         .map(|s| s.trim().to_string())
         .unwrap_or_default())
+}
+
+#[tauri::command]
+fn get_git_branches(state: State<'_, WorkspaceState>) -> Result<Vec<GitBranch>, String> {
+    let Some(git_root) = resolve_git_root(state)? else {
+        return Ok(Vec::new());
+    };
+    parse_git_branches(&git_root)
 }
 
 fn run_repo_git(state: State<'_, WorkspaceState>, args: &[&str]) -> Result<(), String> {
@@ -840,6 +893,24 @@ fn git_pull(state: State<'_, WorkspaceState>) -> Result<(), String> {
 #[tauri::command]
 fn git_fetch(state: State<'_, WorkspaceState>) -> Result<(), String> {
     run_repo_git(state, &["fetch"])
+}
+
+#[tauri::command]
+fn git_switch_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    run_git(&git_root, &["switch", &branch])?;
+    Ok(())
+}
+
+#[tauri::command]
+fn git_create_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let name = branch.trim();
+    if name.is_empty() {
+        return Err("branch name cannot be empty".to_string());
+    }
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    run_git(&git_root, &["switch", "-c", name])?;
+    Ok(())
 }
 
 /// Compute a POSIX-style relative path from `from_dir` to `to`.
@@ -1016,6 +1087,8 @@ pub fn run() {
                     &MenuItemBuilder::with_id("git-commit", "Commit Changes…")
                         .accelerator("CmdOrCtrl+Shift+G")
                         .build(app)?,
+                    &MenuItemBuilder::with_id("git-switch-branch", "Switch Branch…").build(app)?,
+                    &MenuItemBuilder::with_id("git-new-branch", "New Branch…").build(app)?,
                     &PredefinedMenuItem::separator(app)?,
                     &MenuItemBuilder::with_id("git-push", "Push").build(app)?,
                     &MenuItemBuilder::with_id("git-pull", "Pull").build(app)?,
@@ -1183,10 +1256,13 @@ pub fn run() {
             get_git_status,
             get_git_commit_changes,
             get_git_branch,
+            get_git_branches,
             git_commit,
             git_push,
             git_pull,
             git_fetch,
+            git_switch_branch,
+            git_create_branch,
             save_asset,
             pick_image_file,
         ])
