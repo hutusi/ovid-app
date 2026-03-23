@@ -21,7 +21,7 @@ Built with **Tauri 2 + React + TypeScript + Tailwind CSS v4**, using **Bun** as 
 bun install           # Install dependencies
 bun run tauri dev     # Start with hot reload
 bun run tauri build   # Build distributable app
-bun run validate      # Type-check + lint + test
+bun run validate      # Type-check + lint + tests + build + cargo test
 ```
 
 ---

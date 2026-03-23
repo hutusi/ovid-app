@@ -15,7 +15,7 @@ bun install              # Install dependencies
 bun run tauri dev        # Run with hot reload (requires Rust)
 bun run build            # Build frontend only
 bun run tauri build      # Build distributable app
-bun run validate         # Type-check + lint + test (run before committing)
+bun run validate         # Type-check + lint + tests + build + cargo test (run before committing)
 bun run lint             # Biome check
 bun run lint:fix         # Biome auto-fix
 bun run test             # Bun unit tests
