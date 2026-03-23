@@ -75,6 +75,34 @@ describe("flattenTree", () => {
     expect(flat.relativePath).toBe("a/b/deep.md");
   });
 
+  it("collapses dir/index.md into a single search item using the folder name", () => {
+    const tree = [
+      makeDir("posts", [
+        {
+          name: "hello",
+          path: "/workspace/posts/hello",
+          isDirectory: true,
+          children: [
+            {
+              name: "index.md",
+              path: "/workspace/posts/hello/index.md",
+              isDirectory: false,
+              extension: ".md",
+              title: "Hello Post",
+            },
+          ],
+        },
+      ]),
+    ];
+
+    const flattened = flattenTree(tree);
+    expect(flattened).toHaveLength(1);
+    const [flat] = flattened;
+    expect(flat.displayName).toBe("Hello Post");
+    expect(flat.relativePath).toBe("posts/hello");
+    expect(flat.node.path).toBe("/workspace/posts/hello/index.md");
+  });
+
   it("skips directories with no children", () => {
     const tree = [makeDir("empty", []), makeFile("top.md")];
     const result = flattenTree(tree);

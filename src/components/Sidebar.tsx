@@ -1,7 +1,20 @@
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { Folder, FolderOpen } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
-import { filterTree, needsPageDivider, rollupGitStatus, sortNodes } from "../lib/sidebarUtils";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildExpandedStorageKey,
+  findAncestorPaths,
+  getNodeExpanded,
+  seedExpandedPaths,
+  shouldDefaultExpand,
+} from "../lib/sidebarExpansion";
+import {
+  collapseIndexNodes,
+  filterTree,
+  needsPageDivider,
+  rollupGitStatus,
+  sortNodes,
+} from "../lib/sidebarUtils";
 import type { FileNode, GitStatus } from "../lib/types";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./Sidebar.css";
@@ -9,6 +22,7 @@ import { Input } from "./ui/input";
 
 interface SidebarProps {
   tree: FileNode[];
+  workspaceKey?: string | null;
   selectedPath: string | null;
   renamingPath: string | null;
   visible: boolean;
@@ -27,6 +41,8 @@ interface SidebarProps {
 interface FileItemProps {
   node: FileNode;
   depth: number;
+  isExpanded: (node: FileNode, depth: number) => boolean;
+  onToggleExpand: (path: string, depth: number) => void;
   selectedPath: string | null;
   renamingPath: string | null;
   gitStatusMap: Map<string, GitStatus>;
@@ -42,6 +58,8 @@ interface FileItemProps {
 function FileItem({
   node,
   depth,
+  isExpanded,
+  onToggleExpand,
   selectedPath,
   renamingPath,
   gitStatusMap,
@@ -53,8 +71,7 @@ function FileItem({
   onStartRename,
   onCancelRename,
 }: FileItemProps) {
-  const [expanded, setExpanded] = useState(true);
-  const isExpanded = forceExpand || expanded;
+  const expanded = forceExpand || isExpanded(node, depth);
   const isSelected = node.path === selectedPath;
   const isRenaming = renamingPath === node.path;
   const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
@@ -84,8 +101,8 @@ function FileItem({
   }
 
   if (node.isDirectory) {
-    const DirIcon = isExpanded ? FolderOpen : Folder;
-    const dirRollup = !isExpanded ? rollupGitStatus(node, gitStatusMap) : undefined;
+    const DirIcon = expanded ? FolderOpen : Folder;
+    const dirRollup = !expanded ? rollupGitStatus(node, gitStatusMap) : undefined;
     return (
       <div>
         <div
@@ -97,7 +114,12 @@ function FileItem({
             showDirContextMenu();
           }}
         >
-          <button type="button" className="sidebar-dir" onClick={() => setExpanded((v) => !v)}>
+          <button
+            type="button"
+            className="sidebar-dir"
+            aria-expanded={expanded}
+            onClick={() => onToggleExpand(node.path, depth)}
+          >
             <DirIcon size={13} className="sidebar-file-icon sidebar-dir-icon" />
             {node.name}
             {dirRollup && (
@@ -108,13 +130,15 @@ function FileItem({
             )}
           </button>
         </div>
-        {isExpanded &&
+        {expanded &&
           sortNodes(node.children ?? []).map((child, idx, sorted) => (
             <Fragment key={child.path}>
               {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
               <FileItem
                 node={child}
                 depth={depth + 1}
+                isExpanded={isExpanded}
+                onToggleExpand={onToggleExpand}
                 selectedPath={selectedPath}
                 renamingPath={renamingPath}
                 gitStatusMap={gitStatusMap}
@@ -160,6 +184,7 @@ function FileItem({
 
   const displayName = node.title || baseName;
   const gitStatus = gitStatusMap.get(node.path);
+  const isIndexBackedItem = Boolean(node.containerDirPath);
 
   async function showFileContextMenu() {
     const menu = await Menu.new({
@@ -190,7 +215,16 @@ function FileItem({
           if (e.key === "F2") onStartRename(node.path);
         }}
       >
-        <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
+        <span className="sidebar-file-icon-wrap">
+          <ContentTypeIcon type={node.contentType} className="sidebar-file-icon" />
+          {isIndexBackedItem && (
+            <span
+              className="sidebar-file-icon-badge"
+              aria-hidden="true"
+              title="Folder-backed item"
+            />
+          )}
+        </span>
         <span className={node.draft ? "sidebar-file-name draft" : "sidebar-file-name"}>
           {displayName}
         </span>
@@ -207,6 +241,7 @@ const SIDEBAR_DEFAULT = 240;
 
 export function Sidebar({
   tree,
+  workspaceKey,
   selectedPath,
   renamingPath,
   visible,
@@ -222,6 +257,9 @@ export function Sidebar({
   onCancelRename,
 }: SidebarProps) {
   const [filterQuery, setFilterQuery] = useState("");
+  const visibleTree = useMemo(() => collapseIndexNodes(tree), [tree]);
+  const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -248,6 +286,46 @@ export function Sidebar({
       isMounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(expandedStorageKey);
+    if (!stored) {
+      setExpandedPaths({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      setExpandedPaths(typeof parsed === "object" && parsed ? parsed : {});
+    } catch {
+      setExpandedPaths({});
+    }
+  }, [expandedStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(expandedStorageKey, JSON.stringify(expandedPaths));
+  }, [expandedPaths, expandedStorageKey]);
+
+  const selectedAncestorPaths = useMemo(
+    () => findAncestorPaths(visibleTree, selectedPath),
+    [visibleTree, selectedPath]
+  );
+
+  useEffect(() => {
+    if (selectedAncestorPaths.size === 0) return;
+    setExpandedPaths((current) => seedExpandedPaths(current, selectedAncestorPaths));
+  }, [selectedAncestorPaths]);
+
+  function isNodeExpanded(node: FileNode, depth: number): boolean {
+    return getNodeExpanded(node.path, depth, expandedPaths);
+  }
+
+  function handleToggleExpand(path: string, depth: number) {
+    setExpandedPaths((current) => {
+      const next = { ...current };
+      next[path] = !(current[path] ?? shouldDefaultExpand(depth));
+      return next;
+    });
+  }
 
   function handleResizeMouseDown(e: React.MouseEvent) {
     e.preventDefault();
@@ -304,7 +382,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {tree.length > 0 && (
+      {visibleTree.length > 0 && (
         <div className="sidebar-filter">
           <div className="relative flex-1">
             <Input
@@ -332,7 +410,7 @@ export function Sidebar({
       )}
 
       <div className="sidebar-tree">
-        {tree.length === 0 ? (
+        {visibleTree.length === 0 ? (
           <div className="sidebar-empty">
             <p>No workspace open.</p>
             <button type="button" className="sidebar-open-workspace-btn" onClick={onOpenWorkspace}>
@@ -340,25 +418,29 @@ export function Sidebar({
             </button>
           </div>
         ) : (
-          sortNodes(filterQuery ? filterTree(tree, filterQuery) : tree).map((node, idx, sorted) => (
-            <Fragment key={node.path}>
-              {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
-              <FileItem
-                node={node}
-                depth={0}
-                selectedPath={selectedPath}
-                renamingPath={renamingPath}
-                gitStatusMap={gitStatusMap}
-                forceExpand={filterQuery.length > 0}
-                onSelect={onSelect}
-                onNewFile={onNewFile}
-                onRename={onRename}
-                onDelete={onDelete}
-                onStartRename={onStartRename}
-                onCancelRename={onCancelRename}
-              />
-            </Fragment>
-          ))
+          sortNodes(filterQuery ? filterTree(visibleTree, filterQuery) : visibleTree).map(
+            (node, idx, sorted) => (
+              <Fragment key={node.path}>
+                {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
+                <FileItem
+                  node={node}
+                  depth={0}
+                  isExpanded={isNodeExpanded}
+                  onToggleExpand={handleToggleExpand}
+                  selectedPath={selectedPath}
+                  renamingPath={renamingPath}
+                  gitStatusMap={gitStatusMap}
+                  forceExpand={filterQuery.length > 0}
+                  onSelect={onSelect}
+                  onNewFile={onNewFile}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onStartRename={onStartRename}
+                  onCancelRename={onCancelRename}
+                />
+              </Fragment>
+            )
+          )
         )}
       </div>
 

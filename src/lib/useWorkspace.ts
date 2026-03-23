@@ -7,6 +7,7 @@ import {
   createTypedFrontmatter,
 } from "./frontmatter";
 import type { FileNode } from "./types";
+import { syncRecentDelete, syncRecentRename } from "./useRecentFiles";
 
 export interface WorkspaceResult {
   name: string;
@@ -156,16 +157,21 @@ export function useWorkspace({
   async function handleRename(node: FileNode, newName: string) {
     setRenamingPath(null);
     await flushPendingSave();
-    const dir = node.path.substring(0, node.path.lastIndexOf("/"));
     const ext = node.extension ?? ".md";
-    const newPath = `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
+    const oldPath = node.containerDirPath ?? node.path;
+    const dir = oldPath.substring(0, oldPath.lastIndexOf("/"));
+    const newPath = node.containerDirPath
+      ? `${dir}/${newName}`
+      : `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
     try {
-      await invoke("rename_file", { oldPath: node.path, newPath });
+      await invoke("rename_file", { oldPath, newPath });
+      if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
       const updated = await refreshTree();
       if (selectedFile?.path === node.path) {
-        const renamed = findNode(updated, newPath);
+        const selectedPath = node.containerDirPath ? `${newPath}/index${ext}` : newPath;
+        const renamed = findNode(updated, selectedPath);
         if (renamed) {
-          selectedPathRef.current = newPath;
+          selectedPathRef.current = selectedPath;
           setSelectedFile(renamed);
         }
       }
@@ -182,7 +188,8 @@ export function useWorkspace({
       await flushPendingSave();
     }
     try {
-      await invoke("trash_file", { path: node.path });
+      await invoke("trash_file", { path: node.containerDirPath ?? node.path });
+      if (workspaceRoot) syncRecentDelete(workspaceRoot, node.containerDirPath ?? node.path);
       if (selectedFile?.path === node.path) await handleCloseFile();
       await refreshTree();
     } catch (err) {

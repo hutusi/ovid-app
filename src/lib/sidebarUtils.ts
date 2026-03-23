@@ -2,6 +2,32 @@ import type { FileNode, GitStatus } from "./types";
 
 export const GIT_PRIORITY: GitStatus[] = ["staged", "modified", "untracked"];
 
+function isIndexMarkdownFile(node: FileNode): boolean {
+  return !node.isDirectory && /^index\.mdx?$/.test(node.name);
+}
+
+export function collapseIndexNodes(nodes: FileNode[]): FileNode[] {
+  return nodes.map((node) => {
+    if (!node.isDirectory) return node;
+
+    const children = collapseIndexNodes(node.children ?? []);
+    const rawChildren = node.children ?? [];
+
+    if (rawChildren.length === 1 && isIndexMarkdownFile(rawChildren[0]) && children.length === 1) {
+      return {
+        ...children[0],
+        name: node.name,
+        containerDirPath: node.path,
+      };
+    }
+
+    return {
+      ...node,
+      children,
+    };
+  });
+}
+
 export function rollupGitStatus(
   node: FileNode,
   map: Map<string, GitStatus>

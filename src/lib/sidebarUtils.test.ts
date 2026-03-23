@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { filterTree, needsPageDivider, rollupGitStatus, sortNodes } from "./sidebarUtils";
+import {
+  collapseIndexNodes,
+  filterTree,
+  needsPageDivider,
+  rollupGitStatus,
+  sortNodes,
+} from "./sidebarUtils";
 import type { FileNode, GitStatus } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -96,6 +102,40 @@ describe("filterTree", () => {
   it("is a substring match, not prefix-only", () => {
     const file = makeFile("my-awesome-post.md");
     expect(filterTree([file], "awesome")).toEqual([file]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collapseIndexNodes
+// ---------------------------------------------------------------------------
+
+describe("collapseIndexNodes", () => {
+  it("collapses a directory with only index.md into a single file-like node", () => {
+    const index = makeFile("index.md", {
+      title: "Hello",
+      path: "/workspace/posts/hello/index.md",
+    });
+    const dir = makeDir("hello", [index]);
+    dir.path = "/workspace/posts/hello";
+
+    const [collapsed] = collapseIndexNodes([dir]);
+
+    expect(collapsed.isDirectory).toBe(false);
+    expect(collapsed.name).toBe("hello");
+    expect(collapsed.path).toBe(index.path);
+    expect(collapsed.title).toBe("Hello");
+    expect(collapsed.containerDirPath).toBe("/workspace/posts/hello");
+  });
+
+  it("does not collapse directories with additional children", () => {
+    const dir = makeDir("hello", [
+      makeFile("index.md", { path: "/workspace/hello/index.md" }),
+      makeFile("child.md", { path: "/workspace/hello/child.md" }),
+    ]);
+
+    const [result] = collapseIndexNodes([dir]);
+
+    expect(result.isDirectory).toBe(true);
   });
 });
 

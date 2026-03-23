@@ -11,6 +11,7 @@ import { SearchPanel } from "./components/SearchPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
+import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
 import { resolveImageSrc } from "./lib/imageUtils";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
@@ -47,6 +48,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
   const [coverImageVisible, setCoverImageVisible] = useState(false);
+  const pendingAutoOpenPath = useRef<string | null>(null);
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -125,8 +127,22 @@ function App() {
     )
       return;
     autoReopenAttempted.current = true;
+    pendingAutoOpenPath.current = loadLastRecentFilePath(
+      recentWorkspaces[0].rootPath,
+      localStorage
+    );
     void openWorkspaceAtPath(recentWorkspaces[0].rootPath);
   }, [recentWorkspaces, openWorkspaceAtPath, workspaceRootPath]);
+
+  useEffect(() => {
+    const path = pendingAutoOpenPath.current;
+    if (!path || tree.length === 0 || selectedFile) return;
+    const node = findNodeByPath(tree, path);
+    pendingAutoOpenPath.current = null;
+    if (!node || node.isDirectory) return;
+    void handleSelectFile(node);
+    pushRecent(node);
+  }, [tree, selectedFile, handleSelectFile, pushRecent]);
 
   // Reset per-file UI state when switching files (selectedFile is the trigger, not used in body)
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectedFile is the intended trigger
@@ -409,6 +425,7 @@ function App() {
         ) : (
           <Sidebar
             tree={tree}
+            workspaceKey={workspaceRootPath}
             selectedPath={selectedFile?.path ?? null}
             renamingPath={renamingPath}
             visible={sidebarVisible}

@@ -7,6 +7,7 @@ export interface FileNode {
   title?: string;
   draft?: boolean;
   contentType?: string;
+  containerDirPath?: string;
 }
 
 export interface WorkspaceState {
