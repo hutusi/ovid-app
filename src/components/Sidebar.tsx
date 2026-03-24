@@ -5,8 +5,10 @@ import {
   buildExpandedStorageKey,
   findAncestorPaths,
   getNodeExpanded,
+  parseExpandedPaths,
   seedExpandedPaths,
   shouldDefaultExpand,
+  shouldRevealSelectedAncestors,
 } from "../lib/sidebarExpansion";
 import {
   collapseIndexNodes,
@@ -260,6 +262,7 @@ export function Sidebar({
   const visibleTree = useMemo(() => collapseIndexNodes(tree), [tree]);
   const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+  const [hasStoredExpandedState, setHasStoredExpandedState] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -287,33 +290,27 @@ export function Sidebar({
     };
   }, []);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(expandedStorageKey);
-    if (!stored) {
-      setExpandedPaths({});
-      return;
-    }
-    try {
-      const parsed = JSON.parse(stored);
-      setExpandedPaths(typeof parsed === "object" && parsed ? parsed : {});
-    } catch {
-      setExpandedPaths({});
-    }
-  }, [expandedStorageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(expandedStorageKey, JSON.stringify(expandedPaths));
-  }, [expandedPaths, expandedStorageKey]);
-
   const selectedAncestorPaths = useMemo(
     () => findAncestorPaths(visibleTree, selectedPath),
     [visibleTree, selectedPath]
   );
 
   useEffect(() => {
+    const stored = localStorage.getItem(expandedStorageKey);
+    const next = parseExpandedPaths(stored);
+    setHasStoredExpandedState(next.hasStoredExpandedState);
+    setExpandedPaths(next.expandedPaths);
+  }, [expandedStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(expandedStorageKey, JSON.stringify(expandedPaths));
+  }, [expandedPaths, expandedStorageKey]);
+
+  useEffect(() => {
     if (selectedAncestorPaths.size === 0) return;
+    if (!shouldRevealSelectedAncestors(expandedPaths, hasStoredExpandedState)) return;
     setExpandedPaths((current) => seedExpandedPaths(current, selectedAncestorPaths));
-  }, [selectedAncestorPaths]);
+  }, [selectedAncestorPaths, hasStoredExpandedState, expandedPaths]);
 
   function isNodeExpanded(node: FileNode, depth: number): boolean {
     return getNodeExpanded(node.path, depth, expandedPaths);
