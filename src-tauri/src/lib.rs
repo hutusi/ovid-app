@@ -726,6 +726,35 @@ fn resolve_git_root(state: State<'_, WorkspaceState>) -> Result<Option<String>, 
     )
 }
 
+fn resolve_workspace_root(state: State<'_, WorkspaceState>) -> Result<Option<PathBuf>, String> {
+    let root_guard = state.workspace_root.lock().map_err(|e| e.to_string())?;
+    Ok(root_guard.as_ref().cloned())
+}
+
+fn validate_git_commit_path(workspace_root: &Path, requested: &str) -> Result<String, String> {
+    let requested_path = Path::new(requested);
+    if requested.trim().is_empty() {
+        return Err("commit path cannot be empty".to_string());
+    }
+    if requested_path.is_absolute() {
+        return Err("commit path must be relative to the opened workspace".to_string());
+    }
+
+    let canonical_root =
+        std::fs::canonicalize(workspace_root).map_err(|e| format!("workspace root: {e}"))?;
+    let candidate = canonical_root.join(requested_path);
+    if candidate.exists() {
+        validate_path(&canonical_root, &candidate.to_string_lossy())?;
+    } else {
+        let normalized = normalize_path(&candidate);
+        if !normalized.starts_with(&canonical_root) {
+            return Err("path is outside the opened workspace".to_string());
+        }
+    }
+
+    Ok(requested.to_string())
+}
+
 fn parse_git_status(git_root: &str) -> Result<Vec<GitCommitChange>, String> {
     let porcelain = run_git(git_root, &["status", "--porcelain"])?;
     let mut changes = Vec::new();
@@ -968,15 +997,20 @@ fn git_commit(
         return Err("select at least one file to commit".to_string());
     }
 
+    let workspace_root = resolve_workspace_root(state.clone())?.ok_or("no workspace open")?;
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    let validated_paths = paths
+        .iter()
+        .map(|path| validate_git_commit_path(&workspace_root, path))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut add_args: Vec<&str> = vec!["add", "-A", "--"];
-    for path in &paths {
+    for path in &validated_paths {
         add_args.push(path.as_str());
     }
     run_git(&git_root, &add_args)?;
 
     let mut commit_args: Vec<&str> = vec!["commit", "-m", &message, "--"];
-    for path in &paths {
+    for path in &validated_paths {
         commit_args.push(path.as_str());
     }
     run_git(&git_root, &commit_args)?;
@@ -1014,7 +1048,7 @@ fn git_fetch(state: State<'_, WorkspaceState>) -> Result<(), String> {
 #[tauri::command]
 fn git_switch_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    run_git(&git_root, &["switch", &branch])?;
+    run_git(&git_root, &["switch", "--", &branch])?;
     Ok(())
 }
 
@@ -1025,7 +1059,7 @@ fn git_create_branch(branch: String, state: State<'_, WorkspaceState>) -> Result
         return Err("branch name cannot be empty".to_string());
     }
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    run_git(&git_root, &["switch", "-c", name])?;
+    run_git(&git_root, &["switch", "-c", "--", name])?;
     Ok(())
 }
 
@@ -1727,6 +1761,52 @@ mod tests {
         assert_eq!(
             get_primary_remote_name("/definitely/not/a/repo", &branches),
             Some("origin".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_git_commit_path_allows_existing_relative_file() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("notes").join("draft.md");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "# draft").unwrap();
+
+        assert_eq!(
+            validate_git_commit_path(dir.path(), "notes/draft.md").unwrap(),
+            "notes/draft.md"
+        );
+    }
+
+    #[test]
+    fn validate_git_commit_path_allows_deleted_relative_file() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("notes").join("deleted.md");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+
+        assert_eq!(
+            validate_git_commit_path(dir.path(), "notes/deleted.md").unwrap(),
+            "notes/deleted.md"
+        );
+    }
+
+    #[test]
+    fn validate_git_commit_path_rejects_absolute_paths() {
+        let dir = TempDir::new().unwrap();
+        let absolute = dir.path().join("notes").join("draft.md");
+
+        assert_eq!(
+            validate_git_commit_path(dir.path(), &absolute.to_string_lossy()),
+            Err("commit path must be relative to the opened workspace".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_git_commit_path_rejects_parent_escape() {
+        let dir = TempDir::new().unwrap();
+
+        assert_eq!(
+            validate_git_commit_path(dir.path(), "../outside.md"),
+            Err("path is outside the opened workspace".to_string())
         );
     }
 
