@@ -15,7 +15,7 @@ bun install              # Install dependencies
 bun run tauri dev        # Run with hot reload (requires Rust)
 bun run build            # Build frontend only
 bun run tauri build      # Build distributable app
-bun run validate         # Type-check + lint + test (run before committing)
+bun run validate         # Type-check + lint + tests + build + cargo test (run before committing)
 bun run lint             # Biome check
 bun run lint:fix         # Biome auto-fix
 bun run test             # Bun unit tests
@@ -176,4 +176,4 @@ When compressing conversation history, preserve in priority order:
 
 ## Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for the full phased plan. Features are organized into 8 phases; complete each phase before starting the next. Phases 1–8 are complete.
+See [ROADMAP.md](./ROADMAP.md) for the full phased plan. Features are organized into deliberate phases; complete the current phase before starting the next. Earlier phases are complete, and newer phases may be added as the roadmap evolves.

@@ -14,7 +14,7 @@ Ovid is a Tauri 2 desktop app with a React/TypeScript frontend and Rust backend.
 - `bun run tauri build`: build the distributable desktop app.
 - `bun run test`: run unit tests with Bun.
 - `bun run lint`: run Biome checks on `src/`.
-- `bun run validate`: full gate for type-checking, linting, and tests. Run this before opening a PR.
+- `bun run validate`: full gate for type-checking, linting, tests, frontend build, and `cargo test`. Run this before opening a PR.
 
 ## Coding Style & Naming Conventions
 
