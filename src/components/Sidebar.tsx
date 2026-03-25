@@ -263,6 +263,7 @@ export function Sidebar({
   const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [hasStoredExpandedState, setHasStoredExpandedState] = useState(false);
+  const [isExpandedStateLoaded, setIsExpandedStateLoaded] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -296,21 +297,25 @@ export function Sidebar({
   );
 
   useEffect(() => {
+    setIsExpandedStateLoaded(false);
     const stored = localStorage.getItem(expandedStorageKey);
     const next = parseExpandedPaths(stored);
     setHasStoredExpandedState(next.hasStoredExpandedState);
     setExpandedPaths(next.expandedPaths);
+    setIsExpandedStateLoaded(true);
   }, [expandedStorageKey]);
 
   useEffect(() => {
+    if (!isExpandedStateLoaded) return;
     localStorage.setItem(expandedStorageKey, JSON.stringify(expandedPaths));
-  }, [expandedPaths, expandedStorageKey]);
+  }, [expandedPaths, expandedStorageKey, isExpandedStateLoaded]);
 
   useEffect(() => {
+    if (!isExpandedStateLoaded) return;
     if (selectedAncestorPaths.size === 0) return;
     if (!shouldRevealSelectedAncestors(expandedPaths, hasStoredExpandedState)) return;
     setExpandedPaths((current) => seedExpandedPaths(current, selectedAncestorPaths));
-  }, [selectedAncestorPaths, hasStoredExpandedState, expandedPaths]);
+  }, [selectedAncestorPaths, hasStoredExpandedState, expandedPaths, isExpandedStateLoaded]);
 
   function isNodeExpanded(node: FileNode, depth: number): boolean {
     return getNodeExpanded(node.path, depth, expandedPaths);
