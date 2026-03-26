@@ -20,7 +20,8 @@ interface StatusBarProps {
   spellCheck: boolean;
   gitBranch: string | null;
   gitBranchTitle?: string;
-  onOpenBranches: () => void;
+  gitSyncLabel?: string | null;
+  onOpenGit: () => void;
   onToggleTheme: () => void;
   onToggleZen: () => void;
   onToggleTypewriter: () => void;
@@ -44,7 +45,8 @@ export function StatusBar({
   spellCheck,
   gitBranch,
   gitBranchTitle,
-  onOpenBranches,
+  gitSyncLabel,
+  onOpenGit,
   onToggleTheme,
   onToggleZen,
   onToggleTypewriter,
@@ -89,14 +91,26 @@ export function StatusBar({
         )}
         <span className="statusbar-words">{wordCount > 0 ? `${wordCount} words` : ""}</span>
         {gitBranch && (
-          <button
-            type="button"
-            className="statusbar-branch"
-            onClick={onOpenBranches}
-            title={gitBranchTitle ?? `Current branch: ${gitBranch}`}
-          >
-            {gitBranch}
-          </button>
+          <div className="statusbar-git">
+            <button
+              type="button"
+              className="statusbar-branch"
+              onClick={onOpenGit}
+              title={gitBranchTitle ?? `Current branch: ${gitBranch}`}
+            >
+              {gitBranch}
+            </button>
+            {gitSyncLabel && (
+              <button
+                type="button"
+                className="statusbar-git-sync"
+                onClick={onOpenGit}
+                title={gitBranchTitle ?? gitSyncLabel}
+              >
+                {gitSyncLabel}
+              </button>
+            )}
+          </div>
         )}
         <button
           type="button"

@@ -6,6 +6,30 @@ export function getPushSuccessMessage(remoteInfo: GitRemoteInfo): string {
     : "Pushed to remote";
 }
 
+export function getGitSyncLabel(remoteInfo: GitRemoteInfo): string | null {
+  if (remoteInfo.aheadBehind === ">") return "Ahead";
+  if (remoteInfo.aheadBehind === "<") return "Behind";
+  if (remoteInfo.aheadBehind === "<>") return "Diverged";
+  if (!remoteInfo.upstream && remoteInfo.remoteName) return "No upstream";
+  if (!remoteInfo.upstream && !remoteInfo.remoteName && remoteInfo.remotes.length > 1) {
+    return "Choose remote";
+  }
+  return null;
+}
+
+export function getGitSyncDescription(remoteInfo: GitRemoteInfo): string {
+  if (remoteInfo.aheadBehind === ">") return "Local commits are ahead of the upstream branch.";
+  if (remoteInfo.aheadBehind === "<") return "Remote commits are available to pull.";
+  if (remoteInfo.aheadBehind === "<>") return "Local and remote branches have diverged.";
+  if (!remoteInfo.upstream && remoteInfo.remoteName) {
+    return `Push once to start tracking ${remoteInfo.remoteName}.`;
+  }
+  if (!remoteInfo.upstream && !remoteInfo.remoteName && remoteInfo.remotes.length > 1) {
+    return "Choose a remote before setting upstream.";
+  }
+  return "Branch is in sync with its configured tracking branch.";
+}
+
 export function getRemoteSummary(remoteInfo: GitRemoteInfo): string {
   if (remoteInfo.upstream) {
     return remoteInfo.upstream;

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { getGitBranchTitle, getPushSuccessMessage, getRemoteSummary } from "./gitUi";
+import {
+  getGitBranchTitle,
+  getGitSyncDescription,
+  getGitSyncLabel,
+  getPushSuccessMessage,
+  getRemoteSummary,
+} from "./gitUi";
 import type { GitRemote, GitRemoteInfo } from "./types";
 
 function makeRemote(name: string, url: string | null = null): GitRemote {
@@ -52,6 +58,41 @@ describe("getRemoteSummary", () => {
     expect(
       getRemoteSummary(makeRemoteInfo({ remotes: [makeRemote("origin"), makeRemote("publish")] }))
     ).toBe("2 remotes configured");
+  });
+});
+
+describe("getGitSyncLabel", () => {
+  it("labels ahead and behind states", () => {
+    expect(getGitSyncLabel(makeRemoteInfo({ upstream: "origin/main", aheadBehind: ">" }))).toBe(
+      "Ahead"
+    );
+    expect(getGitSyncLabel(makeRemoteInfo({ upstream: "origin/main", aheadBehind: "<" }))).toBe(
+      "Behind"
+    );
+  });
+
+  it("flags missing upstream when a push remote exists", () => {
+    expect(getGitSyncLabel(makeRemoteInfo({ remoteName: "origin" }))).toBe("No upstream");
+  });
+
+  it("flags ambiguous remotes when none is preferred", () => {
+    expect(
+      getGitSyncLabel(makeRemoteInfo({ remotes: [makeRemote("origin"), makeRemote("publish")] }))
+    ).toBe("Choose remote");
+  });
+});
+
+describe("getGitSyncDescription", () => {
+  it("explains diverged state", () => {
+    expect(
+      getGitSyncDescription(makeRemoteInfo({ upstream: "origin/main", aheadBehind: "<>" }))
+    ).toBe("Local and remote branches have diverged.");
+  });
+
+  it("explains in-sync state", () => {
+    expect(getGitSyncDescription(makeRemoteInfo({ upstream: "origin/main" }))).toBe(
+      "Branch is in sync with its configured tracking branch."
+    );
   });
 });
 

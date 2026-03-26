@@ -55,6 +55,12 @@
   gap: 10px;
 }
 
+.statusbar-git {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .statusbar-session {
   font-size: 11px;
   color: var(--color-fg-subtle);
@@ -90,6 +96,28 @@
 }
 
 .statusbar-branch:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.statusbar-git-sync {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-fg-muted);
+  border-radius: 999px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    color 0.12s,
+    background 0.12s;
+}
+
+.statusbar-git-sync:hover {
   color: var(--color-accent);
   border-color: var(--color-accent);
   background: var(--color-accent-subtle);
