@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getRemoteSummary } from "../lib/gitUi";
-import type { GitBranch, GitRemoteInfo } from "../lib/types";
+import type { GitBranch, GitRemote, GitRemoteInfo } from "../lib/types";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import "./Modal.css";
 import "./WorkspaceSwitcher.css";
@@ -10,9 +10,9 @@ interface BranchSwitcherProps {
   remoteInfo: GitRemoteInfo;
   onSelect: (branch: string) => void;
   onCreateBranch: () => void;
-  onPushAndTrack?: () => void;
-  onOpenRemote: () => void;
-  onCopyRemoteUrl: () => void;
+  onPushAndTrack?: (remoteName: string) => void;
+  onOpenRemote: (remoteName?: string) => void;
+  onCopyRemoteUrl: (remoteName?: string) => void;
   onClose: () => void;
 }
 
@@ -40,6 +40,16 @@ export function BranchSwitcher({
     return branches.filter((branch) => branch.name.toLowerCase().includes(normalized));
   }, [branches, query]);
 
+  function getRemoteMeta(remote: GitRemote): string {
+    if (remoteInfo.upstream?.startsWith(`${remote.name}/`)) {
+      return `${remoteInfo.upstream}${remoteInfo.aheadBehind ? ` ${remoteInfo.aheadBehind}` : ""}`;
+    }
+    if (remote.name === remoteInfo.remoteName) {
+      return "Preferred push remote";
+    }
+    return remote.url ?? "Remote URL unavailable";
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.stopPropagation();
@@ -66,27 +76,79 @@ export function BranchSwitcher({
       >
         <p className="modal-title">Switch branch</p>
 
-        {(remoteInfo.upstream || remoteInfo.remoteName || remoteInfo.remoteUrl) && (
+        {(remoteInfo.upstream || remoteInfo.remotes.length > 0) && (
           <div className="modal-branch-row">
-            <span className="modal-branch-label">Remote</span>
+            <span className="modal-branch-label">Tracking</span>
             <div className="modal-inline-actions">
               <span className="modal-selection-count">{getRemoteSummary(remoteInfo)}</span>
               {!remoteInfo.upstream && remoteInfo.remoteName && onPushAndTrack && (
-                <button type="button" className="modal-inline-btn" onClick={onPushAndTrack}>
+                <button
+                  type="button"
+                  className="modal-inline-btn"
+                  onClick={() => onPushAndTrack(remoteInfo.remoteName as string)}
+                >
                   Push + Track
                 </button>
               )}
               {remoteInfo.remoteUrl && (
                 <>
-                  <button type="button" className="modal-inline-btn" onClick={onOpenRemote}>
+                  <button
+                    type="button"
+                    className="modal-inline-btn"
+                    onClick={() => onOpenRemote(remoteInfo.remoteName ?? undefined)}
+                  >
                     Open
                   </button>
-                  <button type="button" className="modal-inline-btn" onClick={onCopyRemoteUrl}>
+                  <button
+                    type="button"
+                    className="modal-inline-btn"
+                    onClick={() => onCopyRemoteUrl(remoteInfo.remoteName ?? undefined)}
+                  >
                     Copy URL
                   </button>
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {remoteInfo.remotes.length > 1 && (
+          <div className="ws-list">
+            {remoteInfo.remotes.map((remote) => (
+              <div key={remote.name} className="ws-item ws-item--static">
+                <span className="ws-item-name">{remote.name}</span>
+                <span className="ws-item-path">{getRemoteMeta(remote)}</span>
+                <div className="modal-inline-actions ws-inline-actions">
+                  {remote.url && (
+                    <>
+                      <button
+                        type="button"
+                        className="modal-inline-btn"
+                        onClick={() => onOpenRemote(remote.name)}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="modal-inline-btn"
+                        onClick={() => onCopyRemoteUrl(remote.name)}
+                      >
+                        Copy URL
+                      </button>
+                    </>
+                  )}
+                  {!remoteInfo.upstream && onPushAndTrack && (
+                    <button
+                      type="button"
+                      className="modal-inline-btn"
+                      onClick={() => onPushAndTrack(remote.name)}
+                    >
+                      Push + Track
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

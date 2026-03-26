@@ -49,7 +49,13 @@ export interface GitBranch {
   isCurrent: boolean;
 }
 
+export interface GitRemote {
+  name: string;
+  url: string | null;
+}
+
 export interface GitRemoteInfo {
+  remotes: GitRemote[];
   remoteName: string | null;
   remoteUrl: string | null;
   upstream: string | null;

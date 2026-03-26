@@ -177,27 +177,40 @@ function App() {
     }
   }, [getBranches, getRemoteInfo, showToast]);
 
-  const copyRemoteUrl = useCallback(async () => {
-    if (!remoteInfo.remoteUrl) {
-      showToast("No remote URL configured");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(remoteInfo.remoteUrl);
-      showToast("Copied remote URL");
-    } catch {
-      showToast("Failed to copy remote URL");
-    }
-  }, [remoteInfo.remoteUrl, showToast]);
+  const copyRemoteUrl = useCallback(
+    async (remoteName?: string) => {
+      const targetRemote =
+        remoteName != null
+          ? (remoteInfo.remotes.find((remote) => remote.name === remoteName) ?? null)
+          : null;
+      const remoteUrl = targetRemote?.url ?? remoteInfo.remoteUrl;
+      if (!remoteUrl) {
+        showToast(
+          remoteName ? `No remote URL configured for ${remoteName}` : "No remote URL configured"
+        );
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(remoteUrl);
+        showToast("Copied remote URL");
+      } catch {
+        showToast("Failed to copy remote URL");
+      }
+    },
+    [remoteInfo.remoteUrl, remoteInfo.remotes, showToast]
+  );
 
-  const openRemote = useCallback(async () => {
-    try {
-      await handleOpenRemote();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      showToast(`Open remote failed: ${message}`);
-    }
-  }, [handleOpenRemote, showToast]);
+  const openRemote = useCallback(
+    async (remoteName?: string) => {
+      try {
+        await handleOpenRemote(remoteName);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showToast(`Open remote failed: ${message}`);
+      }
+    },
+    [handleOpenRemote, showToast]
+  );
 
   const switchBranch = useCallback(
     async (branch: string) => {
@@ -492,7 +505,7 @@ function App() {
           break;
         case "git-push":
           if (!hasBlockingOverlay && isGitRepo) {
-            void runGitAction("push", handlePush, pushSuccessMessage);
+            void runGitAction("push", () => handlePush(), pushSuccessMessage);
           }
           break;
         case "git-open-remote":
@@ -747,13 +760,11 @@ function App() {
             setBranchSwitcher(null);
             setNewBranchDialogOpen(true);
           }}
-          onPushAndTrack={
-            !branchSwitcher.remoteInfo.upstream && branchSwitcher.remoteInfo.remoteName
-              ? () => void runGitAction("push", handlePush, "Pushed and set upstream")
-              : undefined
+          onPushAndTrack={(remoteName) =>
+            void runGitAction("push", () => handlePush(remoteName), "Pushed and set upstream")
           }
-          onOpenRemote={() => void openRemote()}
-          onCopyRemoteUrl={() => void copyRemoteUrl()}
+          onOpenRemote={(remoteName) => void openRemote(remoteName)}
+          onCopyRemoteUrl={(remoteName) => void copyRemoteUrl(remoteName)}
           onClose={() => setBranchSwitcher(null)}
         />
       )}

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { getGitBranchTitle, getPushSuccessMessage, getRemoteSummary } from "./gitUi";
-import type { GitRemoteInfo } from "./types";
+import type { GitRemote, GitRemoteInfo } from "./types";
+
+function makeRemote(name: string, url: string | null = null): GitRemote {
+  return { name, url };
+}
 
 function makeRemoteInfo(overrides: Partial<GitRemoteInfo> = {}): GitRemoteInfo {
   return {
+    remotes: [],
     remoteName: null,
     remoteUrl: null,
     upstream: null,
@@ -42,6 +47,12 @@ describe("getRemoteSummary", () => {
   it("returns no upstream when nothing is configured", () => {
     expect(getRemoteSummary(makeRemoteInfo())).toBe("No upstream");
   });
+
+  it("describes multiple remotes when no preferred remote exists", () => {
+    expect(
+      getRemoteSummary(makeRemoteInfo({ remotes: [makeRemote("origin"), makeRemote("publish")] }))
+    ).toBe("2 remotes configured");
+  });
 });
 
 describe("getGitBranchTitle", () => {
@@ -55,5 +66,14 @@ describe("getGitBranchTitle", () => {
     expect(getGitBranchTitle("feature/test", makeRemoteInfo())).toBe(
       "Current branch: feature/test\nNo upstream configured"
     );
+  });
+
+  it("lists remotes when no single push remote can be inferred", () => {
+    expect(
+      getGitBranchTitle(
+        "feature/test",
+        makeRemoteInfo({ remotes: [makeRemote("origin"), makeRemote("publish")] })
+      )
+    ).toBe("Current branch: feature/test\nNo upstream configured\nRemotes: origin, publish");
   });
 });

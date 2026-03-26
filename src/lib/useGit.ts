@@ -12,6 +12,7 @@ export function useGit(workspaceRoot: string | null) {
   const [isGitRepo, setIsGitRepo] = useState(false);
   const [currentBranch, setCurrentBranch] = useState("");
   const [remoteInfo, setRemoteInfo] = useState<GitRemoteInfo>({
+    remotes: [],
     remoteName: null,
     remoteUrl: null,
     upstream: null,
@@ -23,7 +24,13 @@ export function useGit(workspaceRoot: string | null) {
       setGitStatusMap(new Map());
       setIsGitRepo(false);
       setCurrentBranch("");
-      setRemoteInfo({ remoteName: null, remoteUrl: null, upstream: null, aheadBehind: null });
+      setRemoteInfo({
+        remotes: [],
+        remoteName: null,
+        remoteUrl: null,
+        upstream: null,
+        aheadBehind: null,
+      });
       return;
     }
     try {
@@ -41,13 +48,25 @@ export function useGit(workspaceRoot: string | null) {
         setRemoteInfo(remote);
       } else {
         setGitStatusMap(new Map());
-        setRemoteInfo({ remoteName: null, remoteUrl: null, upstream: null, aheadBehind: null });
+        setRemoteInfo({
+          remotes: [],
+          remoteName: null,
+          remoteUrl: null,
+          upstream: null,
+          aheadBehind: null,
+        });
       }
     } catch {
       setIsGitRepo(false);
       setGitStatusMap(new Map());
       setCurrentBranch("");
-      setRemoteInfo({ remoteName: null, remoteUrl: null, upstream: null, aheadBehind: null });
+      setRemoteInfo({
+        remotes: [],
+        remoteName: null,
+        remoteUrl: null,
+        upstream: null,
+        aheadBehind: null,
+      });
     }
   }, [workspaceRoot]);
 
@@ -71,9 +90,9 @@ export function useGit(workspaceRoot: string | null) {
     return invoke<GitRemoteInfo>("get_git_remote_info");
   }
 
-  async function handlePush(): Promise<void> {
+  async function handlePush(remoteName?: string): Promise<void> {
     try {
-      await invoke("git_push");
+      await invoke("git_push", remoteName ? { remoteName } : undefined);
     } finally {
       void refreshGitStatus();
     }
@@ -111,8 +130,8 @@ export function useGit(workspaceRoot: string | null) {
     }
   }
 
-  async function handleOpenRemote(): Promise<void> {
-    await invoke("open_git_remote");
+  async function handleOpenRemote(remoteName?: string): Promise<void> {
+    await invoke("open_git_remote", remoteName ? { remoteName } : undefined);
   }
 
   async function handleCommit(message: string, paths: string[], push: boolean): Promise<void> {
