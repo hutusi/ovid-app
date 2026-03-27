@@ -6,6 +6,7 @@ import { Editor } from "./components/Editor";
 import { EmptyState } from "./components/EmptyState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FileSwitcher } from "./components/FileSwitcher";
+import { GitSyncPopover } from "./components/GitSyncPopover";
 import { NewBranchDialog } from "./components/NewBranchDialog";
 import { NewFileDialog } from "./components/NewFileDialog";
 import { PropertiesPanel } from "./components/PropertiesPanel";
@@ -715,12 +716,9 @@ function App() {
         gitBranchTitle={isGitRepo ? getGitBranchTitle(currentBranch, remoteInfo) : undefined}
         gitSyncLabel={gitSyncLabel}
         gitSyncTitle={gitSyncPopover?.description}
-        gitSyncPopover={gitSyncPopover}
         gitSyncPopoverOpen={gitSyncPopoverOpen}
         onOpenBranches={() => void openBranchSwitcher()}
         onOpenGitSync={() => setGitSyncPopoverOpen((open) => !open)}
-        onCloseGitSync={() => setGitSyncPopoverOpen(false)}
-        onGitSyncAction={() => void handleGitSyncAction()}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
         onToggleZen={() => setZenMode((v) => !v)}
         onToggleTypewriter={() => setTypewriterMode((v) => !v)}
@@ -729,6 +727,13 @@ function App() {
         onToggleSpellCheck={() => updatePrefs({ spellCheck: !prefs.spellCheck })}
         onSetWordCountGoal={setWordCountGoal}
       />
+      {gitSyncPopoverOpen && gitSyncPopover && (
+        <GitSyncPopover
+          state={gitSyncPopover}
+          onClose={() => setGitSyncPopoverOpen(false)}
+          onAction={gitSyncPopover.actionLabel ? () => void handleGitSyncAction() : undefined}
+        />
+      )}
       {toasts.length > 0 && (
         <div className="toast-container">
           {toasts.map((t) => (
