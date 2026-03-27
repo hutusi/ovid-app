@@ -1,6 +1,13 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { ReactElement, ReactNode } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
+import type { FontFamily, FontSize } from "../lib/useEditorPreferences";
 import { StatusBar } from "./StatusBar";
+
+type TestElementProps = {
+  children?: ReactNode;
+  className?: string;
+  onClick?: () => void;
+};
 
 function renderStatusBar(gitChangeLabel: string | null, onOpenCommit = mock(() => {})) {
   return {
@@ -14,8 +21,8 @@ function renderStatusBar(gitChangeLabel: string | null, onOpenCommit = mock(() =
       typewriterMode: false,
       sessionWordsAdded: 0,
       wordCountGoal: null,
-      fontFamily: "iowan",
-      fontSize: "md",
+      fontFamily: "serif" as FontFamily,
+      fontSize: "default" as FontSize,
       spellCheck: true,
       gitBranch: "main",
       gitBranchTitle: "Current branch: main",
@@ -38,8 +45,11 @@ function renderStatusBar(gitChangeLabel: string | null, onOpenCommit = mock(() =
   };
 }
 
-function collectElements(node: ReactNode, predicate: (element: ReactElement) => boolean) {
-  const matches: ReactElement[] = [];
+function collectElements(
+  node: ReactNode,
+  predicate: (element: ReactElement<TestElementProps>) => boolean
+) {
+  const matches: ReactElement<TestElementProps>[] = [];
 
   function visit(current: ReactNode) {
     if (current == null || typeof current === "boolean") return;
@@ -49,7 +59,8 @@ function collectElements(node: ReactNode, predicate: (element: ReactElement) => 
     }
     if (typeof current === "string" || typeof current === "number") return;
 
-    const element = current as ReactElement<{ children?: ReactNode }>;
+    if (!isValidElement<TestElementProps>(current)) return;
+    const element = current;
     if (predicate(element)) {
       matches.push(element);
     }
@@ -86,7 +97,7 @@ describe("StatusBar git change summary", () => {
     );
 
     expect(badges).toHaveLength(1);
-    badges[0].props.onClick();
+    badges[0].props.onClick?.();
 
     expect(onOpenCommit).toHaveBeenCalledTimes(1);
   });

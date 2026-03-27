@@ -67,6 +67,7 @@ function App() {
   const [coverImageVisible, setCoverImageVisible] = useState(false);
   const pendingAutoOpenPath = useRef<string | null>(null);
   const lastAutoFetchAtRef = useRef(0);
+  const autoFetchInFlightRef = useRef(false);
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -195,7 +196,7 @@ function App() {
         remoteName != null
           ? (remoteInfo.remotes.find((remote) => remote.name === remoteName) ?? null)
           : null;
-      const remoteUrl = targetRemote?.url ?? remoteInfo.remoteUrl;
+      const remoteUrl = remoteName != null ? (targetRemote?.url ?? null) : remoteInfo.remoteUrl;
       if (!remoteUrl) {
         showToast(
           remoteName ? `No remote URL configured for ${remoteName}` : "No remote URL configured"
@@ -441,16 +442,22 @@ function App() {
     let unlisten: (() => void) | undefined;
 
     async function maybeFetchRemoteStatus() {
+      if (autoFetchInFlightRef.current) return;
+      autoFetchInFlightRef.current = true;
       const now = Date.now();
-      lastAutoFetchAtRef.current = await runAutoFetchOnFocus(
-        {
-          focused: true,
-          now,
-          lastFetchedAt: lastAutoFetchAtRef.current,
-          cooldownMs: AUTO_FETCH_COOLDOWN_MS,
-        },
-        handleFetch
-      );
+      try {
+        lastAutoFetchAtRef.current = await runAutoFetchOnFocus(
+          {
+            focused: true,
+            now,
+            lastFetchedAt: lastAutoFetchAtRef.current,
+            cooldownMs: AUTO_FETCH_COOLDOWN_MS,
+          },
+          handleFetch
+        );
+      } finally {
+        autoFetchInFlightRef.current = false;
+      }
     }
 
     void getCurrentWindow()
