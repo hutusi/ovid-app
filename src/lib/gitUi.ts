@@ -1,4 +1,4 @@
-import type { GitRemoteInfo } from "./types";
+import type { GitRemoteInfo, GitStatus } from "./types";
 
 export type GitSyncActionKind = "push" | "pull" | "push-track";
 
@@ -9,6 +9,11 @@ export interface GitSyncPopoverState {
   description: string;
   actionKind: GitSyncActionKind | null;
   actionLabel: string | null;
+}
+
+export interface GitChangeSummary {
+  label: string;
+  title: string;
 }
 
 export function getPushSuccessMessage(remoteInfo: GitRemoteInfo): string {
@@ -137,5 +142,28 @@ export function getGitSyncPopoverState(remoteInfo: GitRemoteInfo): GitSyncPopove
     description: getGitSyncDescription(remoteInfo),
     actionKind: null,
     actionLabel: null,
+  };
+}
+
+export function getGitChangeSummary(gitStatusMap: Map<string, GitStatus>): GitChangeSummary | null {
+  const statuses = Array.from(gitStatusMap.values());
+  const total = statuses.length;
+  if (total === 0) return null;
+
+  const staged = statuses.filter((status) => status === "staged").length;
+  const unstaged = total - staged;
+  const label = `${total} ${total === 1 ? "change" : "changes"}`;
+  const titleParts = [];
+
+  if (staged > 0) {
+    titleParts.push(`${staged} staged`);
+  }
+  if (unstaged > 0) {
+    titleParts.push(`${unstaged} unstaged`);
+  }
+
+  return {
+    label,
+    title: titleParts.length > 0 ? titleParts.join(", ") : label,
   };
 }

@@ -123,6 +123,28 @@
   background: var(--color-accent-subtle);
 }
 
+.statusbar-git-changes {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-fg-subtle);
+  border-radius: 999px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    color 0.12s,
+    background 0.12s;
+}
+
+.statusbar-git-changes:hover {
+  color: var(--color-fg);
+  border-color: var(--color-fg-muted);
+  background: var(--color-surface-hover);
+}
+
 .git-sync-popover-panel {
   width: 340px;
   max-width: calc(100vw - 48px);

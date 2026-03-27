@@ -19,6 +19,7 @@ import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
 import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch";
 import {
   getGitBranchTitle,
+  getGitChangeSummary,
   getGitSyncLabel,
   getGitSyncPopoverState,
   getPushSuccessMessage,
@@ -650,6 +651,7 @@ function App() {
   }
 
   const sessionWordsAdded = sessionBaseline !== null ? Math.max(0, wordCount - sessionBaseline) : 0;
+  const gitChangeSummary = isGitRepo ? getGitChangeSummary(gitStatusMap) : null;
   const gitSyncLabel = isGitRepo ? getGitSyncLabel(remoteInfo) : null;
   const gitSyncPopover = isGitRepo ? getGitSyncPopoverState(remoteInfo) : null;
 
@@ -757,8 +759,11 @@ function App() {
         gitBranchTitle={isGitRepo ? getGitBranchTitle(currentBranch, remoteInfo) : undefined}
         gitSyncLabel={gitSyncLabel}
         gitSyncTitle={gitSyncPopover?.description}
+        gitChangeLabel={gitChangeSummary?.label}
+        gitChangeTitle={gitChangeSummary?.title}
         gitSyncPopoverOpen={gitSyncPopoverOpen}
         onOpenBranches={() => void openBranchSwitcher()}
+        onOpenCommit={() => void openCommitDialog("Update")}
         onOpenGitSync={() => setGitSyncPopoverOpen((open) => !open)}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
         onToggleZen={() => setZenMode((v) => !v)}

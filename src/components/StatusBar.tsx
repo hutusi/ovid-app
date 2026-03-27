@@ -22,8 +22,11 @@ interface StatusBarProps {
   gitBranchTitle?: string;
   gitSyncLabel?: string | null;
   gitSyncTitle?: string;
+  gitChangeLabel?: string | null;
+  gitChangeTitle?: string;
   gitSyncPopoverOpen?: boolean;
   onOpenBranches: () => void;
+  onOpenCommit: () => void;
   onOpenGitSync: () => void;
   onToggleTheme: () => void;
   onToggleZen: () => void;
@@ -50,8 +53,11 @@ export function StatusBar({
   gitBranchTitle,
   gitSyncLabel,
   gitSyncTitle,
+  gitChangeLabel,
+  gitChangeTitle,
   gitSyncPopoverOpen = false,
   onOpenBranches,
+  onOpenCommit,
   onOpenGitSync,
   onToggleTheme,
   onToggleZen,
@@ -115,6 +121,16 @@ export function StatusBar({
                 aria-expanded={gitSyncPopoverOpen}
               >
                 {gitSyncLabel}
+              </button>
+            )}
+            {gitChangeLabel && (
+              <button
+                type="button"
+                className="statusbar-git-changes"
+                onClick={onOpenCommit}
+                title={gitChangeTitle ?? gitChangeLabel}
+              >
+                {gitChangeLabel}
               </button>
             )}
           </div>

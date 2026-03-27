@@ -1,13 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
   getGitBranchTitle,
+  getGitChangeSummary,
   getGitSyncDescription,
   getGitSyncLabel,
   getGitSyncPopoverState,
   getPushSuccessMessage,
   getRemoteSummary,
 } from "./gitUi";
-import type { GitRemote, GitRemoteInfo } from "./types";
+import type { GitRemote, GitRemoteInfo, GitStatus } from "./types";
 
 function makeRemote(name: string, url: string | null = null): GitRemote {
   return { name, url };
@@ -22,6 +23,10 @@ function makeRemoteInfo(overrides: Partial<GitRemoteInfo> = {}): GitRemoteInfo {
     aheadBehind: null,
     ...overrides,
   };
+}
+
+function makeGitStatusMap(statuses: GitStatus[]): Map<string, GitStatus> {
+  return new Map(statuses.map((status, index) => [`file-${index}.md`, status]));
 }
 
 describe("getPushSuccessMessage", () => {
@@ -158,6 +163,26 @@ describe("getGitSyncPopoverState", () => {
       description: "Multiple remotes are configured and no push target is selected yet.",
       actionKind: null,
       actionLabel: null,
+    });
+  });
+});
+
+describe("getGitChangeSummary", () => {
+  it("returns null when there are no git changes", () => {
+    expect(getGitChangeSummary(new Map())).toBeNull();
+  });
+
+  it("summarizes staged and unstaged changes for the status bar tooltip", () => {
+    expect(getGitChangeSummary(makeGitStatusMap(["staged", "modified", "untracked"]))).toEqual({
+      label: "3 changes",
+      title: "1 staged, 2 unstaged",
+    });
+  });
+
+  it("uses singular wording for one changed file", () => {
+    expect(getGitChangeSummary(makeGitStatusMap(["modified"]))).toEqual({
+      label: "1 change",
+      title: "1 unstaged",
     });
   });
 });
