@@ -16,6 +16,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
+import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch";
 import {
   getGitBranchTitle,
   getGitSyncLabel,
@@ -43,7 +44,6 @@ type BranchSwitcherState = { branches: GitBranch[]; remoteInfo: GitRemoteInfo } 
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 const AUTO_REOPEN_KEY = "ovid:skipAutoReopen";
-const AUTO_FETCH_COOLDOWN_MS = 60_000;
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
@@ -441,16 +441,15 @@ function App() {
 
     async function maybeFetchRemoteStatus() {
       const now = Date.now();
-      if (now - lastAutoFetchAtRef.current < AUTO_FETCH_COOLDOWN_MS) {
-        return;
-      }
-      lastAutoFetchAtRef.current = now;
-
-      try {
-        await handleFetch();
-      } catch {
-        // Keep auto-fetch silent. Manual fetch/pull/push surfaces errors explicitly.
-      }
+      lastAutoFetchAtRef.current = await runAutoFetchOnFocus(
+        {
+          focused: true,
+          now,
+          lastFetchedAt: lastAutoFetchAtRef.current,
+          cooldownMs: AUTO_FETCH_COOLDOWN_MS,
+        },
+        handleFetch
+      );
     }
 
     void getCurrentWindow()
