@@ -29,7 +29,9 @@ export function CommitDialog({
 }: CommitDialogProps) {
   const [message, setMessage] = useState(defaultMessage);
   const [push, setPush] = useState(false);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(() => changes.map((c) => c.path));
+  const [selectedPaths, setSelectedPaths] = useState<string[]>(() =>
+    changes.map((change) => change.displayPath)
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dialogRef = useFocusTrap<HTMLDivElement>();
 
@@ -82,7 +84,7 @@ export function CommitDialog({
             <button
               type="button"
               className="modal-inline-btn"
-              onClick={() => setSelectedPaths(changes.map((change) => change.path))}
+              onClick={() => setSelectedPaths(changes.map((change) => change.displayPath))}
             >
               All
             </button>
@@ -97,14 +99,14 @@ export function CommitDialog({
 
         <ul className="modal-commit-list" aria-label="Changed files">
           {changes.map((change) => {
-            const checked = selectedPaths.includes(change.path);
+            const checked = selectedPaths.includes(change.displayPath);
             return (
               <li key={change.path}>
                 <label className="modal-commit-item">
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => togglePath(change.path)}
+                    onChange={() => togglePath(change.displayPath)}
                   />
                   <div className="modal-commit-copy">
                     <span className="modal-commit-path">{change.displayPath}</span>
