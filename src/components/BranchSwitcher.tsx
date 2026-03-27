@@ -113,7 +113,8 @@ export function BranchSwitcher({
         )}
 
         {remoteInfo.remotes.length > 1 && (
-          <div className="ws-list">
+          <fieldset className="ws-list ws-list--group">
+            <legend className="ws-list-legend">Available remotes</legend>
             {remoteInfo.remotes.map((remote) => (
               <div key={remote.name} className="ws-item ws-item--static">
                 <span className="ws-item-name">{remote.name}</span>
@@ -149,7 +150,7 @@ export function BranchSwitcher({
                 </div>
               </div>
             ))}
-          </div>
+          </fieldset>
         )}
 
         <input

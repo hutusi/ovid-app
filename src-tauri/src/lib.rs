@@ -1033,8 +1033,18 @@ fn git_push_args(
     current_branch: &str,
     explicit_remote_name: Option<&str>,
 ) -> Result<Vec<String>, String> {
+    let explicit_remote_name = explicit_remote_name
+        .map(str::trim)
+        .filter(|name| !name.is_empty());
+
     if remote.upstream.is_some() && explicit_remote_name.is_none() {
         return Ok(vec!["push".to_string()]);
+    }
+
+    if let Some(name) = explicit_remote_name {
+        if !remote.remotes.iter().any(|configured| configured.name == name) {
+            return Err("selected remote is no longer configured".to_string());
+        }
     }
 
     let remote_name = explicit_remote_name
@@ -1212,22 +1222,22 @@ fn open_git_remote(
 ) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     let info = get_git_remote_info_inner(&git_root)?;
-    let remote_url = remote_name
-        .as_deref()
-        .and_then(|name| {
-            info.remotes
-                .iter()
-                .find(|remote| remote.name == name)
-                .and_then(|remote| remote.url.clone())
-        })
-        .or(info.remote_url)
-        .ok_or_else(|| {
-            if info.remotes.len() > 1 {
+    let remote_count = info.remotes.len();
+    let remote_url = match remote_name.as_deref() {
+        Some(name) => info
+            .remotes
+            .iter()
+            .find(|remote| remote.name == name)
+            .and_then(|remote| remote.url.clone())
+            .ok_or_else(|| format!("remote `{name}` is unavailable"))?,
+        None => info.remote_url.ok_or_else(|| {
+            if remote_count > 1 {
                 "multiple remotes configured; choose one in the branch switcher".to_string()
             } else {
                 "no remote configured".to_string()
             }
-        })?;
+        })?,
+    };
     app.opener()
         .open_url(&remote_url, None::<&str>)
         .map_err(|e| e.to_string())?;
@@ -2083,6 +2093,25 @@ mod tests {
         assert_eq!(
             git_push_args(&remote, "feature/test", Some("publish")).unwrap(),
             vec!["push", "-u", "publish", "feature/test"]
+        );
+    }
+
+    #[test]
+    fn git_push_args_errors_when_selected_remote_is_missing() {
+        let remote = GitRemoteInfo {
+            remotes: vec![GitRemote {
+                name: "origin".to_string(),
+                url: Some("https://github.com/hutusi/ovid-codex".to_string()),
+            }],
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
+            upstream: None,
+            ahead_behind: None,
+        };
+
+        assert_eq!(
+            git_push_args(&remote, "feature/test", Some("publish")),
+            Err("selected remote is no longer configured".to_string())
         );
     }
 }
