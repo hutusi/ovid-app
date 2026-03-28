@@ -1098,6 +1098,48 @@ fn git_create_branch_args(branch_name: &str) -> Vec<String> {
     vec!["switch".to_string(), "-c".to_string(), branch_name.to_string()]
 }
 
+fn is_git_transport_error(stderr: &str) -> bool {
+    let lower = stderr.to_lowercase();
+    lower.contains("authentication failed")
+        || lower.contains("could not read username")
+        || lower.contains("permission denied")
+        || lower.contains("repository not found")
+        || lower.contains("could not resolve host")
+        || lower.contains("failed to connect")
+        || lower.contains("connection timed out")
+}
+
+fn classify_git_push_error(stderr: &str) -> String {
+    let lower = stderr.to_lowercase();
+    if lower.contains("non-fast-forward")
+        || lower.contains("[rejected]")
+        || lower.contains("fetch first")
+    {
+        return "Push rejected. Remote has new commits. Pull or fetch first.".to_string();
+    }
+    if is_git_transport_error(stderr) {
+        return "Push failed because the remote could not be reached or authorized.".to_string();
+    }
+    stderr.to_string()
+}
+
+fn classify_git_pull_error(stderr: &str) -> String {
+    let lower = stderr.to_lowercase();
+    if lower.contains("not possible to fast-forward") || lower.contains("cannot fast-forward") {
+        return "Pull stopped because the branch cannot be fast-forwarded. Resolve it in Git, then refresh.".to_string();
+    }
+    if lower.contains("would be overwritten by merge") || lower.contains("local changes") {
+        return "Pull blocked by local changes. Commit, stash, or discard changes first.".to_string();
+    }
+    if lower.contains("conflict") {
+        return "Pull stopped because of conflicts. Resolve them in Git, then refresh.".to_string();
+    }
+    if is_git_transport_error(stderr) {
+        return "Pull failed because the remote could not be reached or authorized.".to_string();
+    }
+    stderr.to_string()
+}
+
 #[tauri::command]
 fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>, String> {
     let git_root = match resolve_git_root(state)? {
@@ -1206,7 +1248,7 @@ async fn git_commit(
                 let branch = get_current_branch_inner(&git_root)?;
                 let args = git_push_args(&remote, &branch, None)?;
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-                run_git(&git_root, &arg_refs)?;
+                run_git(&git_root, &arg_refs).map_err(|err| classify_git_push_error(&err))?;
                 Ok(())
             })();
             if let Err(err) = push_result {
@@ -1229,7 +1271,7 @@ async fn git_push(
         let branch = get_current_branch_inner(&git_root)?;
         let args = git_push_args(&remote, &branch, remote_name.as_deref())?;
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-        run_git(&git_root, &arg_refs)?;
+        run_git(&git_root, &arg_refs).map_err(|err| classify_git_push_error(&err))?;
         Ok(())
     })
     .await
@@ -1239,7 +1281,7 @@ async fn git_push(
 async fn git_pull(state: State<'_, WorkspaceState>) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     run_blocking_git(move || {
-        run_git(&git_root, &["pull", "--ff-only"])?;
+        run_git(&git_root, &["pull", "--ff-only"]).map_err(|err| classify_git_pull_error(&err))?;
         Ok(())
     })
     .await
@@ -2124,6 +2166,51 @@ mod tests {
         };
 
         assert_eq!(git_push_args(&remote, "main", None).unwrap(), vec!["push"]);
+    }
+
+    #[test]
+    fn classify_git_push_error_detects_non_fast_forward() {
+        let stderr = "! [rejected] main -> main (non-fast-forward)\nerror: failed to push some refs";
+        assert_eq!(
+            classify_git_push_error(stderr),
+            "Push rejected. Remote has new commits. Pull or fetch first."
+        );
+    }
+
+    #[test]
+    fn classify_git_push_error_detects_transport_failure() {
+        let stderr = "fatal: Authentication failed for 'https://github.com/hutusi/ovid.git/'";
+        assert_eq!(
+            classify_git_push_error(stderr),
+            "Push failed because the remote could not be reached or authorized."
+        );
+    }
+
+    #[test]
+    fn classify_git_pull_error_detects_fast_forward_stop() {
+        let stderr = "fatal: Not possible to fast-forward, aborting.";
+        assert_eq!(
+            classify_git_pull_error(stderr),
+            "Pull stopped because the branch cannot be fast-forwarded. Resolve it in Git, then refresh."
+        );
+    }
+
+    #[test]
+    fn classify_git_pull_error_detects_local_changes_blocking_pull() {
+        let stderr = "error: Your local changes to the following files would be overwritten by merge:";
+        assert_eq!(
+            classify_git_pull_error(stderr),
+            "Pull blocked by local changes. Commit, stash, or discard changes first."
+        );
+    }
+
+    #[test]
+    fn classify_git_pull_error_detects_conflicts() {
+        let stderr = "CONFLICT (content): Merge conflict in notes/draft.md";
+        assert_eq!(
+            classify_git_pull_error(stderr),
+            "Pull stopped because of conflicts. Resolve them in Git, then refresh."
+        );
     }
 
     #[test]
