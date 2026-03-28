@@ -70,6 +70,14 @@ Menu items show their keyboard shortcut where one exists. Insert and Format menu
 
 ---
 
+## Git Workflow
+
+Ovid includes built-in Git support for status, commit, push, pull, fetch, branch switching, and multi-remote workflows.
+
+See [Git Workflow](docs/git-workflow.md) for the status-bar model, sync behavior, remote handling, and current Git limits.
+
+---
+
 ## Workspaces
 
 ### Opening a workspace

@@ -716,9 +716,17 @@ struct GitBranch {
     is_current: bool,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct GitRemote {
+    name: String,
+    url: Option<String>,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GitRemoteInfo {
+    remotes: Vec<GitRemote>,
     remote_name: Option<String>,
     remote_url: Option<String>,
     upstream: Option<String>,
@@ -733,6 +741,8 @@ fn run_git(root: &str, args: &[&str]) -> Result<String, String> {
     cmd_args.extend_from_slice(args);
     let output = std::process::Command::new("git")
         .args(&cmd_args)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "Never")
         .output()
         .map_err(|_| "git not found".to_string())?;
     if !output.status.success() {
@@ -785,6 +795,32 @@ fn validate_git_commit_path(workspace_root: &Path, requested: &str) -> Result<St
         if !normalized.starts_with(&canonical_root) {
             return Err("path is outside the opened workspace".to_string());
         }
+    }
+
+    Ok(requested.to_string())
+}
+
+fn validate_git_commit_selection(
+    git_root: &Path,
+    workspace_root: &Path,
+    requested: &str,
+) -> Result<String, String> {
+    validate_git_commit_path(git_root, requested)?;
+
+    let git_root_canonical =
+        std::fs::canonicalize(git_root).map_err(|e| format!("git root: {e}"))?;
+    let workspace_root_canonical =
+        std::fs::canonicalize(workspace_root).map_err(|e| format!("workspace root: {e}"))?;
+    let candidate = git_root_canonical.join(requested);
+
+    let target = if candidate.exists() {
+        std::fs::canonicalize(&candidate).map_err(|e| format!("commit path: {e}"))?
+    } else {
+        normalize_path(&candidate)
+    };
+
+    if !target.starts_with(&workspace_root_canonical) {
+        return Err("path is outside the opened workspace".to_string());
     }
 
     Ok(requested.to_string())
@@ -891,23 +927,67 @@ fn parse_remote_name(upstream: &str) -> Option<String> {
         .map(ToString::to_string)
 }
 
-fn get_primary_remote_name(git_root: &str, branches: &[GitBranch]) -> Option<String> {
-    if let Some(name) = branches
-        .iter()
-        .find(|branch| branch.is_current)
-        .and_then(|branch| branch.upstream.as_deref())
+fn get_git_remotes(git_root: &str) -> Result<Vec<GitRemote>, String> {
+    let output = run_git(git_root, &["remote"])?;
+    let mut remotes = output
+        .lines()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| GitRemote {
+            name: name.to_string(),
+            url: run_git(git_root, &["remote", "get-url", name])
+                .ok()
+                .and_then(|url| normalize_remote_url(url.trim()))
+                .filter(|url| !url.is_empty()),
+        })
+        .collect::<Vec<_>>();
+    remotes.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(remotes)
+}
+
+fn get_git_config_value(git_root: &str, key: &str) -> Option<String> {
+    run_git(git_root, &["config", "--get", key])
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn get_preferred_remote_name(
+    git_root: &str,
+    current_branch: &GitBranch,
+    remotes: &[GitRemote],
+) -> Option<String> {
+    let is_known_remote = |name: &str| remotes.iter().any(|remote| remote.name == name);
+
+    if let Some(name) = current_branch
+        .upstream
+        .as_deref()
         .and_then(parse_remote_name)
+        .filter(|name| is_known_remote(name))
     {
         return Some(name);
     }
 
-    run_git(git_root, &["remote"]).ok().and_then(|output| {
-        output
-            .lines()
-            .map(str::trim)
-            .find(|line| !line.is_empty())
-            .map(ToString::to_string)
-    })
+    if let Some(name) = get_git_config_value(
+        git_root,
+        &format!("branch.{}.pushRemote", current_branch.name),
+    )
+    .filter(|name| is_known_remote(name))
+    {
+        return Some(name);
+    }
+
+    if let Some(name) = get_git_config_value(git_root, "remote.pushDefault")
+        .filter(|name| is_known_remote(name))
+    {
+        return Some(name);
+    }
+
+    if remotes.len() == 1 {
+        return remotes.first().map(|remote| remote.name.clone());
+    }
+
+    None
 }
 
 fn normalize_remote_url(url: &str) -> Option<String> {
@@ -951,16 +1031,18 @@ fn normalize_remote_url(url: &str) -> Option<String> {
 fn get_git_remote_info_inner(git_root: &str) -> Result<GitRemoteInfo, String> {
     let branches = parse_git_branches(git_root)?;
     let current = branches.iter().find(|branch| branch.is_current);
-    let remote_name = get_primary_remote_name(git_root, &branches);
-    let remote_url = match remote_name.as_deref() {
-        Some(name) => run_git(git_root, &["remote", "get-url", name])
-            .ok()
-            .and_then(|url| normalize_remote_url(url.trim()))
-            .filter(|url| !url.is_empty()),
-        None => None,
-    };
+    let remotes = get_git_remotes(git_root)?;
+    let remote_name =
+        current.and_then(|branch| get_preferred_remote_name(git_root, branch, &remotes));
+    let remote_url = remote_name.as_deref().and_then(|name| {
+        remotes
+            .iter()
+            .find(|remote| remote.name == name)
+            .and_then(|remote| remote.url.clone())
+    });
 
     Ok(GitRemoteInfo {
+        remotes,
         remote_name,
         remote_url,
         upstream: current.and_then(|branch| branch.upstream.clone()),
@@ -972,15 +1054,35 @@ fn get_current_branch_inner(git_root: &str) -> Result<String, String> {
     run_git(git_root, &["rev-parse", "--abbrev-ref", "HEAD"]).map(|s| s.trim().to_string())
 }
 
-fn git_push_args(remote: &GitRemoteInfo, current_branch: &str) -> Result<Vec<String>, String> {
-    if remote.upstream.is_some() {
+fn git_push_args(
+    remote: &GitRemoteInfo,
+    current_branch: &str,
+    explicit_remote_name: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let explicit_remote_name = explicit_remote_name
+        .map(str::trim)
+        .filter(|name| !name.is_empty());
+
+    if remote.upstream.is_some() && explicit_remote_name.is_none() {
         return Ok(vec!["push".to_string()]);
     }
 
-    let remote_name = remote
-        .remote_name
-        .clone()
-        .ok_or("no remote configured".to_string())?;
+    if let Some(name) = explicit_remote_name {
+        if !remote.remotes.iter().any(|configured| configured.name == name) {
+            return Err("selected remote is no longer configured".to_string());
+        }
+    }
+
+    let remote_name = explicit_remote_name
+        .map(ToString::to_string)
+        .or_else(|| remote.remote_name.clone())
+        .ok_or_else(|| {
+            if remote.remotes.len() > 1 {
+                "multiple remotes configured; choose one to set upstream".to_string()
+            } else {
+                "no remote configured".to_string()
+            }
+        })?;
     if current_branch.trim().is_empty() {
         return Err("could not determine current branch".to_string());
     }
@@ -990,6 +1092,10 @@ fn git_push_args(remote: &GitRemoteInfo, current_branch: &str) -> Result<Vec<Str
         remote_name,
         current_branch.to_string(),
     ])
+}
+
+fn git_create_branch_args(branch_name: &str) -> Vec<String> {
+    vec!["switch".to_string(), "-c".to_string(), branch_name.to_string()]
 }
 
 #[tauri::command]
@@ -1045,6 +1151,7 @@ fn get_git_branches(state: State<'_, WorkspaceState>) -> Result<Vec<GitBranch>, 
 fn get_git_remote_info(state: State<'_, WorkspaceState>) -> Result<GitRemoteInfo, String> {
     let Some(git_root) = resolve_git_root(state)? else {
         return Ok(GitRemoteInfo {
+            remotes: Vec::new(),
             remote_name: None,
             remote_url: None,
             upstream: None,
@@ -1054,14 +1161,18 @@ fn get_git_remote_info(state: State<'_, WorkspaceState>) -> Result<GitRemoteInfo
     get_git_remote_info_inner(&git_root)
 }
 
-fn run_repo_git(state: State<'_, WorkspaceState>, args: &[&str]) -> Result<(), String> {
-    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    run_git(&git_root, args)?;
-    Ok(())
+async fn run_blocking_git<T, F>(task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn git_commit(
+async fn git_commit(
     message: String,
     push: bool,
     paths: Vec<String>,
@@ -1075,73 +1186,126 @@ fn git_commit(
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     let validated_paths = paths
         .iter()
-        .map(|path| validate_git_commit_path(&workspace_root, path))
+        .map(|path| validate_git_commit_selection(Path::new(&git_root), &workspace_root, path))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut add_args: Vec<&str> = vec!["add", "-A", "--"];
-    for path in &validated_paths {
-        add_args.push(path.as_str());
-    }
-    run_git(&git_root, &add_args)?;
+    run_blocking_git(move || {
+        let mut add_args: Vec<&str> = vec!["add", "-A", "--"];
+        for path in &validated_paths {
+            add_args.push(path.as_str());
+        }
+        run_git(&git_root, &add_args)?;
 
-    let mut commit_args: Vec<&str> = vec!["commit", "-m", &message, "--"];
-    for path in &validated_paths {
-        commit_args.push(path.as_str());
-    }
-    run_git(&git_root, &commit_args)?;
-    if push {
+        let mut commit_args: Vec<&str> = vec!["commit", "-m", &message, "--"];
+        for path in &validated_paths {
+            commit_args.push(path.as_str());
+        }
+        run_git(&git_root, &commit_args)?;
+        if push {
+            let push_result = (|| -> Result<(), String> {
+                let remote = get_git_remote_info_inner(&git_root)?;
+                let branch = get_current_branch_inner(&git_root)?;
+                let args = git_push_args(&remote, &branch, None)?;
+                let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+                run_git(&git_root, &arg_refs)?;
+                Ok(())
+            })();
+            if let Err(err) = push_result {
+                return Err(format!("commit created, but push failed: {err}"));
+            }
+        }
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn git_push(
+    remote_name: Option<String>,
+    state: State<'_, WorkspaceState>,
+) -> Result<(), String> {
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    run_blocking_git(move || {
         let remote = get_git_remote_info_inner(&git_root)?;
         let branch = get_current_branch_inner(&git_root)?;
-        let args = git_push_args(&remote, &branch)?;
+        let args = git_push_args(&remote, &branch, remote_name.as_deref())?;
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         run_git(&git_root, &arg_refs)?;
-    }
-    Ok(())
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_push(state: State<'_, WorkspaceState>) -> Result<(), String> {
+async fn git_pull(state: State<'_, WorkspaceState>) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    let remote = get_git_remote_info_inner(&git_root)?;
-    let branch = get_current_branch_inner(&git_root)?;
-    let args = git_push_args(&remote, &branch)?;
-    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    run_git(&git_root, &arg_refs)?;
-    Ok(())
+    run_blocking_git(move || {
+        run_git(&git_root, &["pull", "--ff-only"])?;
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_pull(state: State<'_, WorkspaceState>) -> Result<(), String> {
-    run_repo_git(state, &["pull", "--ff-only"])
-}
-
-#[tauri::command]
-fn git_fetch(state: State<'_, WorkspaceState>) -> Result<(), String> {
-    run_repo_git(state, &["fetch"])
-}
-
-#[tauri::command]
-fn git_switch_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+async fn git_fetch(state: State<'_, WorkspaceState>) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    run_git(&git_root, &["switch", "--", &branch])?;
-    Ok(())
+    run_blocking_git(move || {
+        run_git(&git_root, &["fetch"])?;
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
-fn git_create_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+async fn git_switch_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
+    let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
+    run_blocking_git(move || {
+        run_git(&git_root, &["switch", "--", &branch])?;
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn git_create_branch(branch: String, state: State<'_, WorkspaceState>) -> Result<(), String> {
     let name = branch.trim();
     if name.is_empty() {
         return Err("branch name cannot be empty".to_string());
     }
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
-    run_git(&git_root, &["switch", "-c", "--", name])?;
-    Ok(())
+    let branch_name = name.to_string();
+    run_blocking_git(move || {
+        let args = git_create_branch_args(&branch_name);
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        run_git(&git_root, &arg_refs)?;
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]
-fn open_git_remote(app: tauri::AppHandle, state: State<'_, WorkspaceState>) -> Result<(), String> {
+fn open_git_remote(
+    app: tauri::AppHandle,
+    remote_name: Option<String>,
+    state: State<'_, WorkspaceState>,
+) -> Result<(), String> {
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     let info = get_git_remote_info_inner(&git_root)?;
-    let remote_url = info.remote_url.ok_or("no remote configured")?;
+    let remote_count = info.remotes.len();
+    let remote_url = match remote_name.as_deref() {
+        Some(name) => info
+            .remotes
+            .iter()
+            .find(|remote| remote.name == name)
+            .and_then(|remote| remote.url.clone())
+            .ok_or_else(|| format!("remote `{name}` is unavailable"))?,
+        None => info.remote_url.ok_or_else(|| {
+            if remote_count > 1 {
+                "multiple remotes configured; choose one in the branch switcher".to_string()
+            } else {
+                "no remote configured".to_string()
+            }
+        })?,
+    };
     app.opener()
         .open_url(&remote_url, None::<&str>)
         .map_err(|e| e.to_string())?;
@@ -1598,6 +1762,14 @@ mod tests {
         assert_eq!(extract_quoted_string(""), None);
     }
 
+    #[test]
+    fn git_create_branch_args_use_switch_create_without_ref_separator() {
+        assert_eq!(
+            git_create_branch_args("test"),
+            vec!["switch".to_string(), "-c".to_string(), "test".to_string()]
+        );
+    }
+
     // ── strip_quote_pair ─────────────────────────────────────────────────────
 
     #[test]
@@ -1850,24 +2022,26 @@ mod tests {
     }
 
     #[test]
-    fn get_primary_remote_name_prefers_current_branch_upstream() {
-        let branches = vec![
-            GitBranch {
-                name: "main".to_string(),
-                upstream: Some("origin/main".to_string()),
-                ahead_behind: None,
-                is_current: true,
+    fn get_preferred_remote_name_prefers_current_branch_upstream() {
+        let branch = GitBranch {
+            name: "main".to_string(),
+            upstream: Some("origin/main".to_string()),
+            ahead_behind: None,
+            is_current: true,
+        };
+        let remotes = vec![
+            GitRemote {
+                name: "origin".to_string(),
+                url: None,
             },
-            GitBranch {
-                name: "feature/test".to_string(),
-                upstream: Some("backup/feature/test".to_string()),
-                ahead_behind: None,
-                is_current: false,
+            GitRemote {
+                name: "publish".to_string(),
+                url: None,
             },
         ];
 
         assert_eq!(
-            get_primary_remote_name("/definitely/not/a/repo", &branches),
+            get_preferred_remote_name("/definitely/not/a/repo", &branch, &remotes),
             Some("origin".to_string())
         );
     }
@@ -1919,20 +2093,46 @@ mod tests {
     }
 
     #[test]
+    fn validate_git_commit_selection_rejects_paths_outside_nested_workspace() {
+        let dir = TempDir::new().unwrap();
+        let git_root = dir.path();
+        let workspace_root = git_root.join("apps").join("blog");
+        let outside_file = git_root.join("apps").join("admin").join("draft.md");
+
+        fs::create_dir_all(workspace_root.join("posts")).unwrap();
+        fs::create_dir_all(outside_file.parent().unwrap()).unwrap();
+        fs::write(workspace_root.join("posts").join("entry.md"), "# blog").unwrap();
+        fs::write(&outside_file, "# admin").unwrap();
+
+        assert_eq!(
+            validate_git_commit_selection(git_root, &workspace_root, "apps/admin/draft.md"),
+            Err("path is outside the opened workspace".to_string())
+        );
+    }
+
+    #[test]
     fn git_push_args_uses_plain_push_when_upstream_exists() {
         let remote = GitRemoteInfo {
+            remotes: vec![GitRemote {
+                name: "origin".to_string(),
+                url: Some("https://github.com/hutusi/ovid-codex".to_string()),
+            }],
             remote_name: Some("origin".to_string()),
             remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
             upstream: Some("origin/main".to_string()),
             ahead_behind: None,
         };
 
-        assert_eq!(git_push_args(&remote, "main").unwrap(), vec!["push"]);
+        assert_eq!(git_push_args(&remote, "main", None).unwrap(), vec!["push"]);
     }
 
     #[test]
     fn git_push_args_sets_upstream_for_new_branch() {
         let remote = GitRemoteInfo {
+            remotes: vec![GitRemote {
+                name: "origin".to_string(),
+                url: Some("https://github.com/hutusi/ovid-codex".to_string()),
+            }],
             remote_name: Some("origin".to_string()),
             remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
             upstream: None,
@@ -1940,7 +2140,7 @@ mod tests {
         };
 
         assert_eq!(
-            git_push_args(&remote, "feature/test").unwrap(),
+            git_push_args(&remote, "feature/test", None).unwrap(),
             vec!["push", "-u", "origin", "feature/test"]
         );
     }
@@ -1948,6 +2148,7 @@ mod tests {
     #[test]
     fn git_push_args_errors_when_no_remote_exists() {
         let remote = GitRemoteInfo {
+            remotes: Vec::new(),
             remote_name: None,
             remote_url: None,
             upstream: None,
@@ -1955,8 +2156,56 @@ mod tests {
         };
 
         assert_eq!(
-            git_push_args(&remote, "feature/test"),
+            git_push_args(&remote, "feature/test", None),
             Err("no remote configured".to_string())
+        );
+    }
+
+    #[test]
+    fn git_push_args_requires_explicit_remote_when_multiple_remotes_exist_without_upstream() {
+        let remote = GitRemoteInfo {
+            remotes: vec![
+                GitRemote {
+                    name: "origin".to_string(),
+                    url: Some("https://github.com/hutusi/ovid-codex".to_string()),
+                },
+                GitRemote {
+                    name: "publish".to_string(),
+                    url: Some("https://github.com/example/ovid-codex".to_string()),
+                },
+            ],
+            remote_name: None,
+            remote_url: None,
+            upstream: None,
+            ahead_behind: None,
+        };
+
+        assert_eq!(
+            git_push_args(&remote, "feature/test", None),
+            Err("multiple remotes configured; choose one to set upstream".to_string())
+        );
+        assert_eq!(
+            git_push_args(&remote, "feature/test", Some("publish")).unwrap(),
+            vec!["push", "-u", "publish", "feature/test"]
+        );
+    }
+
+    #[test]
+    fn git_push_args_errors_when_selected_remote_is_missing() {
+        let remote = GitRemoteInfo {
+            remotes: vec![GitRemote {
+                name: "origin".to_string(),
+                url: Some("https://github.com/hutusi/ovid-codex".to_string()),
+            }],
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://github.com/hutusi/ovid-codex.git".to_string()),
+            upstream: None,
+            ahead_behind: None,
+        };
+
+        assert_eq!(
+            git_push_args(&remote, "feature/test", Some("publish")),
+            Err("selected remote is no longer configured".to_string())
         );
     }
 }

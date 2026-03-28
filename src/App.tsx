@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BranchSwitcher } from "./components/BranchSwitcher";
 import { CommitDialog } from "./components/CommitDialog";
@@ -6,6 +7,7 @@ import { Editor } from "./components/Editor";
 import { EmptyState } from "./components/EmptyState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FileSwitcher } from "./components/FileSwitcher";
+import { GitSyncPopover } from "./components/GitSyncPopover";
 import { NewBranchDialog } from "./components/NewBranchDialog";
 import { NewFileDialog } from "./components/NewFileDialog";
 import { PropertiesPanel } from "./components/PropertiesPanel";
@@ -14,7 +16,14 @@ import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
-import { getGitBranchTitle, getPushSuccessMessage } from "./lib/gitUi";
+import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch";
+import {
+  getGitBranchTitle,
+  getGitChangeSummary,
+  getGitSyncLabel,
+  getGitSyncPopoverState,
+  getPushSuccessMessage,
+} from "./lib/gitUi";
 import { resolveImageSrc } from "./lib/imageUtils";
 import type { GitBranch, GitCommitChange, GitRemoteInfo } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
@@ -54,8 +63,11 @@ function App() {
   const [commitDialog, setCommitDialog] = useState<CommitDialogState>(null);
   const [branchSwitcher, setBranchSwitcher] = useState<BranchSwitcherState>(null);
   const [newBranchDialogOpen, setNewBranchDialogOpen] = useState(false);
+  const [gitSyncPopoverOpen, setGitSyncPopoverOpen] = useState(false);
   const [coverImageVisible, setCoverImageVisible] = useState(false);
   const pendingAutoOpenPath = useRef<string | null>(null);
+  const lastAutoFetchAtRef = useRef(0);
+  const autoFetchInFlightRef = useRef(false);
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -166,6 +178,7 @@ function App() {
 
   const openBranchSwitcher = useCallback(async () => {
     try {
+      setGitSyncPopoverOpen(false);
       const [branches, remote] = await Promise.all([getBranches(), getRemoteInfo()]);
       if (branches.length === 0) {
         showToast("No local branches found");
@@ -177,27 +190,40 @@ function App() {
     }
   }, [getBranches, getRemoteInfo, showToast]);
 
-  const copyRemoteUrl = useCallback(async () => {
-    if (!remoteInfo.remoteUrl) {
-      showToast("No remote URL configured");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(remoteInfo.remoteUrl);
-      showToast("Copied remote URL");
-    } catch {
-      showToast("Failed to copy remote URL");
-    }
-  }, [remoteInfo.remoteUrl, showToast]);
+  const copyRemoteUrl = useCallback(
+    async (remoteName?: string) => {
+      const targetRemote =
+        remoteName != null
+          ? (remoteInfo.remotes.find((remote) => remote.name === remoteName) ?? null)
+          : null;
+      const remoteUrl = remoteName != null ? (targetRemote?.url ?? null) : remoteInfo.remoteUrl;
+      if (!remoteUrl) {
+        showToast(
+          remoteName ? `No remote URL configured for ${remoteName}` : "No remote URL configured"
+        );
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(remoteUrl);
+        showToast("Copied remote URL");
+      } catch {
+        showToast("Failed to copy remote URL");
+      }
+    },
+    [remoteInfo.remoteUrl, remoteInfo.remotes, showToast]
+  );
 
-  const openRemote = useCallback(async () => {
-    try {
-      await handleOpenRemote();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      showToast(`Open remote failed: ${message}`);
-    }
-  }, [handleOpenRemote, showToast]);
+  const openRemote = useCallback(
+    async (remoteName?: string) => {
+      try {
+        await handleOpenRemote(remoteName);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showToast(`Open remote failed: ${message}`);
+      }
+    },
+    [handleOpenRemote, showToast]
+  );
 
   const switchBranch = useCallback(
     async (branch: string) => {
@@ -408,6 +434,50 @@ function App() {
     if (saveStatus === "saved" && isGitRepo) void refreshGitStatus();
   }, [saveStatus, isGitRepo, refreshGitStatus]);
 
+  // Refresh remote-tracking refs when the window regains focus so ahead/behind stays current.
+  useEffect(() => {
+    if (!workspaceRoot || !isGitRepo) return;
+
+    let mounted = true;
+    let unlisten: (() => void) | undefined;
+
+    async function maybeFetchRemoteStatus() {
+      if (autoFetchInFlightRef.current) return;
+      autoFetchInFlightRef.current = true;
+      const now = Date.now();
+      try {
+        lastAutoFetchAtRef.current = await runAutoFetchOnFocus(
+          {
+            focused: true,
+            now,
+            lastFetchedAt: lastAutoFetchAtRef.current,
+            cooldownMs: AUTO_FETCH_COOLDOWN_MS,
+          },
+          handleFetch
+        );
+      } finally {
+        autoFetchInFlightRef.current = false;
+      }
+    }
+
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (!mounted || !focused) return;
+        void maybeFetchRemoteStatus();
+      })
+      .then((dispose) => {
+        unlisten = dispose;
+      })
+      .catch(() => {
+        // If focus listeners are unavailable, Git status still updates via manual actions.
+      });
+
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, [workspaceRoot, isGitRepo, handleFetch]);
+
   // Forward native menu events to the same handlers as keyboard shortcuts
   useEffect(() => {
     let mounted = true;
@@ -492,7 +562,7 @@ function App() {
           break;
         case "git-push":
           if (!hasBlockingOverlay && isGitRepo) {
-            void runGitAction("push", handlePush, pushSuccessMessage);
+            void runGitAction("push", () => handlePush(), pushSuccessMessage);
           }
           break;
         case "git-open-remote":
@@ -588,6 +658,26 @@ function App() {
   }
 
   const sessionWordsAdded = sessionBaseline !== null ? Math.max(0, wordCount - sessionBaseline) : 0;
+  const gitChangeSummary = isGitRepo ? getGitChangeSummary(gitStatusMap) : null;
+  const gitSyncLabel = isGitRepo ? getGitSyncLabel(remoteInfo) : null;
+  const gitSyncPopover = isGitRepo ? getGitSyncPopoverState(remoteInfo) : null;
+
+  async function handleGitSyncAction() {
+    if (!gitSyncPopover?.actionKind) return;
+    setGitSyncPopoverOpen(false);
+    if (gitSyncPopover.actionKind === "pull") {
+      await runGitAction("pull", () => handlePull(), "Pulled latest changes");
+      return;
+    }
+    await runGitAction(
+      "push",
+      () =>
+        gitSyncPopover.actionKind === "push-track" && remoteInfo.remoteName
+          ? handlePush(remoteInfo.remoteName)
+          : handlePush(),
+      getPushSuccessMessage(remoteInfo)
+    );
+  }
 
   return (
     <div className="app" data-zen={zenMode ? "true" : undefined}>
@@ -674,7 +764,14 @@ function App() {
         spellCheck={prefs.spellCheck}
         gitBranch={isGitRepo ? currentBranch : null}
         gitBranchTitle={isGitRepo ? getGitBranchTitle(currentBranch, remoteInfo) : undefined}
+        gitSyncLabel={gitSyncLabel}
+        gitSyncTitle={gitSyncPopover?.description}
+        gitChangeLabel={gitChangeSummary?.label}
+        gitChangeTitle={gitChangeSummary?.title}
+        gitSyncPopoverOpen={gitSyncPopoverOpen}
         onOpenBranches={() => void openBranchSwitcher()}
+        onOpenCommit={() => void openCommitDialog("Update")}
+        onOpenGitSync={() => setGitSyncPopoverOpen((open) => !open)}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
         onToggleZen={() => setZenMode((v) => !v)}
         onToggleTypewriter={() => setTypewriterMode((v) => !v)}
@@ -683,6 +780,13 @@ function App() {
         onToggleSpellCheck={() => updatePrefs({ spellCheck: !prefs.spellCheck })}
         onSetWordCountGoal={setWordCountGoal}
       />
+      {gitSyncPopoverOpen && gitSyncPopover && (
+        <GitSyncPopover
+          state={gitSyncPopover}
+          onClose={() => setGitSyncPopoverOpen(false)}
+          onAction={gitSyncPopover.actionLabel ? () => void handleGitSyncAction() : undefined}
+        />
+      )}
       {toasts.length > 0 && (
         <div className="toast-container">
           {toasts.map((t) => (
@@ -747,13 +851,11 @@ function App() {
             setBranchSwitcher(null);
             setNewBranchDialogOpen(true);
           }}
-          onPushAndTrack={
-            !branchSwitcher.remoteInfo.upstream && branchSwitcher.remoteInfo.remoteName
-              ? () => void runGitAction("push", handlePush, "Pushed and set upstream")
-              : undefined
+          onPushAndTrack={(remoteName) =>
+            void runGitAction("push", () => handlePush(remoteName), "Pushed and set upstream")
           }
-          onOpenRemote={() => void openRemote()}
-          onCopyRemoteUrl={() => void copyRemoteUrl()}
+          onOpenRemote={(remoteName) => void openRemote(remoteName)}
+          onCopyRemoteUrl={(remoteName) => void copyRemoteUrl(remoteName)}
           onClose={() => setBranchSwitcher(null)}
         />
       )}
