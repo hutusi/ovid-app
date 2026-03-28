@@ -1068,6 +1068,10 @@ fn git_push_args(
     ])
 }
 
+fn git_create_branch_args(branch_name: &str) -> Vec<String> {
+    vec!["switch".to_string(), "-c".to_string(), branch_name.to_string()]
+}
+
 #[tauri::command]
 fn get_git_status(state: State<'_, WorkspaceState>) -> Result<Vec<GitFileStatus>, String> {
     let git_root = match resolve_git_root(state)? {
@@ -1238,7 +1242,9 @@ async fn git_create_branch(branch: String, state: State<'_, WorkspaceState>) -> 
     let git_root = resolve_git_root(state)?.ok_or("no git repository open")?;
     let branch_name = name.to_string();
     run_blocking_git(move || {
-        run_git(&git_root, &["switch", "-c", "--", &branch_name])?;
+        let args = git_create_branch_args(&branch_name);
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        run_git(&git_root, &arg_refs)?;
         Ok(())
     })
     .await
@@ -1722,6 +1728,14 @@ mod tests {
     #[test]
     fn extract_quoted_string_empty_returns_none() {
         assert_eq!(extract_quoted_string(""), None);
+    }
+
+    #[test]
+    fn git_create_branch_args_use_switch_create_without_ref_separator() {
+        assert_eq!(
+            git_create_branch_args("test"),
+            vec!["switch".to_string(), "-c".to_string(), "test".to_string()]
+        );
     }
 
     // ── strip_quote_pair ─────────────────────────────────────────────────────
