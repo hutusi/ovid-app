@@ -43,6 +43,23 @@ type ModalState = { type: "new-file"; dirPath: string; contentType?: string } | 
 type CommitDialogState = { message: string; branch: string; changes: GitCommitChange[] } | null;
 type BranchSwitcherState = { branches: GitBranch[]; remoteInfo: GitRemoteInfo } | null;
 
+function formatGitActionError(action: "push" | "pull" | "fetch", message: string): string {
+  const normalized = message.trim();
+  const lower = normalized.toLowerCase();
+  if (lower.startsWith("push ") || lower.startsWith("pull ") || lower.startsWith("fetch ")) {
+    return normalized;
+  }
+  return `${action} failed: ${normalized}`;
+}
+
+function formatCommitError(message: string): string {
+  const normalized = message.trim();
+  if (normalized.toLowerCase().startsWith("commit ")) {
+    return normalized[0].toUpperCase() + normalized.slice(1);
+  }
+  return `Commit failed: ${normalized}`;
+}
+
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 const AUTO_REOPEN_KEY = "ovid:skipAutoReopen";
 
@@ -163,7 +180,7 @@ function App() {
         showToast(successMessage);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        showToast(`${action} failed: ${message}`);
+        showToast(formatGitActionError(action, message));
       }
     },
     [flushPendingSave, showToast]
@@ -837,7 +854,7 @@ function App() {
             void flushPendingSave()
               .then(() => handleCommit(message, selectedPaths, push))
               .then(() => setCommitDialog(null))
-              .catch((err) => showToast(`Commit failed: ${err}`));
+              .catch((err) => showToast(formatCommitError(String(err))));
           }}
           onCancel={() => setCommitDialog(null)}
         />
