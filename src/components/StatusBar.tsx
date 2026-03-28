@@ -93,15 +93,6 @@ export function StatusBar({
           />
         )}
         <span className="statusbar-file">{fileName ?? "—"}</span>
-      </div>
-      <div className="statusbar-right">
-        {sessionWordsAdded > 0 && (
-          <span className={sessionClass} title={sessionTitle}>
-            +{sessionWordsAdded}
-            {wordCountGoal !== null && `/${wordCountGoal}`}
-          </span>
-        )}
-        <span className="statusbar-words">{wordCount > 0 ? `${wordCount} words` : ""}</span>
         {gitBranch && (
           <div className="statusbar-git">
             <button
@@ -110,8 +101,24 @@ export function StatusBar({
               onClick={onOpenBranches}
               title={gitBranchTitle ?? `Current branch: ${gitBranch}`}
             >
+              <span className="statusbar-git-icon" aria-hidden="true">
+                ⑂
+              </span>
               {gitBranch}
             </button>
+            {gitChangeLabel && (
+              <button
+                type="button"
+                className="statusbar-git-changes"
+                onClick={onOpenCommit}
+                title={gitChangeTitle ?? gitChangeLabel}
+              >
+                <span className="statusbar-git-icon" aria-hidden="true">
+                  ✎
+                </span>
+                {gitChangeLabel}
+              </button>
+            )}
             {gitSyncLabel && (
               <button
                 type="button"
@@ -123,18 +130,17 @@ export function StatusBar({
                 {gitSyncLabel}
               </button>
             )}
-            {gitChangeLabel && (
-              <button
-                type="button"
-                className="statusbar-git-changes"
-                onClick={onOpenCommit}
-                title={gitChangeTitle ?? gitChangeLabel}
-              >
-                {gitChangeLabel}
-              </button>
-            )}
           </div>
         )}
+      </div>
+      <div className="statusbar-right">
+        {sessionWordsAdded > 0 && (
+          <span className={sessionClass} title={sessionTitle}>
+            +{sessionWordsAdded}
+            {wordCountGoal !== null && `/${wordCountGoal}`}
+          </span>
+        )}
+        <span className="statusbar-words">{wordCount > 0 ? `${wordCount} words` : ""}</span>
         <button
           type="button"
           className={`text-[13px] leading-none px-1 py-0.5 rounded transition-colors shrink-0 ${typewriterMode ? "text-accent opacity-100" : "text-fg-subtle opacity-60 hover:text-fg hover:bg-surface-hover hover:opacity-100"}`}

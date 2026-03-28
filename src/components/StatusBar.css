@@ -13,6 +13,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .save-dot {
@@ -53,12 +55,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .statusbar-git {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
 }
 
 .statusbar-session {
@@ -80,69 +86,76 @@
 }
 
 .statusbar-branch {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-fg-muted);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-fg);
   border-radius: 999px;
   height: 22px;
   padding: 0 9px;
   font-size: 11.5px;
   font-family: var(--font-ui);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   transition:
     border-color 0.12s,
     color 0.12s,
     background 0.12s;
 }
 
-.statusbar-branch:hover {
+.statusbar-branch:hover,
+.statusbar-branch:focus-visible {
   color: var(--color-accent);
   border-color: var(--color-accent);
   background: var(--color-accent-subtle);
 }
 
-.statusbar-git-sync {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-subtle);
-  color: var(--color-fg-muted);
+.statusbar-git-sync,
+.statusbar-git-changes {
   border-radius: 999px;
   height: 22px;
   padding: 0 8px;
   font-size: 11px;
   font-family: var(--font-ui);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  background: transparent;
   transition:
     border-color 0.12s,
     color 0.12s,
     background 0.12s;
 }
 
-.statusbar-git-sync:hover {
+.statusbar-git-sync {
+  color: var(--color-fg-muted);
+}
+
+.statusbar-git-sync:hover,
+.statusbar-git-sync:focus-visible {
   color: var(--color-accent);
   border-color: var(--color-accent);
   background: var(--color-accent-subtle);
 }
 
 .statusbar-git-changes {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-subtle);
-  color: var(--color-fg-subtle);
-  border-radius: 999px;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 11px;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition:
-    border-color 0.12s,
-    color 0.12s,
-    background 0.12s;
+  color: var(--color-fg-muted);
 }
 
-.statusbar-git-changes:hover {
+.statusbar-git-changes:hover,
+.statusbar-git-changes:focus-visible {
   color: var(--color-fg);
   border-color: var(--color-fg-muted);
   background: var(--color-surface-hover);
+}
+
+.statusbar-git-icon {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.75;
 }
 
 .git-sync-popover-panel {

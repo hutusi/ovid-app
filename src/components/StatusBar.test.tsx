@@ -71,6 +71,14 @@ function collectElements(
   return matches;
 }
 
+function collectText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(collectText).join("");
+  if (!isValidElement<TestElementProps>(node)) return "";
+  return collectText(node.props.children);
+}
+
 describe("StatusBar git change summary", () => {
   it("renders the git change badge only when the repository is dirty", () => {
     const clean = renderStatusBar(null).tree;
@@ -86,7 +94,7 @@ describe("StatusBar git change summary", () => {
     );
 
     expect(badges).toHaveLength(1);
-    expect(badges[0].props.children).toBe("3 changes");
+    expect(collectText(badges[0].props.children)).toBe("✎3 changes");
   });
 
   it("wires the git change badge click to the commit flow", () => {
