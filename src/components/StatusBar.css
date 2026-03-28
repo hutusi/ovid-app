@@ -153,8 +153,10 @@
 }
 
 .statusbar-git-icon {
-  font-size: 10px;
-  line-height: 1;
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  stroke-width: 2;
   opacity: 0.75;
 }
 

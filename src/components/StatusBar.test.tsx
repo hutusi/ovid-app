@@ -94,7 +94,7 @@ describe("StatusBar git change summary", () => {
     );
 
     expect(badges).toHaveLength(1);
-    expect(collectText(badges[0].props.children)).toBe("✎3 changes");
+    expect(collectText(badges[0].props.children)).toBe("3 changes");
   });
 
   it("wires the git change badge click to the commit flow", () => {

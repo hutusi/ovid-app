@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp, ArrowUpDown, GitBranch, PencilLine } from "lucide-react";
 import type { SaveStatus } from "../lib/types";
 import type { FontFamily, FontSize } from "../lib/useEditorPreferences";
 import type { ResolvedTheme } from "../lib/useTheme";
@@ -5,6 +6,19 @@ import { FontSettingsButton } from "./FontSettings";
 import "./StatusBar.css";
 
 export type { SaveStatus };
+
+function GitSyncStatusIcon({ label }: { label: string }) {
+  if (label === "ahead") {
+    return <ArrowUp className="statusbar-git-icon" aria-hidden="true" />;
+  }
+  if (label === "behind") {
+    return <ArrowDown className="statusbar-git-icon" aria-hidden="true" />;
+  }
+  if (label === "diverged") {
+    return <ArrowUpDown className="statusbar-git-icon" aria-hidden="true" />;
+  }
+  return null;
+}
 
 interface StatusBarProps {
   fileName: string | null;
@@ -101,9 +115,7 @@ export function StatusBar({
               onClick={onOpenBranches}
               title={gitBranchTitle ?? `Current branch: ${gitBranch}`}
             >
-              <span className="statusbar-git-icon" aria-hidden="true">
-                ⑂
-              </span>
+              <GitBranch className="statusbar-git-icon" aria-hidden="true" />
               {gitBranch}
             </button>
             {gitChangeLabel && (
@@ -113,9 +125,7 @@ export function StatusBar({
                 onClick={onOpenCommit}
                 title={gitChangeTitle ?? gitChangeLabel}
               >
-                <span className="statusbar-git-icon" aria-hidden="true">
-                  ✎
-                </span>
+                <PencilLine className="statusbar-git-icon" aria-hidden="true" />
                 {gitChangeLabel}
               </button>
             )}
@@ -127,6 +137,7 @@ export function StatusBar({
                 title={gitSyncTitle ?? gitSyncLabel}
                 aria-expanded={gitSyncPopoverOpen}
               >
+                <GitSyncStatusIcon label={gitSyncLabel} />
                 {gitSyncLabel}
               </button>
             )}
