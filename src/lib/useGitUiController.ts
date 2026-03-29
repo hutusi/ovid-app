@@ -54,7 +54,13 @@ interface UseGitUiControllerOptions {
   getRemoteInfo: () => Promise<GitRemoteInfo>;
 }
 
-function formatGitActionError(action: "push" | "pull" | "fetch", message: string): string {
+interface LoadBranchSwitcherStateOptions {
+  getBranches: () => Promise<GitBranch[]>;
+  getRemoteBranches: () => Promise<GitRemoteBranch[]>;
+  getRemoteInfo: () => Promise<GitRemoteInfo>;
+}
+
+export function formatGitActionError(action: "push" | "pull" | "fetch", message: string): string {
   const normalized = message.trim();
   const lower = normalized.toLowerCase();
   if (lower.startsWith("push ") || lower.startsWith("pull ") || lower.startsWith("fetch ")) {
@@ -63,12 +69,32 @@ function formatGitActionError(action: "push" | "pull" | "fetch", message: string
   return `${action} failed: ${normalized}`;
 }
 
-function formatCommitError(message: string): string {
+export function formatCommitError(message: string): string {
   const normalized = message.trim();
   if (normalized.toLowerCase().startsWith("commit ")) {
     return normalized[0].toUpperCase() + normalized.slice(1);
   }
   return `Commit failed: ${normalized}`;
+}
+
+export function buildDefaultCommitMessage(parsedTitle?: string, selectedFileName?: string): string {
+  return `Update: ${parsedTitle ?? selectedFileName ?? ""}`;
+}
+
+export async function loadBranchSwitcherState({
+  getBranches,
+  getRemoteBranches,
+  getRemoteInfo,
+}: LoadBranchSwitcherStateOptions): Promise<BranchSwitcherState> {
+  const [branches, remoteBranches, remote] = await Promise.all([
+    getBranches(),
+    getRemoteBranches(),
+    getRemoteInfo(),
+  ]);
+  if (branches.length === 0) {
+    return null;
+  }
+  return { branches, remoteBranches, remoteInfo: remote };
 }
 
 export function useGitUiController({
@@ -114,17 +140,10 @@ export function useGitUiController({
     setDeleteBranchDialog(null);
   }, []);
 
-  const loadBranchSwitcherState = useCallback(async (): Promise<BranchSwitcherState> => {
-    const [branches, remoteBranches, remote] = await Promise.all([
-      getBranches(),
-      getRemoteBranches(),
-      getRemoteInfo(),
-    ]);
-    if (branches.length === 0) {
-      return null;
-    }
-    return { branches, remoteBranches, remoteInfo: remote };
-  }, [getBranches, getRemoteBranches, getRemoteInfo]);
+  const loadBranchSwitcherData = useCallback(
+    () => loadBranchSwitcherState({ getBranches, getRemoteBranches, getRemoteInfo }),
+    [getBranches, getRemoteBranches, getRemoteInfo]
+  );
 
   const reloadWorkspaceAfterGitChange = useCallback(async () => {
     if (!workspaceRootPath) return;
@@ -164,7 +183,7 @@ export function useGitUiController({
   const openBranchSwitcher = useCallback(async () => {
     try {
       setGitSyncPopoverOpen(false);
-      const nextState = await loadBranchSwitcherState();
+      const nextState = await loadBranchSwitcherData();
       if (!nextState) {
         showToast("No local branches found");
         return;
@@ -173,17 +192,17 @@ export function useGitUiController({
     } catch {
       showToast("Failed to load branches");
     }
-  }, [loadBranchSwitcherState, showToast]);
+  }, [loadBranchSwitcherData, showToast]);
 
   const refreshBranchSwitcher = useCallback(async () => {
     if (!branchSwitcher) return;
     try {
-      const nextState = await loadBranchSwitcherState();
+      const nextState = await loadBranchSwitcherData();
       setBranchSwitcher(nextState);
     } catch {
       showToast("Failed to refresh branches");
     }
-  }, [branchSwitcher, loadBranchSwitcherState, showToast]);
+  }, [branchSwitcher, loadBranchSwitcherData, showToast]);
 
   const copyRemoteUrl = useCallback(
     async (remoteName?: string) => {
@@ -340,8 +359,7 @@ export function useGitUiController({
   }, [gitSyncPopover, handlePull, handlePush, remoteInfo, runGitAction]);
 
   const defaultCommitMessage = useMemo(() => {
-    const title = parsedTitle ?? selectedFileName ?? "";
-    return `Update: ${title}`;
+    return buildDefaultCommitMessage(parsedTitle, selectedFileName);
   }, [parsedTitle, selectedFileName]);
 
   const handleCommitDialogCommit = useCallback(
