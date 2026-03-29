@@ -44,15 +44,29 @@ export function BranchSwitcher({
     return branches.filter((branch) => branch.name.toLowerCase().includes(normalized));
   }, [branches, query]);
 
+  const trackedRemoteRefs = useMemo(
+    () =>
+      new Set(
+        branches
+          .map((branch) => branch.upstream)
+          .filter((upstream): upstream is string => !!upstream)
+      ),
+    [branches]
+  );
+
   const filteredRemoteBranches = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return remoteBranches;
-    return remoteBranches.filter(
-      (branch) =>
+    return remoteBranches.filter((branch) => {
+      if (trackedRemoteRefs.has(branch.remoteRef)) {
+        return false;
+      }
+      if (!normalized) return true;
+      return (
         branch.name.toLowerCase().includes(normalized) ||
         branch.remoteRef.toLowerCase().includes(normalized)
-    );
-  }, [query, remoteBranches]);
+      );
+    });
+  }, [query, remoteBranches, trackedRemoteRefs]);
 
   function getRemoteMeta(remote: GitRemote): string {
     if (remoteInfo.upstream?.startsWith(`${remote.name}/`)) {
@@ -203,7 +217,7 @@ export function BranchSwitcher({
           )}
         </div>
 
-        {remoteBranches.length > 0 && (
+        {filteredRemoteBranches.length > 0 && (
           <>
             <div className="modal-branch-row">
               <span className="modal-branch-label">Remote branches</span>
