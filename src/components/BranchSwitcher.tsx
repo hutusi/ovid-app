@@ -38,7 +38,7 @@ export function BranchSwitcher({
   const [actionMenuBranch, setActionMenuBranch] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useFocusTrap<HTMLDivElement>();
-  const actionMenuItemRefs = useRef<HTMLButtonElement[]>([]);
+  const actionMenuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -304,7 +304,7 @@ export function BranchSwitcher({
                 >
                   <button
                     ref={(node) => {
-                      if (node) actionMenuItemRefs.current[0] = node;
+                      actionMenuItemRefs.current[0] = node;
                     }}
                     type="button"
                     className="ws-actions-menu-btn"
@@ -319,7 +319,7 @@ export function BranchSwitcher({
                   {!branch.isCurrent && (
                     <button
                       ref={(node) => {
-                        if (node) actionMenuItemRefs.current[1] = node;
+                        actionMenuItemRefs.current[1] = node;
                       }}
                       type="button"
                       className="ws-actions-menu-btn ws-actions-menu-btn--danger"

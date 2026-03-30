@@ -369,7 +369,8 @@ export function useGitUiController({
         await handleCommit(message, selectedPaths, push);
         setCommitDialog(null);
       } catch (err) {
-        showToast(formatCommitError(String(err)));
+        const errMessage = err instanceof Error ? err.message : String(err);
+        showToast(formatCommitError(errMessage));
       }
     },
     [flushPendingSave, handleCommit, showToast]
