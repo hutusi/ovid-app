@@ -3,6 +3,7 @@ import {
   buildDefaultCommitMessage,
   formatCommitError,
   formatGitActionError,
+  getErrorMessage,
   loadBranchSwitcherState,
 } from "./useGitUiController";
 
@@ -35,6 +36,12 @@ describe("useGitUiController helpers", () => {
 
   it("formatCommitError prefixes generic failures", () => {
     expect(formatCommitError("fatal: bad path")).toBe("Commit failed: fatal: bad path");
+  });
+
+  it("getErrorMessage normalizes Error instances for commit error formatting", () => {
+    expect(formatCommitError(getErrorMessage(new Error("fatal: bad path")))).toBe(
+      "Commit failed: fatal: bad path"
+    );
   });
 
   it("loadBranchSwitcherState returns null when there are no local branches", async () => {

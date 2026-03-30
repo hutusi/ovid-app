@@ -60,6 +60,10 @@ interface LoadBranchSwitcherStateOptions {
   getRemoteInfo: () => Promise<GitRemoteInfo>;
 }
 
+export function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function formatGitActionError(action: "push" | "pull" | "fetch", message: string): string {
   const normalized = message.trim();
   const lower = normalized.toLowerCase();
@@ -369,8 +373,7 @@ export function useGitUiController({
         await handleCommit(message, selectedPaths, push);
         setCommitDialog(null);
       } catch (err) {
-        const errMessage = err instanceof Error ? err.message : String(err);
-        showToast(formatCommitError(errMessage));
+        showToast(formatCommitError(getErrorMessage(err)));
       }
     },
     [flushPendingSave, handleCommit, showToast]
