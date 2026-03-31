@@ -1,6 +1,7 @@
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { Folder, FolderOpen } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import {
   buildExpandedStorageKey,
   findAncestorPaths,
@@ -258,8 +259,16 @@ export function Sidebar({
   onStartRename,
   onCancelRename,
 }: SidebarProps) {
+  const renderStartedAtRef = useRef(0);
+  renderStartedAtRef.current = performance.now();
   const [filterQuery, setFilterQuery] = useState("");
-  const visibleTree = useMemo(() => collapseIndexNodes(tree), [tree]);
+  const visibleTree = useMemo(
+    () =>
+      measureSync("sidebar.collapseIndexNodes", () => collapseIndexNodes(tree), {
+        treeNodes: tree.length,
+      }),
+    [tree]
+  );
   const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [hasStoredExpandedState, setHasStoredExpandedState] = useState(false);
@@ -292,9 +301,35 @@ export function Sidebar({
   }, []);
 
   const selectedAncestorPaths = useMemo(
-    () => findAncestorPaths(visibleTree, selectedPath),
+    () =>
+      measureSync("sidebar.findAncestorPaths", () => findAncestorPaths(visibleTree, selectedPath), {
+        treeNodes: visibleTree.length,
+        hasSelection: Boolean(selectedPath),
+      }),
     [visibleTree, selectedPath]
   );
+
+  const renderedNodes = useMemo(
+    () =>
+      measureSync(
+        "sidebar.renderedNodes",
+        () => sortNodes(filterQuery ? filterTree(visibleTree, filterQuery) : visibleTree),
+        {
+          treeNodes: visibleTree.length,
+          filterLength: filterQuery.length,
+        }
+      ),
+    [filterQuery, visibleTree]
+  );
+
+  useEffect(() => {
+    if (!isPerfLoggingEnabled()) return;
+    logPerf("sidebar.commit", performance.now() - renderStartedAtRef.current, {
+      renderedNodes: renderedNodes.length,
+      filterLength: filterQuery.length,
+      visible: visible ? 1 : 0,
+    });
+  }, [renderedNodes.length, filterQuery.length, visible]);
 
   useEffect(() => {
     setIsExpandedStateLoaded(false);
@@ -420,29 +455,27 @@ export function Sidebar({
             </button>
           </div>
         ) : (
-          sortNodes(filterQuery ? filterTree(visibleTree, filterQuery) : visibleTree).map(
-            (node, idx, sorted) => (
-              <Fragment key={node.path}>
-                {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
-                <FileItem
-                  node={node}
-                  depth={0}
-                  isExpanded={isNodeExpanded}
-                  onToggleExpand={handleToggleExpand}
-                  selectedPath={selectedPath}
-                  renamingPath={renamingPath}
-                  gitStatusMap={gitStatusMap}
-                  forceExpand={filterQuery.length > 0}
-                  onSelect={onSelect}
-                  onNewFile={onNewFile}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                  onStartRename={onStartRename}
-                  onCancelRename={onCancelRename}
-                />
-              </Fragment>
-            )
-          )
+          renderedNodes.map((node, idx, sorted) => (
+            <Fragment key={node.path}>
+              {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
+              <FileItem
+                node={node}
+                depth={0}
+                isExpanded={isNodeExpanded}
+                onToggleExpand={handleToggleExpand}
+                selectedPath={selectedPath}
+                renamingPath={renamingPath}
+                gitStatusMap={gitStatusMap}
+                forceExpand={filterQuery.length > 0}
+                onSelect={onSelect}
+                onNewFile={onNewFile}
+                onRename={onRename}
+                onDelete={onDelete}
+                onStartRename={onStartRename}
+                onCancelRename={onCancelRename}
+              />
+            </Fragment>
+          ))
         )}
       </div>
 

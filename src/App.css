@@ -88,3 +88,74 @@
     transform: translateY(0);
   }
 }
+
+.perf-panel {
+  position: fixed;
+  right: 14px;
+  bottom: calc(var(--statusbar-height) + 12px);
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(45vh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  z-index: 900;
+  pointer-events: none;
+}
+
+.perf-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-fg-muted, rgba(0, 0, 0, 0.55));
+}
+
+.perf-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+
+.perf-panel-item {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-fg) 5%, var(--color-surface));
+}
+
+.perf-panel-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.perf-panel-name,
+.perf-panel-time,
+.perf-panel-detail {
+  font-family: "SF Mono", Menlo, Monaco, monospace;
+}
+
+.perf-panel-name {
+  font-size: 11px;
+  color: var(--color-fg);
+}
+
+.perf-panel-time {
+  font-size: 11px;
+  color: var(--color-fg-muted, rgba(0, 0, 0, 0.55));
+}
+
+.perf-panel-detail {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--color-fg-muted, rgba(0, 0, 0, 0.55));
+  overflow-wrap: anywhere;
+}

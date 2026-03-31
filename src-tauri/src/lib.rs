@@ -1,7 +1,9 @@
 use serde::Serialize;
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{Instant, SystemTime};
 use tauri::menu::{MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -11,6 +13,27 @@ use tauri_plugin_opener::OpenerExt;
 struct WorkspaceState {
     tree_root: Mutex<Option<PathBuf>>,
     workspace_root: Mutex<Option<PathBuf>>,
+    // TODO: add bounded eviction or explicit workspace/session clears if cache
+    // growth becomes a measured memory issue in long-running large-workspace sessions.
+    frontmatter_cache: Mutex<HashMap<PathBuf, CachedFrontmatter>>,
+    search_cache: Mutex<HashMap<PathBuf, CachedSearchFile>>,
+}
+
+#[derive(Clone)]
+struct CachedFrontmatter {
+    modified: Option<SystemTime>,
+    len: u64,
+    title: Option<String>,
+    draft: Option<bool>,
+    content_type: Option<String>,
+}
+
+#[derive(Clone)]
+struct CachedSearchFile {
+    modified: Option<SystemTime>,
+    len: u64,
+    title: Option<String>,
+    lines: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -26,6 +49,8 @@ struct SearchResult {
     path: String,
     title: Option<String>,
     matches: Vec<SearchMatch>,
+    total_matches: usize,
+    has_more_matches: bool,
 }
 
 #[derive(Serialize)]
@@ -41,25 +66,15 @@ struct FileNode {
     content_type: Option<String>,
 }
 
-/// Read the frontmatter block (between `---` fences) of a markdown file and
-/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
-/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
-/// Uses a buffered reader so only the frontmatter is read, not the full file.
-fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
-    use std::io::{BufRead, BufReader};
-    let Ok(file) = std::fs::File::open(path) else {
+fn read_frontmatter_meta_from_str(content: &str) -> (Option<String>, Option<bool>, Option<String>) {
+    let mut lines = content.lines();
+    if lines.next().map(str::trim) != Some("---") {
         return (None, None, None);
     };
-    let mut reader = BufReader::new(file);
-    let mut first_line = String::new();
-    if reader.read_line(&mut first_line).is_err() || first_line.trim() != "---" {
-        return (None, None, None);
-    }
     let mut title: Option<String> = None;
     let mut draft: Option<bool> = None;
     let mut content_type: Option<String> = None;
-    let mut line = String::new();
-    while reader.read_line(&mut line).unwrap_or(0) > 0 {
+    for line in lines {
         if line.trim() == "---" {
             break;
         }
@@ -78,9 +93,99 @@ fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<S
                 content_type = Some(val);
             }
         }
-        line.clear();
     }
     (title, draft, content_type)
+}
+
+/// Read the frontmatter block (between `---` fences) of a markdown file and
+/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
+/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
+/// Uses a buffered reader so only the frontmatter is read, not the full file.
+fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
+    use std::io::{BufRead, BufReader};
+    let Ok(file) = std::fs::File::open(path) else {
+        return (None, None, None);
+    };
+    let mut reader = BufReader::new(file);
+    let mut frontmatter = String::new();
+    let mut frontmatter_line_count = 0;
+    loop {
+        let mut line = String::new();
+        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+            break;
+        }
+        frontmatter.push_str(&line);
+        frontmatter_line_count += 1;
+        if frontmatter_line_count > 1 && line.trim() == "---" {
+            break;
+        }
+    }
+    read_frontmatter_meta_from_str(&frontmatter)
+}
+
+fn read_frontmatter_meta_cached(
+    path: &Path,
+    cache: &mut HashMap<PathBuf, CachedFrontmatter>,
+) -> (Option<String>, Option<bool>, Option<String>) {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return read_frontmatter_meta(path);
+    };
+    let modified = metadata.modified().ok();
+    let len = metadata.len();
+
+    if let Some(cached) = cache.get(path) {
+        if cached.modified == modified && cached.len == len {
+            return (
+                cached.title.clone(),
+                cached.draft,
+                cached.content_type.clone(),
+            );
+        }
+    }
+
+    let (title, draft, content_type) = read_frontmatter_meta(path);
+    cache.insert(
+        path.to_path_buf(),
+        CachedFrontmatter {
+            modified,
+            len,
+            title: title.clone(),
+            draft,
+            content_type: content_type.clone(),
+        },
+    );
+    (title, draft, content_type)
+}
+
+fn load_search_file_cached(
+    path: &Path,
+    cache: &mut HashMap<PathBuf, CachedSearchFile>,
+    frontmatter_cache: &HashMap<PathBuf, CachedFrontmatter>,
+) -> Option<CachedSearchFile> {
+    let metadata = std::fs::metadata(path).ok()?;
+    let modified = metadata.modified().ok();
+    let len = metadata.len();
+
+    if let Some(cached) = cache.get(path) {
+        if cached.modified == modified && cached.len == len {
+            return Some(cached.clone());
+        }
+    }
+
+    let content = std::fs::read_to_string(path).ok()?;
+    let title = frontmatter_cache
+        .get(path)
+        .filter(|cached| cached.modified == modified && cached.len == len)
+        .and_then(|cached| cached.title.clone())
+        .or_else(|| read_frontmatter_meta_from_str(&content).0);
+    let entry = CachedSearchFile {
+        modified,
+        len,
+        title,
+        lines: content.lines().map(|line| line.to_string()).collect(),
+    };
+    cache.insert(path.to_path_buf(), entry.clone());
+    Some(entry)
 }
 
 #[derive(Serialize)]
@@ -98,7 +203,36 @@ struct WorkspaceResult {
     cdn_base: Option<String>,
 }
 
-fn walk_dir(path: &Path) -> Vec<FileNode> {
+fn is_markdown_path(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some("md") | Some("mdx")
+    )
+}
+
+fn perf_logging_enabled() -> bool {
+    cfg!(debug_assertions) || std::env::var_os("OVID_PERF").is_some()
+}
+
+fn log_perf(command: &str, elapsed: std::time::Duration, details: &[(&str, String)]) {
+    if !perf_logging_enabled() {
+        return;
+    }
+
+    let mut message = format!("[perf] {command} took {}ms", elapsed.as_millis());
+    if !details.is_empty() {
+        let suffix = details
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        message.push(' ');
+        message.push_str(&suffix);
+    }
+    eprintln!("{message}");
+}
+
+fn walk_dir(path: &Path, cache: &mut HashMap<PathBuf, CachedFrontmatter>) -> Vec<FileNode> {
     let Ok(entries) = std::fs::read_dir(path) else {
         return Vec::new();
     };
@@ -116,8 +250,12 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
             continue;
         }
 
-        if entry_path.is_dir() {
-            let children = walk_dir(&entry_path);
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if file_type.is_dir() {
+            let children = walk_dir(&entry_path, cache);
             if !children.is_empty() {
                 nodes.push(FileNode {
                     name,
@@ -136,7 +274,7 @@ fn walk_dir(path: &Path) -> Vec<FileNode> {
                 .and_then(|e| e.to_str())
                 .unwrap_or("");
             if ext == "md" || ext == "mdx" {
-                let (title, draft, content_type) = read_frontmatter_meta(&entry_path);
+                let (title, draft, content_type) = read_frontmatter_meta_cached(&entry_path, cache);
                 nodes.push(FileNode {
                     name,
                     path: entry_path.to_string_lossy().to_string(),
@@ -232,8 +370,14 @@ async fn open_workspace_at_path(
     app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
 ) -> Result<Option<WorkspaceResult>, String> {
+    let started = Instant::now();
     let root = PathBuf::from(&path);
     if !root.is_dir() {
+        log_perf(
+            "open_workspace_at_path",
+            started.elapsed(),
+            &[("result", "missing".to_string())],
+        );
         return Ok(None);
     }
 
@@ -254,7 +398,10 @@ async fn open_workspace_at_path(
 
     let is_amytis_workspace =
         root.join("site.config.ts").is_file() && root.join("content").is_dir();
-    let tree = walk_dir(&tree_root);
+    let tree = {
+        let mut cache = state.frontmatter_cache.lock().map_err(|e| e.to_string())?;
+        walk_dir(&tree_root, &mut cache)
+    };
     let (asset_root, cdn_base) = derive_workspace_meta(&root);
 
     // Grant asset protocol access to the entire workspace root so that both
@@ -264,7 +411,7 @@ async fn open_workspace_at_path(
         eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
     }
 
-    Ok(Some(WorkspaceResult {
+    let result = WorkspaceResult {
         name,
         root_path: to_slash(&root),
         tree_root: to_slash(&tree_root),
@@ -272,7 +419,18 @@ async fn open_workspace_at_path(
         tree,
         is_amytis_workspace,
         cdn_base,
-    }))
+    };
+    log_perf(
+        "open_workspace_at_path",
+        started.elapsed(),
+        &[
+            ("treeRoot", result.tree_root.clone()),
+            ("nodes", result.tree.len().to_string()),
+            ("amytis", result.is_amytis_workspace.to_string()),
+        ],
+    );
+
+    Ok(Some(result))
 }
 
 #[tauri::command]
@@ -280,13 +438,21 @@ async fn open_workspace(
     app: tauri::AppHandle,
     state: State<'_, WorkspaceState>,
 ) -> Result<Option<WorkspaceResult>, String> {
+    let started = Instant::now();
     let (tx, rx) = tokio::sync::oneshot::channel::<Option<tauri_plugin_dialog::FilePath>>();
     app.dialog().file().pick_folder(move |folder| {
         tx.send(folder).ok();
     });
     let folder = match rx.await.ok().flatten() {
         Some(f) => f,
-        None => return Ok(None),
+        None => {
+            log_perf(
+                "open_workspace",
+                started.elapsed(),
+                &[("result", "cancelled".to_string())],
+            );
+            return Ok(None);
+        }
     };
     let root: PathBuf = match folder {
         tauri_plugin_dialog::FilePath::Path(p) => p,
@@ -312,7 +478,10 @@ async fn open_workspace(
 
     let is_amytis_workspace =
         root.join("site.config.ts").is_file() && root.join("content").is_dir();
-    let tree = walk_dir(&tree_root);
+    let tree = {
+        let mut cache = state.frontmatter_cache.lock().map_err(|e| e.to_string())?;
+        walk_dir(&tree_root, &mut cache)
+    };
     let (asset_root, cdn_base) = derive_workspace_meta(&root);
 
     // Grant asset protocol access to the entire workspace root so that both
@@ -326,7 +495,7 @@ async fn open_workspace(
         eprintln!("Failed to grant asset protocol access for {root:?}: {e}");
     }
 
-    Ok(Some(WorkspaceResult {
+    let result = WorkspaceResult {
         name,
         root_path: to_slash(&root),
         tree_root: to_slash(&tree_root),
@@ -334,14 +503,40 @@ async fn open_workspace(
         tree,
         is_amytis_workspace,
         cdn_base,
-    }))
+    };
+    log_perf(
+        "open_workspace",
+        started.elapsed(),
+        &[
+            ("treeRoot", result.tree_root.clone()),
+            ("nodes", result.tree.len().to_string()),
+            ("amytis", result.is_amytis_workspace.to_string()),
+        ],
+    );
+
+    Ok(Some(result))
 }
 
 #[tauri::command]
 fn list_workspace(state: State<'_, WorkspaceState>) -> Result<Vec<FileNode>, String> {
-    let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
-    let root = root_guard.as_ref().ok_or("no workspace open")?;
-    Ok(walk_dir(root))
+    let started = Instant::now();
+    let root = {
+        let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
+        root_guard.as_ref().ok_or("no workspace open")?.clone()
+    };
+    let tree = {
+        let mut cache = state.frontmatter_cache.lock().map_err(|e| e.to_string())?;
+        walk_dir(&root, &mut cache)
+    };
+    log_perf(
+        "list_workspace",
+        started.elapsed(),
+        &[
+            ("treeRoot", to_slash(&root)),
+            ("nodes", tree.len().to_string()),
+        ],
+    );
+    Ok(tree)
 }
 
 #[tauri::command]
@@ -403,8 +598,15 @@ fn trash_file(path: String, state: State<'_, WorkspaceState>) -> Result<(), Stri
     trash::delete(&canonical).map_err(|e| e.to_string())
 }
 
+const MAX_SEARCH_MATCHES_PER_FILE: usize = 8;
+
 /// Search all markdown files under `path` for lines containing `query` (case-insensitive).
-fn search_dir(path: &Path, query: &str) -> Vec<SearchResult> {
+fn search_dir(
+    path: &Path,
+    query_lower: &str,
+    cache: &mut HashMap<PathBuf, CachedSearchFile>,
+    frontmatter_cache: &HashMap<PathBuf, CachedFrontmatter>,
+) -> Vec<SearchResult> {
     let Ok(entries) = std::fs::read_dir(path) else {
         return Vec::new();
     };
@@ -423,39 +625,42 @@ fn search_dir(path: &Path, query: &str) -> Vec<SearchResult> {
             continue;
         }
         if entry_path.is_dir() {
-            results.extend(search_dir(&entry_path, query));
+            results.extend(search_dir(
+                &entry_path,
+                query_lower,
+                cache,
+                frontmatter_cache,
+            ));
         } else {
-            let ext = entry_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
-            if ext != "md" && ext != "mdx" {
+            if !is_markdown_path(&entry_path) {
                 continue;
             }
-            let Ok(content) = std::fs::read_to_string(&entry_path) else {
+            let Some(file) = load_search_file_cached(&entry_path, cache, frontmatter_cache) else {
                 continue;
             };
-            let q = query.to_lowercase();
-            let matches: Vec<SearchMatch> = content
-                .lines()
-                .enumerate()
-                .filter_map(|(i, line)| {
-                    if line.to_lowercase().contains(&q) {
-                        Some(SearchMatch {
-                            line_number: i + 1,
-                            line_content: line.trim().to_string(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            if !matches.is_empty() {
-                let (title, _, _) = read_frontmatter_meta(&entry_path);
+            let mut total_matches = 0;
+            let mut matches = Vec::new();
+
+            for (i, line) in file.lines.iter().enumerate() {
+                if !line.to_lowercase().contains(query_lower) {
+                    continue;
+                }
+                total_matches += 1;
+                if matches.len() < MAX_SEARCH_MATCHES_PER_FILE {
+                    matches.push(SearchMatch {
+                        line_number: i + 1,
+                        line_content: line.trim().to_string(),
+                    });
+                }
+            }
+
+            if total_matches > 0 {
                 results.push(SearchResult {
                     path: entry_path.to_string_lossy().to_string(),
-                    title,
+                    title: file.title.clone(),
                     matches,
+                    total_matches,
+                    has_more_matches: total_matches > MAX_SEARCH_MATCHES_PER_FILE,
                 });
             }
         }
@@ -468,7 +673,13 @@ fn search_workspace(
     query: String,
     state: State<'_, WorkspaceState>,
 ) -> Result<Vec<SearchResult>, String> {
+    let started = Instant::now();
     if query.trim().is_empty() {
+        log_perf(
+            "search_workspace",
+            started.elapsed(),
+            &[("query", "empty".to_string()), ("results", "0".to_string())],
+        );
         return Ok(Vec::new());
     }
     // Clone root before releasing the lock so the mutex is not held during search
@@ -476,7 +687,30 @@ fn search_workspace(
         let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
         root_guard.as_ref().ok_or("no workspace open")?.clone()
     };
-    Ok(search_dir(&root, query.trim()))
+    let query_lower = query.trim().to_lowercase();
+    let results = {
+        // Keep cache lock ordering consistent: search_cache first, then
+        // frontmatter_cache. If this path ever changes, preserve that order to
+        // avoid introducing deadlocks across future cache-aware search/tree code.
+        let mut cache = state.search_cache.lock().map_err(|e| e.to_string())?;
+        let frontmatter_cache = state.frontmatter_cache.lock().map_err(|e| e.to_string())?;
+        search_dir(&root, &query_lower, &mut cache, &frontmatter_cache)
+    };
+    let file_count = results.len();
+    let match_count = results
+        .iter()
+        .map(|result| result.total_matches)
+        .sum::<usize>();
+    log_perf(
+        "search_workspace",
+        started.elapsed(),
+        &[
+            ("query", query.trim().to_string()),
+            ("files", file_count.to_string()),
+            ("matches", match_count.to_string()),
+        ],
+    );
+    Ok(results)
 }
 
 #[tauri::command]
@@ -1023,8 +1257,8 @@ fn get_preferred_remote_name(
         return Some(name);
     }
 
-    if let Some(name) = get_git_config_value(git_root, "remote.pushDefault")
-        .filter(|name| is_known_remote(name))
+    if let Some(name) =
+        get_git_config_value(git_root, "remote.pushDefault").filter(|name| is_known_remote(name))
     {
         return Some(name);
     }
@@ -1114,7 +1348,11 @@ fn git_push_args(
     }
 
     if let Some(name) = explicit_remote_name {
-        if !remote.remotes.iter().any(|configured| configured.name == name) {
+        if !remote
+            .remotes
+            .iter()
+            .any(|configured| configured.name == name)
+        {
             return Err("selected remote is no longer configured".to_string());
         }
     }
@@ -1141,7 +1379,11 @@ fn git_push_args(
 }
 
 fn git_create_branch_args(branch_name: &str) -> Vec<String> {
-    vec!["switch".to_string(), "-c".to_string(), branch_name.to_string()]
+    vec![
+        "switch".to_string(),
+        "-c".to_string(),
+        branch_name.to_string(),
+    ]
 }
 
 fn git_rename_branch_args(old_branch: &str, new_branch: &str) -> Vec<String> {
@@ -1154,7 +1396,11 @@ fn git_rename_branch_args(old_branch: &str, new_branch: &str) -> Vec<String> {
 }
 
 fn git_delete_branch_args(branch_name: &str) -> Vec<String> {
-    vec!["branch".to_string(), "-d".to_string(), branch_name.to_string()]
+    vec![
+        "branch".to_string(),
+        "-d".to_string(),
+        branch_name.to_string(),
+    ]
 }
 
 fn git_checkout_remote_branch_args(remote_ref: &str) -> Result<Vec<String>, String> {
@@ -1174,7 +1420,10 @@ fn git_checkout_remote_branch_args(remote_ref: &str) -> Result<Vec<String>, Stri
     ])
 }
 
-fn validate_git_branch_rename(old_branch: &str, new_branch: &str) -> Result<(String, String), String> {
+fn validate_git_branch_rename(
+    old_branch: &str,
+    new_branch: &str,
+) -> Result<(String, String), String> {
     let old_branch = old_branch.trim();
     let new_branch = new_branch.trim();
     if old_branch.is_empty() {
@@ -1234,7 +1483,8 @@ fn classify_git_pull_error(stderr: &str) -> String {
         return "Pull stopped because the branch cannot be fast-forwarded. Resolve it in Git, then refresh.".to_string();
     }
     if lower.contains("would be overwritten by merge") || lower.contains("local changes") {
-        return "Pull blocked by local changes. Commit, stash, or discard changes first.".to_string();
+        return "Pull blocked by local changes. Commit, stash, or discard changes first."
+            .to_string();
     }
     if lower.contains("conflict") {
         return "Pull stopped because of conflicts. Resolve them in Git, then refresh.".to_string();
@@ -1303,7 +1553,9 @@ fn get_git_branches(state: State<'_, WorkspaceState>) -> Result<Vec<GitBranch>, 
 }
 
 #[tauri::command]
-fn get_git_remote_branches(state: State<'_, WorkspaceState>) -> Result<Vec<GitRemoteBranch>, String> {
+fn get_git_remote_branches(
+    state: State<'_, WorkspaceState>,
+) -> Result<Vec<GitRemoteBranch>, String> {
     let Some(git_root) = resolve_git_root(state)? else {
         return Ok(Vec::new());
     };
@@ -1487,7 +1739,10 @@ async fn git_checkout_remote_branch(
         return Err("remote branch cannot be empty".to_string());
     }
     let remote_branches = parse_git_remote_branches(&git_root)?;
-    if !remote_branches.iter().any(|branch| branch.remote_ref == remote_ref) {
+    if !remote_branches
+        .iter()
+        .any(|branch| branch.remote_ref == remote_ref)
+    {
         return Err("remote branch is unavailable".to_string());
     }
 
@@ -1669,6 +1924,8 @@ pub fn run() {
         .manage(WorkspaceState {
             tree_root: Mutex::new(None),
             workspace_root: Mutex::new(None),
+            frontmatter_cache: Mutex::new(HashMap::new()),
+            search_cache: Mutex::new(HashMap::new()),
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1924,6 +2181,7 @@ pub fn run() {
 mod tests {
     use super::*;
     use std::fs;
+    use std::time::Instant;
     use tempfile::TempDir;
 
     // ── normalize_path ───────────────────────────────────────────────────────
@@ -2027,7 +2285,11 @@ mod tests {
     fn git_delete_branch_args_use_safe_delete() {
         assert_eq!(
             git_delete_branch_args("feature/test"),
-            vec!["branch".to_string(), "-d".to_string(), "feature/test".to_string()]
+            vec![
+                "branch".to_string(),
+                "-d".to_string(),
+                "feature/test".to_string()
+            ]
         );
     }
 
@@ -2108,6 +2370,39 @@ mod tests {
         let path = dir.path().join("site.config.ts");
         fs::write(&path, content).unwrap();
         path
+    }
+
+    fn write_markdown_file(path: &Path, title: &str, body: &str) {
+        let content = format!("---\ntitle: \"{title}\"\ntype: note\n---\n\n{body}\n");
+        fs::write(path, content).unwrap();
+    }
+
+    fn create_large_workspace_fixture(
+        dir_count: usize,
+        files_per_dir: usize,
+        match_every: usize,
+    ) -> TempDir {
+        let dir = TempDir::new().unwrap();
+        let content_root = dir.path().join("content");
+        fs::create_dir_all(&content_root).unwrap();
+
+        for dir_index in 0..dir_count {
+            let section_dir = content_root.join(format!("section-{dir_index:03}"));
+            fs::create_dir_all(&section_dir).unwrap();
+
+            for file_index in 0..files_per_dir {
+                let path = section_dir.join(format!("entry-{file_index:03}.md"));
+                let title = format!("Entry {dir_index}-{file_index}");
+                let body = if (dir_index * files_per_dir + file_index) % match_every == 0 {
+                    "alpha needle beta gamma"
+                } else {
+                    "ordinary workspace content"
+                };
+                write_markdown_file(&path, &title, body);
+            }
+        }
+
+        dir
     }
 
     #[test]
@@ -2257,6 +2552,132 @@ mod tests {
             "/* This config has no CDN\n  cdnBase: 'https://cdn.example.com'\n*/\nexport const config = {};\n",
         );
         assert_eq!(parse_cdn_base(&path), None);
+    }
+
+    #[test]
+    #[ignore = "profiling helper for large synthetic workspaces"]
+    fn perf_walk_dir_large_workspace_fixture() {
+        let dir = create_large_workspace_fixture(40, 80, 7);
+        let mut cache = HashMap::new();
+
+        let first_started = Instant::now();
+        let first_tree = walk_dir(&dir.path().join("content"), &mut cache);
+        let first_elapsed = first_started.elapsed();
+
+        let second_started = Instant::now();
+        let second_tree = walk_dir(&dir.path().join("content"), &mut cache);
+        let second_elapsed = second_started.elapsed();
+
+        let top_level_dirs = first_tree.iter().filter(|node| node.is_directory).count();
+        assert_eq!(top_level_dirs, 40);
+        assert_eq!(second_tree.len(), first_tree.len());
+        eprintln!(
+            "[perf-test] walk_dir fixture dirs=40 files_per_dir=80 top_level={} first={}ms second={}ms",
+            top_level_dirs,
+            first_elapsed.as_millis(),
+            second_elapsed.as_millis()
+        );
+    }
+
+    #[test]
+    #[ignore = "profiling helper for large synthetic workspaces"]
+    fn perf_search_dir_large_workspace_fixture() {
+        let dir = create_large_workspace_fixture(40, 80, 5);
+        let mut cache = HashMap::new();
+        let frontmatter_cache = HashMap::new();
+
+        let first_started = Instant::now();
+        let first_results = search_dir(
+            &dir.path().join("content"),
+            "needle",
+            &mut cache,
+            &frontmatter_cache,
+        );
+        let first_elapsed = first_started.elapsed();
+
+        let second_started = Instant::now();
+        let second_results = search_dir(
+            &dir.path().join("content"),
+            "needle",
+            &mut cache,
+            &frontmatter_cache,
+        );
+        let second_elapsed = second_started.elapsed();
+
+        let file_count = first_results.len();
+        let match_count = first_results
+            .iter()
+            .map(|result| result.matches.len())
+            .sum::<usize>();
+        assert_eq!(file_count, 640);
+        assert_eq!(match_count, 640);
+        assert_eq!(second_results.len(), first_results.len());
+        eprintln!(
+            "[perf-test] search_dir fixture dirs=40 files_per_dir=80 matched_files={} matched_lines={} first={}ms second={}ms",
+            file_count,
+            match_count,
+            first_elapsed.as_millis(),
+            second_elapsed.as_millis()
+        );
+    }
+
+    #[test]
+    fn read_frontmatter_meta_cached_refreshes_when_file_changes() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("entry.md");
+        let mut cache = HashMap::new();
+
+        write_markdown_file(&path, "First", "short body");
+        let initial = read_frontmatter_meta_cached(&path, &mut cache);
+        assert_eq!(initial.0.as_deref(), Some("First"));
+
+        write_markdown_file(
+            &path,
+            "Second title",
+            "body with more bytes to change the file size",
+        );
+        let updated = read_frontmatter_meta_cached(&path, &mut cache);
+        assert_eq!(updated.0.as_deref(), Some("Second title"));
+    }
+
+    #[test]
+    fn load_search_file_cached_refreshes_when_file_changes() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("entry.md");
+        let mut cache = HashMap::new();
+        let frontmatter_cache = HashMap::new();
+
+        write_markdown_file(&path, "First", "alpha needle");
+        let initial = load_search_file_cached(&path, &mut cache, &frontmatter_cache).unwrap();
+        assert_eq!(initial.title.as_deref(), Some("First"));
+        assert!(initial.lines.iter().any(|line| line.contains("needle")));
+
+        write_markdown_file(&path, "Second", "completely different body with more bytes");
+        let updated = load_search_file_cached(&path, &mut cache, &frontmatter_cache).unwrap();
+        assert_eq!(updated.title.as_deref(), Some("Second"));
+        assert!(!updated.lines.iter().any(|line| line.contains("needle")));
+    }
+
+    #[test]
+    fn search_dir_caps_returned_matches_per_file_but_keeps_total_count() {
+        let dir = TempDir::new().unwrap();
+        let content_root = dir.path().join("content");
+        fs::create_dir_all(&content_root).unwrap();
+        let path = content_root.join("entry.md");
+        let body = (0..12)
+            .map(|index| format!("needle line {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        write_markdown_file(&path, "Needle", &body);
+
+        let mut cache = HashMap::new();
+        let frontmatter_cache = HashMap::new();
+        let results = search_dir(&content_root, "needle", &mut cache, &frontmatter_cache);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].matches.len(), MAX_SEARCH_MATCHES_PER_FILE);
+        assert_eq!(results[0].total_matches, 13);
+        assert!(results[0].has_more_matches);
     }
 
     // ── git helpers ─────────────────────────────────────────────────────────
@@ -2450,7 +2871,8 @@ mod tests {
 
     #[test]
     fn classify_git_push_error_detects_non_fast_forward() {
-        let stderr = "! [rejected] main -> main (non-fast-forward)\nerror: failed to push some refs";
+        let stderr =
+            "! [rejected] main -> main (non-fast-forward)\nerror: failed to push some refs";
         assert_eq!(
             classify_git_push_error(stderr),
             "Push rejected. Remote has new commits. Pull or fetch first."
@@ -2477,7 +2899,8 @@ mod tests {
 
     #[test]
     fn classify_git_pull_error_detects_local_changes_blocking_pull() {
-        let stderr = "error: Your local changes to the following files would be overwritten by merge:";
+        let stderr =
+            "error: Your local changes to the following files would be overwritten by merge:";
         assert_eq!(
             classify_git_pull_error(stderr),
             "Pull blocked by local changes. Commit, stash, or discard changes first."
