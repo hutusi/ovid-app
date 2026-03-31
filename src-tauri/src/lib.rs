@@ -13,6 +13,8 @@ use tauri_plugin_opener::OpenerExt;
 struct WorkspaceState {
     tree_root: Mutex<Option<PathBuf>>,
     workspace_root: Mutex<Option<PathBuf>>,
+    // TODO: add bounded eviction or explicit workspace/session clears if cache
+    // growth becomes a measured memory issue in long-running large-workspace sessions.
     frontmatter_cache: Mutex<HashMap<PathBuf, CachedFrontmatter>>,
     search_cache: Mutex<HashMap<PathBuf, CachedSearchFile>>,
 }
