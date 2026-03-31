@@ -54,7 +54,7 @@ function pushPerfEvent(
 }
 
 export function getPerfEvents(): PerfEvent[] {
-  return perfEvents;
+  return [...perfEvents];
 }
 
 export function subscribePerfEvents(listener: () => void): () => void {

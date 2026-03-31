@@ -156,6 +156,7 @@ fn read_frontmatter_meta_cached(
 fn load_search_file_cached(
     path: &Path,
     cache: &mut HashMap<PathBuf, CachedSearchFile>,
+    frontmatter_cache: &HashMap<PathBuf, CachedFrontmatter>,
 ) -> Option<CachedSearchFile> {
     let metadata = std::fs::metadata(path).ok()?;
     let modified = metadata.modified().ok();
@@ -168,7 +169,11 @@ fn load_search_file_cached(
     }
 
     let content = std::fs::read_to_string(path).ok()?;
-    let (title, _, _) = read_frontmatter_meta_from_str(&content);
+    let title = frontmatter_cache
+        .get(path)
+        .filter(|cached| cached.modified == modified && cached.len == len)
+        .and_then(|cached| cached.title.clone())
+        .or_else(|| read_frontmatter_meta_from_str(&content).0);
     let entry = CachedSearchFile {
         modified,
         len,
@@ -596,6 +601,7 @@ fn search_dir(
     path: &Path,
     query_lower: &str,
     cache: &mut HashMap<PathBuf, CachedSearchFile>,
+    frontmatter_cache: &HashMap<PathBuf, CachedFrontmatter>,
 ) -> Vec<SearchResult> {
     let Ok(entries) = std::fs::read_dir(path) else {
         return Vec::new();
@@ -615,12 +621,17 @@ fn search_dir(
             continue;
         }
         if entry_path.is_dir() {
-            results.extend(search_dir(&entry_path, query_lower, cache));
+            results.extend(search_dir(
+                &entry_path,
+                query_lower,
+                cache,
+                frontmatter_cache,
+            ));
         } else {
             if !is_markdown_path(&entry_path) {
                 continue;
             }
-            let Some(file) = load_search_file_cached(&entry_path, cache) else {
+            let Some(file) = load_search_file_cached(&entry_path, cache, frontmatter_cache) else {
                 continue;
             };
             let mut total_matches = 0;
@@ -675,7 +686,8 @@ fn search_workspace(
     let query_lower = query.trim().to_lowercase();
     let results = {
         let mut cache = state.search_cache.lock().map_err(|e| e.to_string())?;
-        search_dir(&root, &query_lower, &mut cache)
+        let frontmatter_cache = state.frontmatter_cache.lock().map_err(|e| e.to_string())?;
+        search_dir(&root, &query_lower, &mut cache, &frontmatter_cache)
     };
     let file_count = results.len();
     let match_count = results
@@ -2565,13 +2577,24 @@ mod tests {
     fn perf_search_dir_large_workspace_fixture() {
         let dir = create_large_workspace_fixture(40, 80, 5);
         let mut cache = HashMap::new();
+        let frontmatter_cache = HashMap::new();
 
         let first_started = Instant::now();
-        let first_results = search_dir(&dir.path().join("content"), "needle", &mut cache);
+        let first_results = search_dir(
+            &dir.path().join("content"),
+            "needle",
+            &mut cache,
+            &frontmatter_cache,
+        );
         let first_elapsed = first_started.elapsed();
 
         let second_started = Instant::now();
-        let second_results = search_dir(&dir.path().join("content"), "needle", &mut cache);
+        let second_results = search_dir(
+            &dir.path().join("content"),
+            "needle",
+            &mut cache,
+            &frontmatter_cache,
+        );
         let second_elapsed = second_started.elapsed();
 
         let file_count = first_results.len();
@@ -2615,14 +2638,15 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("entry.md");
         let mut cache = HashMap::new();
+        let frontmatter_cache = HashMap::new();
 
         write_markdown_file(&path, "First", "alpha needle");
-        let initial = load_search_file_cached(&path, &mut cache).unwrap();
+        let initial = load_search_file_cached(&path, &mut cache, &frontmatter_cache).unwrap();
         assert_eq!(initial.title.as_deref(), Some("First"));
         assert!(initial.lines.iter().any(|line| line.contains("needle")));
 
         write_markdown_file(&path, "Second", "completely different body with more bytes");
-        let updated = load_search_file_cached(&path, &mut cache).unwrap();
+        let updated = load_search_file_cached(&path, &mut cache, &frontmatter_cache).unwrap();
         assert_eq!(updated.title.as_deref(), Some("Second"));
         assert!(!updated.lines.iter().any(|line| line.contains("needle")));
     }
@@ -2640,7 +2664,8 @@ mod tests {
         write_markdown_file(&path, "Needle", &body);
 
         let mut cache = HashMap::new();
-        let results = search_dir(&content_root, "needle", &mut cache);
+        let frontmatter_cache = HashMap::new();
+        let results = search_dir(&content_root, "needle", &mut cache, &frontmatter_cache);
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].matches.len(), MAX_SEARCH_MATCHES_PER_FILE);
