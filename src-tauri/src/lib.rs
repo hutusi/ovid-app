@@ -47,6 +47,8 @@ struct SearchResult {
     path: String,
     title: Option<String>,
     matches: Vec<SearchMatch>,
+    total_matches: usize,
+    has_more_matches: bool,
 }
 
 #[derive(Serialize)]
@@ -574,10 +576,12 @@ fn trash_file(path: String, state: State<'_, WorkspaceState>) -> Result<(), Stri
     trash::delete(&canonical).map_err(|e| e.to_string())
 }
 
+const MAX_SEARCH_MATCHES_PER_FILE: usize = 8;
+
 /// Search all markdown files under `path` for lines containing `query` (case-insensitive).
 fn search_dir(
     path: &Path,
-    query: &str,
+    query_lower: &str,
     cache: &mut HashMap<PathBuf, CachedSearchFile>,
 ) -> Vec<SearchResult> {
     let Ok(entries) = std::fs::read_dir(path) else {
@@ -598,7 +602,7 @@ fn search_dir(
             continue;
         }
         if entry_path.is_dir() {
-            results.extend(search_dir(&entry_path, query, cache));
+            results.extend(search_dir(&entry_path, query_lower, cache));
         } else {
             if !is_markdown_path(&entry_path) {
                 continue;
@@ -606,27 +610,29 @@ fn search_dir(
             let Some(file) = load_search_file_cached(&entry_path, cache) else {
                 continue;
             };
-            let q = query.to_lowercase();
-            let matches: Vec<SearchMatch> = file
-                .lines
-                .iter()
-                .enumerate()
-                .filter_map(|(i, line)| {
-                    if line.to_lowercase().contains(&q) {
-                        Some(SearchMatch {
-                            line_number: i + 1,
-                            line_content: line.trim().to_string(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            if !matches.is_empty() {
+            let mut total_matches = 0;
+            let mut matches = Vec::new();
+
+            for (i, line) in file.lines.iter().enumerate() {
+                if !line.to_lowercase().contains(query_lower) {
+                    continue;
+                }
+                total_matches += 1;
+                if matches.len() < MAX_SEARCH_MATCHES_PER_FILE {
+                    matches.push(SearchMatch {
+                        line_number: i + 1,
+                        line_content: line.trim().to_string(),
+                    });
+                }
+            }
+
+            if total_matches > 0 {
                 results.push(SearchResult {
                     path: entry_path.to_string_lossy().to_string(),
                     title: file.title.clone(),
                     matches,
+                    total_matches,
+                    has_more_matches: total_matches > MAX_SEARCH_MATCHES_PER_FILE,
                 });
             }
         }
@@ -653,14 +659,15 @@ fn search_workspace(
         let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
         root_guard.as_ref().ok_or("no workspace open")?.clone()
     };
+    let query_lower = query.trim().to_lowercase();
     let results = {
         let mut cache = state.search_cache.lock().map_err(|e| e.to_string())?;
-        search_dir(&root, query.trim(), &mut cache)
+        search_dir(&root, &query_lower, &mut cache)
     };
     let file_count = results.len();
     let match_count = results
         .iter()
-        .map(|result| result.matches.len())
+        .map(|result| result.total_matches)
         .sum::<usize>();
     log_perf(
         "search_workspace",
@@ -2605,6 +2612,27 @@ mod tests {
         let updated = load_search_file_cached(&path, &mut cache).unwrap();
         assert_eq!(updated.title.as_deref(), Some("Second"));
         assert!(!updated.lines.iter().any(|line| line.contains("needle")));
+    }
+
+    #[test]
+    fn search_dir_caps_returned_matches_per_file_but_keeps_total_count() {
+        let dir = TempDir::new().unwrap();
+        let content_root = dir.path().join("content");
+        fs::create_dir_all(&content_root).unwrap();
+        let path = content_root.join("entry.md");
+        let body = (0..12)
+            .map(|index| format!("needle line {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        write_markdown_file(&path, "Needle", &body);
+
+        let mut cache = HashMap::new();
+        let results = search_dir(&content_root, "needle", &mut cache);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].matches.len(), MAX_SEARCH_MATCHES_PER_FILE);
+        assert_eq!(results[0].total_matches, 13);
+        assert!(results[0].has_more_matches);
     }
 
     // ── git helpers ─────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import { FileSwitcher } from "./components/FileSwitcher";
 import { GitSyncPopover } from "./components/GitSyncPopover";
 import { NewBranchDialog } from "./components/NewBranchDialog";
 import { NewFileDialog } from "./components/NewFileDialog";
+import { PerfPanel } from "./components/PerfPanel";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { RenameBranchDialog } from "./components/RenameBranchDialog";
 import { SearchPanel } from "./components/SearchPanel";
@@ -271,9 +272,14 @@ function App() {
         return;
       }
       // Mode toggles work even when editor has focus
-      if (e.shiftKey && e.key === "P") {
+      if (e.shiftKey && e.key?.toLowerCase() === "p") {
         e.preventDefault();
         setPropertiesOpen((v) => !v);
+        return;
+      }
+      if (e.shiftKey && e.key?.toLowerCase() === "f") {
+        e.preventDefault();
+        if (workspaceRoot) setSearchOpen((v) => !v);
         return;
       }
       const target = e.target as HTMLElement;
@@ -300,13 +306,7 @@ function App() {
             void handleOpenWorkspace();
           }
           break;
-        case "F":
-          if (e.shiftKey) {
-            e.preventDefault();
-            if (workspaceRoot) setSearchOpen((v) => !v);
-          }
-          break;
-        case "G":
+        case "g":
           if (e.shiftKey && isGitRepo) {
             e.preventDefault();
             void openCommitDialog(defaultCommitMessage);
@@ -321,7 +321,7 @@ function App() {
           if (workspaceRoot)
             setModal({ type: "new-file", dirPath: workspaceRoot, contentType: "post" });
           break;
-        case "T":
+        case "t":
           if (e.shiftKey) {
             e.preventDefault();
             if (workspaceRoot) void handleNewTodayFlow();
@@ -337,8 +337,8 @@ function App() {
           break;
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     flushPendingSave,
     handleCloseFile,
@@ -793,6 +793,7 @@ function App() {
           onCancel={() => setDeleteBranchDialog(null)}
         />
       )}
+      <PerfPanel />
     </div>
   );
 }

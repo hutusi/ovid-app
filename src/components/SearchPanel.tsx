@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { measureAsync } from "../lib/perf";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isPerfLoggingEnabled, logPerf, measureAsync, measureSync } from "../lib/perf";
 import type { SearchResult } from "../lib/types";
 import "./SearchPanel.css";
 import { Input } from "./ui/input";
@@ -13,6 +13,7 @@ interface SearchPanelProps {
 const DEBOUNCE_MS = 300;
 
 export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
+  const renderStartedAt = performance.now();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -64,7 +65,25 @@ export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
     if (e.key === "Escape") onClose();
   }
 
-  const totalMatches = results.reduce((n, r) => n + r.matches.length, 0);
+  const totalMatches = useMemo(
+    () =>
+      measureSync(
+        "searchPanel.totalMatches",
+        () => results.reduce((n, r) => n + r.totalMatches, 0),
+        { files: results.length }
+      ),
+    [results]
+  );
+
+  useEffect(() => {
+    if (!isPerfLoggingEnabled()) return;
+    logPerf("searchPanel.commit", performance.now() - renderStartedAt, {
+      queryLength: query.length,
+      files: results.length,
+      matches: totalMatches,
+      searching: searching ? 1 : 0,
+    });
+  }, [query.length, results.length, searching, totalMatches]);
 
   return (
     <div className="search-panel">
@@ -131,6 +150,11 @@ export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
                   </span>
                 </button>
               ))}
+              {result.hasMoreMatches && (
+                <p className="search-status">
+                  Showing {result.matches.length} of {result.totalMatches} matches in this file
+                </p>
+              )}
             </div>
           );
         })}
