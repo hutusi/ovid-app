@@ -64,25 +64,15 @@ struct FileNode {
     content_type: Option<String>,
 }
 
-/// Read the frontmatter block (between `---` fences) of a markdown file and
-/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
-/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
-/// Uses a buffered reader so only the frontmatter is read, not the full file.
-fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
-    use std::io::{BufRead, BufReader};
-    let Ok(file) = std::fs::File::open(path) else {
+fn read_frontmatter_meta_from_str(content: &str) -> (Option<String>, Option<bool>, Option<String>) {
+    let mut lines = content.lines();
+    if lines.next().map(str::trim) != Some("---") {
         return (None, None, None);
     };
-    let mut reader = BufReader::new(file);
-    let mut first_line = String::new();
-    if reader.read_line(&mut first_line).is_err() || first_line.trim() != "---" {
-        return (None, None, None);
-    }
     let mut title: Option<String> = None;
     let mut draft: Option<bool> = None;
     let mut content_type: Option<String> = None;
-    let mut line = String::new();
-    while reader.read_line(&mut line).unwrap_or(0) > 0 {
+    for line in lines {
         if line.trim() == "---" {
             break;
         }
@@ -101,9 +91,32 @@ fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<S
                 content_type = Some(val);
             }
         }
-        line.clear();
     }
     (title, draft, content_type)
+}
+
+/// Read the frontmatter block (between `---` fences) of a markdown file and
+/// extract the `title`, `draft`, and `type` scalar values using simple line scanning.
+/// Returns `(None, None, None)` if the file can't be read or has no frontmatter.
+/// Uses a buffered reader so only the frontmatter is read, not the full file.
+fn read_frontmatter_meta(path: &Path) -> (Option<String>, Option<bool>, Option<String>) {
+    use std::io::{BufRead, BufReader};
+    let Ok(file) = std::fs::File::open(path) else {
+        return (None, None, None);
+    };
+    let mut reader = BufReader::new(file);
+    let mut frontmatter = String::new();
+    loop {
+        let mut line = String::new();
+        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+            break;
+        }
+        frontmatter.push_str(&line);
+        if frontmatter.lines().count() > 1 && line.trim() == "---" {
+            break;
+        }
+    }
+    read_frontmatter_meta_from_str(&frontmatter)
 }
 
 fn read_frontmatter_meta_cached(
@@ -155,7 +168,7 @@ fn load_search_file_cached(
     }
 
     let content = std::fs::read_to_string(path).ok()?;
-    let (title, _, _) = read_frontmatter_meta(path);
+    let (title, _, _) = read_frontmatter_meta_from_str(&content);
     let entry = CachedSearchFile {
         modified,
         len,

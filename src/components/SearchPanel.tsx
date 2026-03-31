@@ -13,7 +13,8 @@ interface SearchPanelProps {
 const DEBOUNCE_MS = 300;
 
 export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
-  const renderStartedAt = performance.now();
+  const renderStartedAtRef = useRef(0);
+  renderStartedAtRef.current = performance.now();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -77,7 +78,7 @@ export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
 
   useEffect(() => {
     if (!isPerfLoggingEnabled()) return;
-    logPerf("searchPanel.commit", performance.now() - renderStartedAt, {
+    logPerf("searchPanel.commit", performance.now() - renderStartedAtRef.current, {
       queryLength: query.length,
       files: results.length,
       matches: totalMatches,

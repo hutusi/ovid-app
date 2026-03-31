@@ -259,7 +259,8 @@ export function Sidebar({
   onStartRename,
   onCancelRename,
 }: SidebarProps) {
-  const renderStartedAt = performance.now();
+  const renderStartedAtRef = useRef(0);
+  renderStartedAtRef.current = performance.now();
   const [filterQuery, setFilterQuery] = useState("");
   const visibleTree = useMemo(
     () =>
@@ -323,7 +324,7 @@ export function Sidebar({
 
   useEffect(() => {
     if (!isPerfLoggingEnabled()) return;
-    logPerf("sidebar.commit", performance.now() - renderStartedAt, {
+    logPerf("sidebar.commit", performance.now() - renderStartedAtRef.current, {
       renderedNodes: renderedNodes.length,
       filterLength: filterQuery.length,
       visible: visible ? 1 : 0,
@@ -455,26 +456,26 @@ export function Sidebar({
           </div>
         ) : (
           renderedNodes.map((node, idx, sorted) => (
-              <Fragment key={node.path}>
-                {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
-                <FileItem
-                  node={node}
-                  depth={0}
-                  isExpanded={isNodeExpanded}
-                  onToggleExpand={handleToggleExpand}
-                  selectedPath={selectedPath}
-                  renamingPath={renamingPath}
-                  gitStatusMap={gitStatusMap}
-                  forceExpand={filterQuery.length > 0}
-                  onSelect={onSelect}
-                  onNewFile={onNewFile}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                  onStartRename={onStartRename}
-                  onCancelRename={onCancelRename}
-                />
-              </Fragment>
-            ))
+            <Fragment key={node.path}>
+              {needsPageDivider(sorted, idx) && <div className="sidebar-section-divider" />}
+              <FileItem
+                node={node}
+                depth={0}
+                isExpanded={isNodeExpanded}
+                onToggleExpand={handleToggleExpand}
+                selectedPath={selectedPath}
+                renamingPath={renamingPath}
+                gitStatusMap={gitStatusMap}
+                forceExpand={filterQuery.length > 0}
+                onSelect={onSelect}
+                onNewFile={onNewFile}
+                onRename={onRename}
+                onDelete={onDelete}
+                onStartRename={onStartRename}
+                onCancelRename={onCancelRename}
+              />
+            </Fragment>
+          ))
         )}
       </div>
 

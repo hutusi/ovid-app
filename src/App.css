@@ -139,7 +139,7 @@
 .perf-panel-name,
 .perf-panel-time,
 .perf-panel-detail {
-  font-family: "SF Mono", "Menlo", "Monaco", monospace;
+  font-family: "SF Mono", Menlo, Monaco, monospace;
 }
 
 .perf-panel-name {

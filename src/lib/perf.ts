@@ -19,12 +19,16 @@ export function isPerfLoggingEnabled(): boolean {
   return window.localStorage.getItem(PERF_FLAG_KEY) === "1";
 }
 
-function formatDetail(detail?: Record<string, string | number | boolean>): string {
+export function formatDetail(
+  detail?: Record<string, string | number | boolean>,
+  leadingSpace = true
+): string {
   if (!detail) return "";
   const suffix = Object.entries(detail)
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(" ");
-  return suffix ? ` ${suffix}` : "";
+  if (!suffix) return "";
+  return leadingSpace ? ` ${suffix}` : suffix;
 }
 
 function notifyPerfListeners(): void {

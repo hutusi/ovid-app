@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { getPerfEvents, isPerfLoggingEnabled, subscribePerfEvents } from "../lib/perf";
-
-function formatDetail(detail?: Record<string, string | number | boolean>): string {
-  if (!detail) return "";
-  return Object.entries(detail)
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join(" ");
-}
+import {
+  formatDetail,
+  getPerfEvents,
+  isPerfLoggingEnabled,
+  subscribePerfEvents,
+} from "../lib/perf";
 
 export function PerfPanel() {
   const [events, setEvents] = useState(() => getPerfEvents());
@@ -28,7 +26,9 @@ export function PerfPanel() {
               <span className="perf-panel-name">{event.name}</span>
               <span className="perf-panel-time">{event.elapsedMs}ms</span>
             </div>
-            {event.detail && <div className="perf-panel-detail">{formatDetail(event.detail)}</div>}
+            {event.detail && (
+              <div className="perf-panel-detail">{formatDetail(event.detail, false)}</div>
+            )}
           </div>
         ))}
       </div>

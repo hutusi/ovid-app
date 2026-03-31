@@ -248,9 +248,10 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      const key = e.key?.toLowerCase();
       // Escape exits zen mode (before other guards)
       if (
-        e.key === "Escape" &&
+        key === "escape" &&
         zenMode &&
         !modal &&
         !commitDialog &&
@@ -266,18 +267,18 @@ function App() {
       }
       if (!e.metaKey && !e.ctrlKey) return;
       // Ctrl+Cmd+Z — zen mode (macOS); avoids conflict with Redo (Cmd+Shift+Z)
-      if (e.metaKey && e.ctrlKey && e.key === "z") {
+      if (e.metaKey && e.ctrlKey && key === "z") {
         e.preventDefault();
         setZenMode((v) => !v);
         return;
       }
       // Mode toggles work even when editor has focus
-      if (e.shiftKey && e.key?.toLowerCase() === "p") {
+      if (e.shiftKey && key === "p") {
         e.preventDefault();
         setPropertiesOpen((v) => !v);
         return;
       }
-      if (e.shiftKey && e.key?.toLowerCase() === "f") {
+      if (e.shiftKey && key === "f") {
         e.preventDefault();
         if (workspaceRoot) setSearchOpen((v) => !v);
         return;
@@ -289,7 +290,7 @@ function App() {
         target.isContentEditable
       )
         return;
-      switch (e.key) {
+      switch (key) {
         case "\\":
           e.preventDefault();
           setSidebarVisible((v) => {
