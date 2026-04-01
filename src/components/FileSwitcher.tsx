@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type FlatFile, flattenTree, score } from "../lib/fileSearch";
 import type { FileNode, RecentFile } from "../lib/types";
+import { useFocusTrap } from "../lib/useFocusTrap";
 import { Input } from "./ui/input";
 import "./Modal.css";
 import "./FileSwitcher.css";
@@ -44,19 +45,11 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
 
   useEffect(() => {
-    inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
 
   const allFiles = useMemo(() => flattenTree(tree), [tree]);
 
@@ -101,6 +94,11 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       handleMove(1);
@@ -123,6 +121,8 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
       <button
         key={file.node.path}
         type="button"
+        role="option"
+        aria-selected={isActive}
         className={`fs-item${isActive ? " is-active" : ""}`}
         onMouseEnter={() => setActiveIndex(index)}
         onClick={() => onSelect(file.node)}
@@ -138,6 +138,7 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
     <div className="modal-overlay modal-overlay--top" role="presentation">
       <button type="button" className="modal-backdrop" aria-label="Close" onClick={onClose} />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Quick file switcher"
@@ -152,6 +153,7 @@ export function FileSwitcher({ tree, recentFiles, onSelect, onClose }: FileSwitc
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search files…"
             className="fs-search-input"
+            aria-label="Search files"
           />
         </div>
         <div className="fs-list" role="listbox" aria-label="Matching files">

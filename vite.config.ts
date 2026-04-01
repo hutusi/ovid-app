@@ -23,16 +23,6 @@ function manualChunks(id: string): string | undefined {
   }
 
   if (
-    id.includes("/node_modules/tiptap-markdown/") ||
-    id.includes("/node_modules/markdown-it/") ||
-    id.includes("/node_modules/linkify-it/") ||
-    id.includes("/node_modules/mdurl/") ||
-    id.includes("/node_modules/punycode.js/")
-  ) {
-    return "editor-markdown";
-  }
-
-  if (
     id.includes("/node_modules/katex/") ||
     id.includes("/node_modules/@tiptap/extension-mathematics/")
   ) {
