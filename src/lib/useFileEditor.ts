@@ -24,6 +24,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
   const selectedPathRef = useRef<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingMarkdownRef = useRef<string | null>(null);
+  const editorFlushRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
@@ -41,6 +42,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
   }, []);
 
   const flushPendingSave = useCallback(async () => {
+    editorFlushRef.current?.();
     if (!saveTimerRef.current) return;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
@@ -130,6 +132,14 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
     }, SAVE_DELAY_MS);
   }
 
+  const handleEditorDirty = useCallback(() => {
+    setSaveStatus("unsaved");
+  }, []);
+
+  const registerEditorFlush = useCallback((flush: (() => void) | null) => {
+    editorFlushRef.current = flush;
+  }, []);
+
   async function handleFieldChange(key: string, value: FrontmatterValue) {
     if (!selectedFile) return;
     const updated = { ...parsedFrontmatter, [key]: value };
@@ -177,6 +187,8 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
     handleCloseFile,
     handleSelectFile,
     handleEditorChange,
+    handleEditorDirty,
     handleFieldChange,
+    registerEditorFlush,
   };
 }

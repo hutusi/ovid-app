@@ -14,8 +14,9 @@ import Typography from "@tiptap/extension-typography";
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
+import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import { ActiveHeadingIndicator } from "../lib/tiptap/ActiveHeadingIndicator";
 import { FindReplace } from "../lib/tiptap/FindReplace";
 import { Footnotes } from "../lib/tiptap/Footnotes";
@@ -36,6 +37,7 @@ import "../styles/editor.css";
 const lowlight = createLowlight(common);
 
 const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
+const MARKDOWN_SERIALIZE_DELAY_MS = 150;
 
 async function pickAndInsertImage(
   editor: ReturnType<typeof useEditor>,
@@ -65,8 +67,10 @@ interface EditorProps {
   typewriterMode?: boolean;
   spellCheck?: boolean;
   onWordCount?: (count: number) => void;
+  onDirty?: () => void;
   onChange?: (markdown: string) => void;
   onError?: (msg: string) => void;
+  registerPendingFlush?: (flush: (() => void) | null) => void;
 }
 
 export function Editor({
@@ -77,17 +81,47 @@ export function Editor({
   typewriterMode = false,
   spellCheck = true,
   onWordCount,
+  onDirty,
   onChange,
   onError,
+  registerPendingFlush,
 }: EditorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const typewriterRef = useRef(typewriterMode);
+  const updateStartedAtRef = useRef(0);
+  const pendingSerializeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestEditorRef = useRef<ReturnType<typeof useEditor>>(null);
   useEffect(() => {
     typewriterRef.current = typewriterMode;
   }, [typewriterMode]);
 
   const [linkDialog, setLinkDialog] = useState<{ href: string } | null>(null);
   const [showFindReplace, setShowFindReplace] = useState(false);
+
+  const serializeMarkdown = useCallback(
+    (editorInstance: NonNullable<ReturnType<typeof useEditor>>) =>
+      measureSync(
+        "editor.markdownSerialize",
+        // biome-ignore lint/suspicious/noExplicitAny: tiptap-markdown storage has no public type
+        () => (editorInstance.storage as any).markdown.getMarkdown() as string,
+        {
+          docSize: editorInstance.state.doc.content.size,
+        }
+      ),
+    []
+  );
+
+  const flushPendingSerialization = useCallback(
+    (editorInstance = latestEditorRef.current) => {
+      if (pendingSerializeTimerRef.current) {
+        clearTimeout(pendingSerializeTimerRef.current);
+        pendingSerializeTimerRef.current = null;
+      }
+      if (!editorInstance || !onChange) return;
+      onChange(serializeMarkdown(editorInstance));
+    },
+    [onChange, serializeMarkdown]
+  );
 
   const editor = useEditor({
     extensions: [
@@ -207,19 +241,29 @@ export function Editor({
       },
     },
     onUpdate({ editor }) {
+      latestEditorRef.current = editor;
+      updateStartedAtRef.current = performance.now();
       const { selection } = editor.state;
       const currentBlock =
         selection.$from.parent.type.name === "paragraph" ? selection.$from : null;
-      const ancestorNodeNames = [];
+      const ancestorNodeNames: string[] = [];
       for (let depth = selection.$from.depth; depth >= 0; depth--) {
         ancestorNodeNames.push(selection.$from.node(depth).type.name);
       }
 
-      const typingNormalization = getTaskListTypingNormalization(
-        editor.getJSON(),
-        currentBlock?.parent.toJSON(),
-        selection.from,
-        ancestorNodeNames
+      const typingNormalization = measureSync(
+        "editor.taskListNormalization",
+        () =>
+          getTaskListTypingNormalization(
+            editor.getJSON(),
+            currentBlock?.parent.toJSON(),
+            selection.from,
+            ancestorNodeNames
+          ),
+        {
+          selectionDepth: selection.$from.depth,
+          docSize: editor.state.doc.content.size,
+        }
       );
 
       if (typingNormalization) {
@@ -227,27 +271,67 @@ export function Editor({
         editor.commands.setTextSelection(typingNormalization.targetPos);
       }
 
-      // biome-ignore lint/suspicious/noExplicitAny: tiptap-markdown storage has no public type
-      const markdown = (editor.storage as any).markdown.getMarkdown() as string;
-      onChange?.(markdown);
+      onDirty?.();
+      if (onChange) {
+        if (pendingSerializeTimerRef.current) clearTimeout(pendingSerializeTimerRef.current);
+        pendingSerializeTimerRef.current = setTimeout(() => {
+          pendingSerializeTimerRef.current = null;
+          onChange(serializeMarkdown(editor));
+        }, MARKDOWN_SERIALIZE_DELAY_MS);
+      }
 
       if (onWordCount) {
-        const text = editor.getText();
+        const text = measureSync("editor.wordCountText", () => editor.getText(), {
+          docSize: editor.state.doc.content.size,
+        });
         onWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+      }
+
+      if (isPerfLoggingEnabled()) {
+        logPerf("editor.commit", performance.now() - updateStartedAtRef.current, {
+          docSize: editor.state.doc.content.size,
+          selectionDepth: selection.$from.depth,
+          normalized: typingNormalization ? 1 : 0,
+        });
       }
     },
     onSelectionUpdate({ editor: ed }) {
       if (!typewriterRef.current || !scrollRef.current) return;
-      const { from } = ed.view.state.selection;
-      const coords = ed.view.coordsAtPos(from);
-      if (coords.top === 0 && coords.bottom === 0) return;
-      const scrollEl = scrollRef.current;
-      const rect = scrollEl.getBoundingClientRect();
-      const cursorRelTop = coords.top - rect.top;
-      const target = scrollEl.scrollTop + cursorRelTop - rect.height / 2;
-      scrollEl.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+      measureSync(
+        "editor.typewriterScroll",
+        () => {
+          const { from } = ed.view.state.selection;
+          const coords = ed.view.coordsAtPos(from);
+          if (coords.top === 0 && coords.bottom === 0) return;
+          const scrollEl = scrollRef.current;
+          if (!scrollEl) return;
+          const rect = scrollEl.getBoundingClientRect();
+          const cursorRelTop = coords.top - rect.top;
+          const target = scrollEl.scrollTop + cursorRelTop - rect.height / 2;
+          scrollEl.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+        },
+        {
+          docSize: ed.state.doc.content.size,
+        }
+      );
     },
   });
+
+  useEffect(() => {
+    latestEditorRef.current = editor;
+  }, [editor]);
+
+  useEffect(() => {
+    if (!registerPendingFlush) return;
+    registerPendingFlush(() => flushPendingSerialization());
+    return () => registerPendingFlush(null);
+  }, [flushPendingSerialization, registerPendingFlush]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingSerialization();
+    };
+  }, [flushPendingSerialization]);
 
   // Update spellcheck live — set directly on the DOM to avoid replacing editorProps
   useEffect(() => {

@@ -57,6 +57,12 @@ export function getPerfEvents(): PerfEvent[] {
   return [...perfEvents];
 }
 
+export function clearPerfEvents(): void {
+  if (perfEvents.length === 0) return;
+  perfEvents = [];
+  notifyPerfListeners();
+}
+
 export function subscribePerfEvents(listener: () => void): () => void {
   perfListeners.add(listener);
   return () => {

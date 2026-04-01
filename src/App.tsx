@@ -106,7 +106,9 @@ function App() {
     handleCloseFile,
     handleSelectFile,
     handleEditorChange,
+    handleEditorDirty,
     handleFieldChange,
+    registerEditorFlush,
   } = useFileEditor({ showToast });
 
   const {
@@ -678,8 +680,10 @@ function App() {
                   typewriterMode={typewriterMode}
                   spellCheck={prefs.spellCheck}
                   onWordCount={setWordCount}
+                  onDirty={handleEditorDirty}
                   onChange={handleEditorChange}
                   onError={showToast}
+                  registerPendingFlush={registerEditorFlush}
                 />
               </Suspense>
             </ErrorBoundary>
