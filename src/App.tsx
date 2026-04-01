@@ -1,7 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Editor } from "./components/Editor";
 import { EmptyState } from "./components/EmptyState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PropertiesPanel } from "./components/PropertiesPanel";
@@ -30,6 +29,11 @@ type ModalState = { type: "new-file"; dirPath: string; contentType?: string } | 
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
 const AUTO_REOPEN_KEY = "ovid:skipAutoReopen";
+
+const loadEditor = async () => import("./components/Editor");
+const Editor = lazy(async () => ({
+  default: (await loadEditor()).Editor,
+}));
 
 const SearchPanel = lazy(async () => ({
   default: (await import("./components/SearchPanel")).SearchPanel,
@@ -217,6 +221,14 @@ function App() {
   useEffect(() => {
     if (workspaceRoot) resetRecent(workspaceRoot);
   }, [workspaceRoot, resetRecent]);
+
+  useEffect(() => {
+    if (!workspaceRootPath && !selectedFile) return;
+    const timer = window.setTimeout(() => {
+      void loadEditor();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [workspaceRootPath, selectedFile]);
 
   // Track recently opened workspaces
   useEffect(() => {
@@ -656,18 +668,20 @@ function App() {
           )}
           {selectedFile ? (
             <ErrorBoundary key={selectedFile.path}>
-              <Editor
-                key={selectedFile.path}
-                content={fileContent}
-                filePath={selectedFile.path}
-                assetRoot={assetRoot}
-                cdnBase={cdnBase}
-                typewriterMode={typewriterMode}
-                spellCheck={prefs.spellCheck}
-                onWordCount={setWordCount}
-                onChange={handleEditorChange}
-                onError={showToast}
-              />
+              <Suspense fallback={<div className="editor-loading">Loading editor…</div>}>
+                <Editor
+                  key={selectedFile.path}
+                  content={fileContent}
+                  filePath={selectedFile.path}
+                  assetRoot={assetRoot}
+                  cdnBase={cdnBase}
+                  typewriterMode={typewriterMode}
+                  spellCheck={prefs.spellCheck}
+                  onWordCount={setWordCount}
+                  onChange={handleEditorChange}
+                  onError={showToast}
+                />
+              </Suspense>
             </ErrorBoundary>
           ) : (
             <EmptyState
