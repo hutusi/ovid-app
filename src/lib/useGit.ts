@@ -25,8 +25,23 @@ export function useGit(workspaceRoot: string | null) {
     upstream: null,
     aheadBehind: null,
   });
+  const currentWorkspaceRootRef = useRef(workspaceRoot);
+  const refreshGenerationRef = useRef(0);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const refreshQueuedRef = useRef(false);
+
+  const resetGitState = useCallback(() => {
+    setGitStatusMap(new Map());
+    setIsGitRepo(false);
+    setCurrentBranch("");
+    setRemoteInfo({
+      remotes: [],
+      remoteName: null,
+      remoteUrl: null,
+      upstream: null,
+      aheadBehind: null,
+    });
+  }, []);
 
   const refreshGitStatus = useCallback(async () => {
     if (refreshInFlightRef.current) {
@@ -34,24 +49,21 @@ export function useGit(workspaceRoot: string | null) {
       return refreshInFlightRef.current;
     }
 
+    const refreshGeneration = refreshGenerationRef.current;
+    const refreshWorkspaceRoot = currentWorkspaceRootRef.current;
+
     const runRefresh = async () => {
-      if (!workspaceRoot) {
-        setGitStatusMap(new Map());
-        setIsGitRepo(false);
-        setCurrentBranch("");
-        setRemoteInfo({
-          remotes: [],
-          remoteName: null,
-          remoteUrl: null,
-          upstream: null,
-          aheadBehind: null,
-        });
+      if (!refreshWorkspaceRoot) {
+        if (refreshGeneration === refreshGenerationRef.current) {
+          resetGitState();
+        }
         return;
       }
       try {
         await measureAsync("git.refreshStatus", async () => {
           // get_git_branch returns "" for non-git workspaces (graceful degradation)
           const branch = await invoke<string>("get_git_branch");
+          if (refreshGeneration !== refreshGenerationRef.current) return;
           const inRepo = branch.length > 0;
           setIsGitRepo(inRepo);
           setCurrentBranch(branch);
@@ -60,30 +72,17 @@ export function useGit(workspaceRoot: string | null) {
               invoke<GitFileStatus[]>("get_git_status"),
               invoke<GitRemoteInfo>("get_git_remote_info"),
             ]);
+            if (refreshGeneration !== refreshGenerationRef.current) return;
             setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
             setRemoteInfo(remote);
           } else {
-            setGitStatusMap(new Map());
-            setRemoteInfo({
-              remotes: [],
-              remoteName: null,
-              remoteUrl: null,
-              upstream: null,
-              aheadBehind: null,
-            });
+            resetGitState();
           }
         });
       } catch {
-        setIsGitRepo(false);
-        setGitStatusMap(new Map());
-        setCurrentBranch("");
-        setRemoteInfo({
-          remotes: [],
-          remoteName: null,
-          remoteUrl: null,
-          upstream: null,
-          aheadBehind: null,
-        });
+        if (refreshGeneration === refreshGenerationRef.current) {
+          resetGitState();
+        }
       }
     };
 
@@ -96,11 +95,13 @@ export function useGit(workspaceRoot: string | null) {
     });
     refreshInFlightRef.current = refreshPromise;
     return refreshPromise;
-  }, [workspaceRoot]);
+  }, [resetGitState]);
 
   useEffect(() => {
+    currentWorkspaceRootRef.current = workspaceRoot;
+    refreshGenerationRef.current += 1;
     void refreshGitStatus();
-  }, [refreshGitStatus]);
+  }, [workspaceRoot, refreshGitStatus]);
 
   async function getCommitChanges(): Promise<GitCommitChange[]> {
     return invoke<GitCommitChange[]>("get_git_commit_changes");
