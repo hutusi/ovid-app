@@ -92,8 +92,10 @@ export function PerfPanel() {
                 )}
                 {(event.maxDetail || event.latestDetail) && (
                   <div className="perf-panel-detail">
-                    peak={formatDetail(event.maxDetail, false)}
-                    {event.latestDetail ? ` latest=${formatDetail(event.latestDetail, false)}` : ""}
+                    {event.maxDetail ? `peak=${formatDetail(event.maxDetail, false)}` : ""}
+                    {event.latestDetail
+                      ? `${event.maxDetail ? " " : ""}latest=${formatDetail(event.latestDetail, false)}`
+                      : ""}
                   </div>
                 )}
               </div>
