@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { measureAsync } from "./perf";
 import type {
   GitBranch,
   GitCommitChange,
@@ -24,36 +25,58 @@ export function useGit(workspaceRoot: string | null) {
     upstream: null,
     aheadBehind: null,
   });
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
 
   const refreshGitStatus = useCallback(async () => {
-    if (!workspaceRoot) {
-      setGitStatusMap(new Map());
-      setIsGitRepo(false);
-      setCurrentBranch("");
-      setRemoteInfo({
-        remotes: [],
-        remoteName: null,
-        remoteUrl: null,
-        upstream: null,
-        aheadBehind: null,
-      });
-      return;
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return refreshInFlightRef.current;
     }
-    try {
-      // get_git_branch returns "" for non-git workspaces (graceful degradation)
-      const branch = await invoke<string>("get_git_branch");
-      const inRepo = branch.length > 0;
-      setIsGitRepo(inRepo);
-      setCurrentBranch(branch);
-      if (inRepo) {
-        const [statuses, remote] = await Promise.all([
-          invoke<GitFileStatus[]>("get_git_status"),
-          invoke<GitRemoteInfo>("get_git_remote_info"),
-        ]);
-        setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
-        setRemoteInfo(remote);
-      } else {
+
+    const runRefresh = async () => {
+      if (!workspaceRoot) {
         setGitStatusMap(new Map());
+        setIsGitRepo(false);
+        setCurrentBranch("");
+        setRemoteInfo({
+          remotes: [],
+          remoteName: null,
+          remoteUrl: null,
+          upstream: null,
+          aheadBehind: null,
+        });
+        return;
+      }
+      try {
+        await measureAsync("git.refreshStatus", async () => {
+          // get_git_branch returns "" for non-git workspaces (graceful degradation)
+          const branch = await invoke<string>("get_git_branch");
+          const inRepo = branch.length > 0;
+          setIsGitRepo(inRepo);
+          setCurrentBranch(branch);
+          if (inRepo) {
+            const [statuses, remote] = await Promise.all([
+              invoke<GitFileStatus[]>("get_git_status"),
+              invoke<GitRemoteInfo>("get_git_remote_info"),
+            ]);
+            setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
+            setRemoteInfo(remote);
+          } else {
+            setGitStatusMap(new Map());
+            setRemoteInfo({
+              remotes: [],
+              remoteName: null,
+              remoteUrl: null,
+              upstream: null,
+              aheadBehind: null,
+            });
+          }
+        });
+      } catch {
+        setIsGitRepo(false);
+        setGitStatusMap(new Map());
+        setCurrentBranch("");
         setRemoteInfo({
           remotes: [],
           remoteName: null,
@@ -62,18 +85,17 @@ export function useGit(workspaceRoot: string | null) {
           aheadBehind: null,
         });
       }
-    } catch {
-      setIsGitRepo(false);
-      setGitStatusMap(new Map());
-      setCurrentBranch("");
-      setRemoteInfo({
-        remotes: [],
-        remoteName: null,
-        remoteUrl: null,
-        upstream: null,
-        aheadBehind: null,
-      });
-    }
+    };
+
+    const refreshPromise = runRefresh().finally(() => {
+      refreshInFlightRef.current = null;
+      if (refreshQueuedRef.current) {
+        refreshQueuedRef.current = false;
+        void refreshGitStatus();
+      }
+    });
+    refreshInFlightRef.current = refreshPromise;
+    return refreshPromise;
   }, [workspaceRoot]);
 
   useEffect(() => {
