@@ -22,16 +22,16 @@ export function PerfPanel() {
   }));
   const [showRecent, setShowRecent] = useState(false);
 
-  useEffect(
-    () =>
-      subscribePerfEvents(() =>
-        setPerfState({
-          events: getPerfEvents(),
-          summaries: getPerfSummaries(),
-        })
-      ),
-    []
-  );
+  useEffect(() => {
+    const syncPerfState = () =>
+      setPerfState({
+        events: getPerfEvents(),
+        summaries: getPerfSummaries(),
+      });
+    const unsubscribe = subscribePerfEvents(syncPerfState);
+    syncPerfState();
+    return unsubscribe;
+  }, []);
 
   const { events, summaries } = perfState;
   if (!isPerfLoggingEnabled() || (events.length === 0 && summaries.length === 0)) return null;
