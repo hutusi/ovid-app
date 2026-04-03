@@ -8,6 +8,7 @@ export interface FlatFile {
 }
 
 const PATH_SEGMENT_SEPARATOR_RE = /[\\/._\-\s]+/;
+const NO_RECENT_RANK = Number.MAX_SAFE_INTEGER;
 
 export function flattenTree(nodes: FileNode[], prefix = ""): FlatFile[] {
   const result: FlatFile[] = [];
@@ -52,4 +53,23 @@ export function score(file: FlatFile, query: string): number {
   if (pathIndex >= 0) return 300 - Math.min(pathIndex, 250);
 
   return 0;
+}
+
+export function compareFiles(
+  a: FlatFile,
+  b: FlatFile,
+  query: string,
+  recentRankByPath: ReadonlyMap<string, number> = new Map()
+): number {
+  const scoreDiff = score(b, query) - score(a, query);
+  if (scoreDiff !== 0) return scoreDiff;
+
+  const recentRankA = recentRankByPath.get(a.node.path) ?? NO_RECENT_RANK;
+  const recentRankB = recentRankByPath.get(b.node.path) ?? NO_RECENT_RANK;
+  if (recentRankA !== recentRankB) return recentRankA - recentRankB;
+
+  const pathLengthDiff = a.relativePath.length - b.relativePath.length;
+  if (pathLengthDiff !== 0) return pathLengthDiff;
+
+  return a.relativePath.localeCompare(b.relativePath);
 }

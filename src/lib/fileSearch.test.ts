@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { FlatFile } from "./fileSearch";
-import { flattenTree, score } from "./fileSearch";
+import { compareFiles, flattenTree, score } from "./fileSearch";
 import type { FileNode } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -194,5 +194,27 @@ describe("score", () => {
     const basenameExact = makeFlat("Untitled", "hello.md");
     const titlePrefix = makeFlat("hello world", "notes.md");
     expect(score(basenameExact, "hello")).toBeGreaterThan(score(titlePrefix, "hello"));
+  });
+});
+
+describe("compareFiles", () => {
+  it("uses recent-file order as a tie-breaker for typed matches", () => {
+    const recent = makeFlat("meeting notes", "notes/meeting.md");
+    const older = makeFlat("meeting notes", "archive/meeting.md");
+    const recentRankByPath = new Map([
+      [recent.node.path, 0],
+      [older.node.path, 3],
+    ]);
+
+    const sorted = [older, recent].sort((a, b) => compareFiles(a, b, "meeting", recentRankByPath));
+    expect(sorted[0]).toBe(recent);
+  });
+
+  it("prefers shorter paths when score and recency are tied", () => {
+    const shortPath = makeFlat("release notes", "release.md");
+    const longPath = makeFlat("release notes", "archive/2024/release.md");
+
+    const sorted = [longPath, shortPath].sort((a, b) => compareFiles(a, b, "release"));
+    expect(sorted[0]).toBe(shortPath);
   });
 });
