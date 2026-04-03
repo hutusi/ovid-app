@@ -79,7 +79,11 @@ export function useGit(workspaceRoot: string | null) {
             resetGitState();
           }
         });
-      } catch {
+      } catch (err) {
+        console.warn("[useGit] refreshGitStatus failed", {
+          err,
+          refreshGeneration,
+        });
         if (refreshGeneration === refreshGenerationRef.current) {
           resetGitState();
         }
