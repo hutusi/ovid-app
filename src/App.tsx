@@ -11,6 +11,7 @@ import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch"
 import { getGitBranchTitle } from "./lib/gitUi";
 import { resolveImageSrc } from "./lib/imageUtils";
 import { isPerfLoggingEnabled } from "./lib/perf";
+import type { FileNode } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
 import { useFileEditor } from "./lib/useFileEditor";
@@ -70,6 +71,17 @@ const GitSyncPopover = lazy(async () => ({
 const PerfPanel = lazy(async () => ({
   default: (await import("./components/PerfPanel")).PerfPanel,
 }));
+
+function makeFileNodeFromPath(path: string): FileNode {
+  const name = path.split("/").pop() ?? path;
+  const extension = name.endsWith(".mdx") ? ".mdx" : name.endsWith(".md") ? ".md" : undefined;
+  return {
+    name,
+    path,
+    isDirectory: false,
+    extension,
+  };
+}
 
 function App() {
   const { resolvedTheme, setPreference } = useTheme();
@@ -132,6 +144,7 @@ function App() {
     handleNewTodayFlow,
     handleRename,
     handleDelete,
+    loadDirectoryChildren,
   } = useWorkspace({
     showToast,
     flushPendingSave,
@@ -275,7 +288,7 @@ function App() {
   useEffect(() => {
     const path = pendingAutoOpenPath.current;
     if (!path || tree.length === 0 || selectedFile) return;
-    const node = findNodeByPath(tree, path);
+    const node = findNodeByPath(tree, path) ?? makeFileNodeFromPath(path);
     pendingAutoOpenPath.current = null;
     if (!node || node.isDirectory) return;
     void handleSelectFile(node);
@@ -647,11 +660,12 @@ function App() {
   }
 
   function handleOpenByPath(path: string) {
-    const node = tree
-      .flatMap(function flatten(n): typeof tree {
-        return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
-      })
-      .find((n) => n.path === path);
+    const node =
+      tree
+        .flatMap(function flatten(n): typeof tree {
+          return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
+        })
+        .find((n) => n.path === path) ?? makeFileNodeFromPath(path);
     if (node) {
       void handleSelectFile(node);
       pushRecent(node);
@@ -684,6 +698,7 @@ function App() {
             onOpenWorkspace={handleOpenWorkspace}
             onOpenSwitcher={() => setWorkspaceSwitcherOpen(true)}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
+            onLoadDirectoryChildren={(dirPath) => void loadDirectoryChildren(dirPath)}
             onRename={handleRename}
             onDelete={handleDelete}
             onStartRename={setRenamingPath}

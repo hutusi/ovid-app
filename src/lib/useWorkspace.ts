@@ -31,6 +31,27 @@ interface UseWorkspaceOptions {
   resetFileState: () => void;
 }
 
+function mergeDirectoryChildren(
+  nodes: FileNode[],
+  dirPath: string,
+  children: FileNode[]
+): FileNode[] {
+  return nodes.map((node) => {
+    if (node.path === dirPath && node.isDirectory) {
+      return {
+        ...node,
+        children,
+        childrenLoaded: true,
+      };
+    }
+    if (!node.children) return node;
+    return {
+      ...node,
+      children: mergeDirectoryChildren(node.children, dirPath, children),
+    };
+  });
+}
+
 function findNode(nodes: FileNode[], path: string): FileNode | undefined {
   for (const n of nodes) {
     if (n.path === path) return n;
@@ -69,6 +90,19 @@ export function useWorkspace({
       return updated;
     } catch (err) {
       console.error("Failed to refresh tree:", err);
+      return [];
+    }
+  }, []);
+
+  const loadDirectoryChildren = useCallback(async (dirPath: string): Promise<FileNode[]> => {
+    try {
+      const children = await measureAsync("list_workspace_children.invoke", () =>
+        invoke<FileNode[]>("list_workspace_children", { path: dirPath })
+      );
+      setTree((current) => mergeDirectoryChildren(current, dirPath, children));
+      return children;
+    } catch (err) {
+      console.error("Failed to load directory children:", err);
       return [];
     }
   }, []);
@@ -223,5 +257,6 @@ export function useWorkspace({
     handleNewTodayFlow,
     handleRename,
     handleDelete,
+    loadDirectoryChildren,
   };
 }
