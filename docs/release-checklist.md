@@ -38,6 +38,26 @@ The first release should stay narrow:
 - Include at least one screenshot or short recording showing the editor, sidebar, and
   properties panel.
 
+## Platform Packaging Notes
+
+### macOS
+
+- `bun run tauri build` successfully produces the `.app` bundle on macOS.
+- If Tauri's DMG wrapper fails, a plain DMG built from the generated `.app` is an acceptable
+  first-release fallback.
+- Verify the mounted DMG shows `Ovid.app` and an `Applications` shortcut before publishing.
+
+### Windows
+
+- Build the installer on a Windows machine with Bun and Rust installed.
+- Run `bun run tauri build` and confirm the `.msi` appears under the Tauri bundle output.
+- Smoke-test installer flows:
+  - install
+  - first launch
+  - upgrade over an existing install
+  - uninstall
+- Verify app icon, product name, version, and install location behavior in the installer UI.
+
 ## Documentation
 
 - Ensure `README.md` describes the shipped scope and supported workflows accurately.
