@@ -1,0 +1,82 @@
+name: Updater Metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 0.9.1"
+        required: true
+        type: string
+      pub_date:
+        description: "RFC 3339 publish date"
+        required: true
+        type: string
+      notes:
+        description: "Short release notes for latest.json"
+        required: true
+        type: string
+      windows_url:
+        description: "Windows updater artifact URL"
+        required: true
+        type: string
+      windows_signature:
+        description: "Windows updater artifact signature content"
+        required: true
+        type: string
+      darwin_aarch64_url:
+        description: "macOS arm64 updater artifact URL"
+        required: true
+        type: string
+      darwin_aarch64_signature:
+        description: "macOS arm64 updater artifact signature content"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: updater-metadata
+  cancel-in-progress: true
+
+jobs:
+  publish-latest-json:
+    name: Publish latest.json
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Write release notes
+        run: |
+          mkdir -p updater-dist
+          cat > updater-dist/notes.txt <<'EOF'
+          ${{ inputs.notes }}
+          EOF
+
+      - name: Generate latest.json
+        run: |
+          node scripts/generate-updater-json.mjs \
+            --version "${{ inputs.version }}" \
+            --pub-date "${{ inputs.pub_date }}" \
+            --notes-file updater-dist/notes.txt \
+            --platform "windows-x86_64=${{ inputs.windows_url }}::${{ inputs.windows_signature }}" \
+            --platform "darwin-aarch64=${{ inputs.darwin_aarch64_url }}::${{ inputs.darwin_aarch64_signature }}" \
+            --output updater-dist/latest.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: updater-dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

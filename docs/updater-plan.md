@@ -215,6 +215,8 @@ Use a split hosting model:
 - CI publishes a stable metadata file such as:
   - `https://hutusi.github.io/ovid/latest.json`
 - that metadata points to GitHub Release asset URLs for the current version
+- the repo can generate this file with [scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
+  and publish it with [.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
 
 ### Avoid
 
