@@ -218,6 +218,56 @@ Use a split hosting model:
 - the repo can generate this file with [scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
   and publish it with [.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
 
+### Metadata Contract
+
+The current scaffold expects a static JSON payload shaped like:
+
+```json
+{
+  "version": "0.9.1",
+  "notes": "Release notes text",
+  "pub_date": "2026-04-15T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "WINDOWS_SIGNATURE",
+      "url": "https://github.com/hutusi/ovid/releases/download/v0.9.1/..."
+    },
+    "darwin-aarch64": {
+      "signature": "MAC_SIGNATURE",
+      "url": "https://github.com/hutusi/ovid/releases/download/v0.9.1/..."
+    }
+  }
+}
+```
+
+For Ovid, that means the release pipeline must eventually produce, for each supported
+platform:
+
+- an updater-compatible downloadable artifact URL
+- the corresponding signature content
+- a version string
+- a publish timestamp
+- a short notes payload
+
+### Workflow Contract
+
+The current metadata publishing workflow is intentionally manual first. It expects:
+
+- `version`
+- `pub_date`
+- `notes`
+- `windows_url`
+- `windows_signature`
+- `darwin_aarch64_url`
+- `darwin_aarch64_signature`
+
+That contract is deliberate:
+
+- today, Ovid does not yet generate updater artifacts automatically
+- later, the release workflow can supply these values directly once updater bundling is enabled
+- until then, the metadata workflow remains a safe standalone building block instead of pretending
+  the full updater pipeline already exists
+
 ### Avoid
 
 - manually editing and committing `latest.json` for every release
