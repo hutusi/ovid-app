@@ -51,6 +51,8 @@ The first release should stay narrow:
 
 - Build the installer on a Windows machine with Bun and Rust installed.
 - Run `bun run tauri build` and confirm the `.msi` appears under the Tauri bundle output.
+- The repo also provides a GitHub Actions workflow at `.github/workflows/windows-release.yml`
+  for manual or tag-triggered MSI builds on `windows-latest`.
 - Smoke-test installer flows:
   - install
   - first launch
