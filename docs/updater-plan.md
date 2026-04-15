@@ -287,6 +287,16 @@ The current metadata publishing workflow is intentionally manual first. It expec
 - `darwin_aarch64_url`
 - `darwin_aarch64_signature`
 
+Those inputs map to the emitted `latest.json` payload like this:
+
+- `version` -> `version`
+- `pub_date` -> `pub_date`
+- `notes` -> `notes`
+- `windows_url` -> `platforms["windows-x86_64"].url`
+- `windows_signature` -> `platforms["windows-x86_64"].signature`
+- `darwin_aarch64_url` -> `platforms["darwin-aarch64"].url`
+- `darwin_aarch64_signature` -> `platforms["darwin-aarch64"].signature`
+
 That contract is deliberate:
 
 - today, Ovid does not yet generate updater artifacts automatically
