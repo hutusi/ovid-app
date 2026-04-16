@@ -6,7 +6,7 @@ This document defines the first implementation slice for Ovid application update
 The goal is to make updates trustworthy before they become automatic.
 
 For the concrete release operator steps, use
-[docs/updater-release-runbook.md](/Users/hutusi/workspace/ai/naive/ovid-codex/docs/updater-release-runbook.md).
+[docs/updater-release-runbook.md](./updater-release-runbook.md).
 
 ## Current State
 

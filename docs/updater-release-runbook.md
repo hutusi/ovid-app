@@ -35,7 +35,7 @@ Do not commit the private key into the repo and do not upload it as a workflow a
 ### 3. Commit the public key in Tauri config
 
 The updater public key and endpoint live in
-[src-tauri/tauri.conf.json](/Users/hutusi/workspace/ai/naive/ovid-codex/src-tauri/tauri.conf.json).
+[src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json).
 
 Before the first updater-capable release, verify:
 
@@ -71,7 +71,7 @@ bun run validate
 ### 2. Create and push the version tag
 
 Create the release tag in the `vX.Y.Z` format expected by
-[.github/workflows/release-bundles.yml](/Users/hutusi/workspace/ai/naive/ovid-codex/.github/workflows/release-bundles.yml).
+[.github/workflows/release-bundles.yml](../.github/workflows/release-bundles.yml).
 
 Example:
 
@@ -107,7 +107,7 @@ Do not guess these values. Copy them from the real release outputs.
 ### 4. Publish `latest.json`
 
 Run the manual
-[.github/workflows/updater-metadata.yml](/Users/hutusi/workspace/ai/naive/ovid-codex/.github/workflows/updater-metadata.yml)
+[.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
 workflow in GitHub Actions.
 
 Provide these inputs:
@@ -131,7 +131,7 @@ Input mapping:
 - `darwin_aarch64_signature` -> `latest.json.platforms["darwin-aarch64"].signature`
 
 The workflow generates `latest.json` with
-[scripts/generate-updater-json.mjs](/Users/hutusi/workspace/ai/naive/ovid-codex/scripts/generate-updater-json.mjs)
+[scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
 and deploys it to GitHub Pages.
 
 ### 5. Verify the published metadata
@@ -184,5 +184,5 @@ Likely causes:
 
 ## Related Docs
 
-- [docs/updater-plan.md](/Users/hutusi/workspace/ai/naive/ovid-codex/docs/updater-plan.md)
-- [docs/release-checklist.md](/Users/hutusi/workspace/ai/naive/ovid-codex/docs/release-checklist.md)
+- [docs/updater-plan.md](./updater-plan.md)
+- [docs/release-checklist.md](./release-checklist.md)
