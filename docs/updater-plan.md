@@ -5,6 +5,9 @@ This document defines the first implementation slice for Ovid application update
 
 The goal is to make updates trustworthy before they become automatic.
 
+For the concrete release operator steps, use
+[docs/updater-release-runbook.md](/Users/hutusi/workspace/ai/naive/ovid-codex/docs/updater-release-runbook.md).
+
 ## Current State
 
 As of `0.9.0`, Ovid has:
@@ -17,26 +20,29 @@ As of `0.9.0`, Ovid has:
 
 Ovid does **not** yet have:
 
-- the Tauri updater plugin configured
 - updater signing keys in place
-- updater metadata generation or hosting
 - an in-app update check or install flow
 
 ## Ovid Repo Audit
 
 Verified in the current repo:
 
-- [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) has no updater plugin configuration
-- [package.json](../package.json) has no `@tauri-apps/plugin-updater` dependency
-- [src-tauri/Cargo.toml](../src-tauri/Cargo.toml) has no `tauri-plugin-updater` dependency
-- [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) currently initializes `opener` and `dialog` plugins only
-- [src-tauri/capabilities/default.json](../src-tauri/capabilities/default.json) has no updater-related permission entry
+- [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) already contains the updater
+  endpoint, public key, and Windows install mode scaffold
+- [package.json](../package.json) already includes `@tauri-apps/plugin-updater`
+- [src-tauri/Cargo.toml](../src-tauri/Cargo.toml) already includes `tauri-plugin-updater`
+- [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) already initializes the updater plugin
+- [src-tauri/capabilities/default.json](../src-tauri/capabilities/default.json) already grants
+  the `updater:default` permission
 - [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) already has a native `Help` menu, which is the right future home for `Check for Updates`
 - [.github/workflows/release-bundles.yml](../.github/workflows/release-bundles.yml) builds predictable macOS and Windows release assets on tag pushes, which is the right base for later updater artifact generation
+- [.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml) can publish
+  a stable `latest.json` file to GitHub Pages
 - [.github/workflows/windows-release.yml](../.github/workflows/windows-release.yml) still exists as a narrower Windows-only fallback path and should remain secondary to the cross-platform release workflow for now
 
-This means Ovid is not one config flag away from updater support. The release pipeline,
-desktop permissions, Rust plugin setup, and frontend surface all still need explicit work.
+This means Ovid now has the updater release scaffolding in place, but it still needs real
+signing secrets, release operations, and app-side update UI before end users can update from
+inside Ovid.
 
 ## Product Decision
 
