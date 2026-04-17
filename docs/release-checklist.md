@@ -64,6 +64,8 @@ The first release should stay narrow:
 
 - Ensure `README.md` describes the shipped scope and supported workflows accurately.
 - Link `docs/git-workflow.md` from the release notes for users who want Git details.
+- Use `docs/updater-plan.md` when preparing updater-compatible releases after `0.9.0`.
+- Use `docs/updater-release-runbook.md` for the step-by-step updater release procedure.
 - Add a short "Known limits" section to the release notes instead of overpromising roadmap work.
 
 ## First Release Notes Outline

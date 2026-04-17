@@ -44,5 +44,14 @@
         "upgradeCode": "560a52eb-70f5-589f-b4a4-17c060721c9c"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://hutusi.github.io/ovid/latest.json"],
+      "pubkey": "untrusted comment: minisign public key: 4FCB51D80D3B4459\nRWRZRDsN2FHLT35RG6Wviu216UmvtLBnfDvILFqovlzVL6CTSKR9G70B",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
