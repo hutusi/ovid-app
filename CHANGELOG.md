@@ -17,6 +17,10 @@ release cadence and Conventional Commit history.
 - An initial in-app manual update flow under `Help -> Check for Updates…`, including update
   status, download/install progress, and restart-to-finish behavior.
 
+### Fixed
+- Corrected the updater public key configuration format so updater-compatible release builds use
+  the base64-encoded minisign public key expected by Tauri.
+
 ## 0.9.0 - 2026-04-13
 
 ### Added

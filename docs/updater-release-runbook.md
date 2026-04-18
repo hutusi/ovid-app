@@ -41,6 +41,8 @@ Before the first updater-capable release, verify:
 
 - `plugins.updater.endpoints` points at `https://hutusi.github.io/ovid/latest.json`
 - `plugins.updater.pubkey` matches the public key generated from your persistent keypair
+- `plugins.updater.pubkey` stores the base64-encoded content of the `.pub` file, not the raw
+  multi-line minisign text
 
 ### 4. Enable GitHub Pages
 
@@ -76,8 +78,8 @@ Create the release tag in the `vX.Y.Z` format expected by
 Example:
 
 ```bash
-git tag v0.9.1
-git push origin v0.9.1
+git tag v0.9.2
+git push origin v0.9.2
 ```
 
 That workflow will:
@@ -172,6 +174,8 @@ Likely causes:
 
 - the public key in `src-tauri/tauri.conf.json` does not match the signing private key used in
   CI
+- the public key was committed in raw minisign text form instead of the base64-encoded `.pub`
+  content that Tauri expects
 - the metadata points at the wrong asset URL
 - the metadata contains the wrong signature for one platform
 
