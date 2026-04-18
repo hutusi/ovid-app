@@ -149,7 +149,7 @@ Input mapping:
 
 ### 5. Verify the published metadata
 
-After the metadata workflow completes, verify:
+After metadata publishing completes, whether from the release workflow or the manual fallback, verify:
 
 - `https://hutusi.github.io/ovid/latest.json` is reachable
 - the JSON version matches the release version
