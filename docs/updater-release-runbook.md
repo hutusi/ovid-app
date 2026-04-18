@@ -108,7 +108,22 @@ Do not guess these values. Copy them from the real release outputs.
 
 ### 4. Publish `latest.json`
 
-Run the manual
+Tag-driven release builds now publish `latest.json` automatically from
+[.github/workflows/release-bundles.yml](../.github/workflows/release-bundles.yml).
+After the macOS and Windows bundle jobs finish, the workflow:
+
+- downloads the real built updater artifacts from the workflow run
+- reads the generated `.sig` files
+- constructs the GitHub release asset URLs from the current tag
+- generates `latest.json` with
+  [scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
+- deploys the metadata to GitHub Pages
+
+This makes the release workflow the canonical updater publishing path.
+
+### Manual fallback
+
+If the Pages deploy needs to be repaired without rebuilding bundles, run the manual
 [.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
 workflow in GitHub Actions.
 
@@ -131,10 +146,6 @@ Input mapping:
 - `windows_signature` -> `latest.json.platforms["windows-x86_64"].signature`
 - `darwin_aarch64_url` -> `latest.json.platforms["darwin-aarch64"].url`
 - `darwin_aarch64_signature` -> `latest.json.platforms["darwin-aarch64"].signature`
-
-The workflow generates `latest.json` with
-[scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
-and deploys it to GitHub Pages.
 
 ### 5. Verify the published metadata
 
