@@ -8,6 +8,8 @@ It assumes:
 - GitHub Releases hosts the versioned release artifacts
 - GitHub Pages hosts the stable updater metadata file at `latest.json`
 - macOS and Windows are the only updater targets in scope for now
+- Windows release assets come from GitHub Actions
+- macOS release assets are currently built locally on a Mac and uploaded manually
 
 ## One-Time Setup
 
@@ -84,17 +86,31 @@ git push origin v0.9.3
 
 That workflow will:
 
-- build the macOS DMG bundle
 - build the Windows MSI bundle
 - enable updater artifact generation if `TAURI_UPDATER_PRIVATE_KEY` is present
-- attach the generated release bundles to the GitHub release
+- attach the generated Windows release bundles to the GitHub release
 
-### 3. Verify the release artifacts
+### 3. Upload and verify the release artifacts
 
-After the workflow completes, verify the GitHub release for the new version contains the
-artifacts you need for updater metadata.
+After the workflow completes, verify the GitHub release for the new version contains the Windows
+artifacts you need for updater metadata:
 
-For each supported platform, identify:
+- `Ovid_<version>_x64_en-US.msi`
+- `Ovid_<version>_x64_en-US.msi.sig`
+
+Then build macOS artifacts locally on your Mac:
+
+```bash
+bun run tauri build --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":true}}'
+```
+
+Upload these files to the existing GitHub release:
+
+- `src-tauri/target/release/bundle/dmg/Ovid_<version>_aarch64.dmg`
+- `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz`
+- `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz.sig`
+
+After both platforms are present on the GitHub release, identify:
 
 - the updater-compatible artifact URL
 - the corresponding signature content
@@ -108,22 +124,7 @@ Do not guess these values. Copy them from the real release outputs.
 
 ### 4. Publish `latest.json`
 
-Tag-driven release builds now publish `latest.json` automatically from
-[.github/workflows/release-bundles.yml](../.github/workflows/release-bundles.yml).
-After the macOS and Windows bundle jobs finish, the workflow:
-
-- downloads the real built updater artifacts from the workflow run
-- reads the generated `.sig` files
-- constructs the GitHub release asset URLs from the current tag
-- generates `latest.json` with
-  [scripts/generate-updater-json.mjs](../scripts/generate-updater-json.mjs)
-- deploys the metadata to GitHub Pages
-
-This makes the release workflow the canonical updater publishing path.
-
-### Manual fallback
-
-If the Pages deploy needs to be repaired without rebuilding bundles, run the manual
+Run the manual
 [.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
 workflow in GitHub Actions.
 
@@ -146,6 +147,12 @@ Input mapping:
 - `windows_signature` -> `latest.json.platforms["windows-x86_64"].signature`
 - `darwin_aarch64_url` -> `latest.json.platforms["darwin-aarch64"].url`
 - `darwin_aarch64_signature` -> `latest.json.platforms["darwin-aarch64"].signature`
+
+Recommended operator sequence:
+
+1. let the tag-triggered Windows CI release complete
+2. upload the macOS DMG, tarball, and tarball signature manually
+3. run the metadata workflow with the final Windows and macOS asset URLs/signatures
 
 ### 5. Verify the published metadata
 
@@ -178,6 +185,15 @@ Likely cause:
 
 - `TAURI_UPDATER_PRIVATE_KEY` or `TAURI_UPDATER_PRIVATE_KEY_PASSWORD` is missing in GitHub
   Actions secrets
+
+### Windows assets are published but macOS assets are missing
+
+Likely causes:
+
+- the macOS build has not been run locally yet
+- the local macOS build artifacts were not uploaded to the GitHub release
+- the local build did not include `createUpdaterArtifacts`, so `Ovid.app.tar.gz.sig` was not
+  generated
 
 ### `latest.json` publishes but updates do not work
 

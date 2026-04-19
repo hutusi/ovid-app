@@ -42,17 +42,24 @@ The first release should stay narrow:
 
 ### macOS
 
-- `bun run tauri build` successfully produces the `.app` bundle on macOS.
-- If Tauri's DMG wrapper fails, a plain DMG built from the generated `.app` is an acceptable
-  first-release fallback.
+- Build the release on your local Mac for now.
+- Run:
+  `bun run tauri build --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":true}}'`
+- Upload these files manually to the GitHub release after the Windows CI run completes:
+  - `src-tauri/target/release/bundle/dmg/Ovid_<version>_aarch64.dmg`
+  - `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz`
+  - `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz.sig`
+- If Tauri's DMG wrapper fails locally, a plain DMG built from the generated `.app` is an
+  acceptable fallback for limited private distribution.
 - Verify the mounted DMG shows `Ovid.app` and an `Applications` shortcut before publishing.
 
 ### Windows
 
-- Build the installer on a Windows machine with Bun and Rust installed.
-- Run `bun run tauri build` and confirm the `.msi` appears under the Tauri bundle output.
-- The repo also provides a GitHub Actions workflow at `.github/workflows/windows-release.yml`
-  for manual or tag-triggered MSI builds on `windows-latest`.
+- The GitHub Actions workflow at `.github/workflows/release-bundles.yml` is the canonical
+  Windows release path.
+- Confirm the CI release run publishes:
+  - `Ovid_<version>_x64_en-US.msi`
+  - `Ovid_<version>_x64_en-US.msi.sig`
 - Smoke-test installer flows:
   - install
   - first launch
@@ -67,6 +74,7 @@ The first release should stay narrow:
 - Use `docs/updater-plan.md` when preparing updater-compatible releases after `0.9.0`.
 - Use `docs/updater-release-runbook.md` for the step-by-step updater release procedure.
 - Add a short "Known limits" section to the release notes instead of overpromising roadmap work.
+- For now, call out that macOS artifacts are built locally and uploaded manually.
 
 ## First Release Notes Outline
 
