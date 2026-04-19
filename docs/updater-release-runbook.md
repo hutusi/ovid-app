@@ -156,7 +156,7 @@ Recommended operator sequence:
 
 ### 5. Verify the published metadata
 
-After metadata publishing completes, whether from the release workflow or the manual fallback, verify:
+After manual metadata publishing completes, verify:
 
 - `https://hutusi.github.io/ovid/latest.json` is reachable
 - the JSON version matches the release version
