@@ -9,7 +9,7 @@ It assumes:
 - GitHub Pages hosts the stable updater metadata file at `latest.json`
 - macOS and Windows are the only updater targets in scope for now
 - Windows release assets come from GitHub Actions
-- macOS release assets are currently built locally on a Mac and uploaded manually
+- macOS release assets are built locally on a Mac and published with one local automation command
 
 ## One-Time Setup
 
@@ -65,6 +65,8 @@ Before tagging the release:
 - update the version in `src-tauri/Cargo.toml`
 - update the version in `src-tauri/tauri.conf.json`
 - update `CHANGELOG.md`
+- for Windows MSI targets, avoid semver labels like `-rc1` or `-beta.1`; use a plain `x.y.z`
+  version or a Windows-compatible numeric prerelease identifier if you intentionally need one
 
 Run the normal release validation:
 
@@ -90,7 +92,7 @@ That workflow will:
 - enable updater artifact generation if `TAURI_UPDATER_PRIVATE_KEY` is present
 - attach the generated Windows release bundles to the GitHub release
 
-### 3. Upload and verify the release artifacts
+### 3. Run the local macOS release automation
 
 After the workflow completes, verify the GitHub release for the new version contains the Windows
 artifacts you need for updater metadata:
@@ -98,72 +100,49 @@ artifacts you need for updater metadata:
 - `Ovid_<version>_x64_en-US.msi`
 - `Ovid_<version>_x64_en-US.msi.sig`
 
-Then build macOS artifacts locally on your Mac:
+Then run the local macOS release command on your Mac:
 
 ```bash
-bun run tauri:build:macos-release
+bun run release:macos-local -- --version <version>
 ```
 
-Upload these files to the existing GitHub release:
+That command will:
 
-- `src-tauri/target/release/bundle/dmg/Ovid_<version>_aarch64.dmg`
-- `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz`
-- `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz.sig`
+- build the macOS DMG and updater tarball locally
+- upload the macOS artifacts to the existing GitHub release
+- download the Windows MSI signature from the release
+- trigger the `Updater Metadata` workflow with the final Windows and macOS values
 
-After both platforms are present on the GitHub release, identify:
+Equivalent explicit example:
 
-- the updater-compatible artifact URL
-- the corresponding signature content
+```bash
+bun run release:macos-local -- --version 0.9.6 --clobber
+```
 
-You will need:
+Prerelease example:
 
-- a Windows URL and signature
-- a macOS arm64 URL and signature
+```bash
+bun run release:macos-local -- --version 0.9.8
+```
 
-Do not guess these values. Copy them from the real release outputs.
+The command expects:
 
-### 4. Publish `latest.json`
+- the matching `v<version>` tag and GitHub release to already exist
+- the Windows CI release job to have completed successfully
+- `gh` to be authenticated locally
 
-Run the manual
-[.github/workflows/updater-metadata.yml](../.github/workflows/updater-metadata.yml)
-workflow in GitHub Actions.
+If Windows assets are missing, the command fails instead of guessing release metadata.
 
-Provide these inputs:
+### 4. Verify the published metadata
 
-- `version`
-- `pub_date`
-- `notes`
-- `windows_url`
-- `windows_signature`
-- `darwin_aarch64_url`
-- `darwin_aarch64_signature`
-
-Input mapping:
-
-- `version` -> `latest.json.version`
-- `pub_date` -> `latest.json.pub_date`
-- `notes` -> `latest.json.notes`
-- `windows_url` -> `latest.json.platforms["windows-x86_64"].url`
-- `windows_signature` -> `latest.json.platforms["windows-x86_64"].signature`
-- `darwin_aarch64_url` -> `latest.json.platforms["darwin-aarch64"].url`
-- `darwin_aarch64_signature` -> `latest.json.platforms["darwin-aarch64"].signature`
-
-Recommended operator sequence:
-
-1. let the tag-triggered Windows CI release complete
-2. upload the macOS DMG, tarball, and tarball signature manually
-3. run the metadata workflow with the final Windows and macOS asset URLs/signatures
-
-### 5. Verify the published metadata
-
-After manual metadata publishing completes, verify:
+After the local automation command completes, verify:
 
 - `https://hutusi.github.io/ovid/latest.json` is reachable
 - the JSON version matches the release version
 - the platform URLs point to the correct GitHub release assets
 - the platform signatures are populated
 
-### 6. Smoke-test update behavior
+### 5. Smoke-test update behavior
 
 Before treating the release as updater-ready, test on real installs:
 
@@ -190,10 +169,17 @@ Likely cause:
 
 Likely causes:
 
-- the macOS build has not been run locally yet
-- the local macOS build artifacts were not uploaded to the GitHub release
-- the local build did not include `createUpdaterArtifacts`, so `Ovid.app.tar.gz.sig` was not
-  generated
+- the local automation command has not been run yet
+- the local macOS build did not include `createUpdaterArtifacts`, so `Ovid.app.tar.gz.sig`
+  was not generated
+- the upload step failed before the release assets were attached
+
+### Windows MSI bundling fails on the app version
+
+Likely cause:
+
+- the app version uses a prerelease label such as `0.9.7-rc1`, but the MSI target only accepts a
+  numeric prerelease identifier and will reject those labels during bundling
 
 ### `latest.json` publishes but updates do not work
 
@@ -205,6 +191,15 @@ Likely causes:
   content that Tauri expects
 - the metadata points at the wrong asset URL
 - the metadata contains the wrong signature for one platform
+
+### The local macOS automation command fails before metadata publish
+
+Likely causes:
+
+- the `v<version>` Git tag or GitHub release does not exist yet
+- the Windows CI release job has not attached the MSI assets yet
+- `gh` is not authenticated locally
+- the release already contains macOS assets and the command needs `--clobber`
 
 ### GitHub Pages deploy succeeds but the URL is stale or missing
 

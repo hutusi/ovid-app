@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "ovid"
-version = "0.9.6"
+version = "0.9.8"
 dependencies = [
  "serde",
  "serde_json",

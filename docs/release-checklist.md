@@ -17,6 +17,9 @@ The first release should stay narrow:
 
 - Confirm the version is correct in `package.json`, `src-tauri/Cargo.toml`, and
   `src-tauri/tauri.conf.json`.
+- If the release will produce a Windows MSI, avoid app versions like `x.y.z-rc1` or
+  `x.y.z-beta.1`; use a plain `x.y.z` version unless you explicitly need a Windows-compatible
+  numeric prerelease identifier.
 - Run `bun run validate` on the release branch.
 - Run `bun run tauri build` on the target release machine.
 - Smoke-test the packaged app with a real Amytis workspace and a large Markdown workspace.
@@ -44,11 +47,9 @@ The first release should stay narrow:
 
 - Build the release on your local Mac for now.
 - Run:
-  `bun run tauri:build:macos-release`
-- Upload these files manually to the GitHub release after the Windows CI run completes:
-  - `src-tauri/target/release/bundle/dmg/Ovid_<version>_aarch64.dmg`
-  - `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz`
-  - `src-tauri/target/release/bundle/macos/Ovid.app.tar.gz.sig`
+  `bun run release:macos-local -- --version <version>`
+- If the release already has older macOS assets attached and you need to replace them, rerun with
+  `--clobber`.
 - If Tauri's DMG wrapper fails locally, a plain DMG built from the generated `.app` is an
   acceptable fallback for limited private distribution.
 - Verify the mounted DMG shows `Ovid.app` and an `Applications` shortcut before publishing.
@@ -74,7 +75,8 @@ The first release should stay narrow:
 - Use `docs/updater-plan.md` when preparing updater-compatible releases after `0.9.0`.
 - Use `docs/updater-release-runbook.md` for the step-by-step updater release procedure.
 - Add a short "Known limits" section to the release notes instead of overpromising roadmap work.
-- For now, call out that macOS artifacts are built locally and uploaded manually.
+- For now, call out that macOS artifacts are built locally even though Windows releases publish
+  from CI.
 
 ## First Release Notes Outline
 
