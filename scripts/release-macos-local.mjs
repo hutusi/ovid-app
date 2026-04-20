@@ -13,7 +13,7 @@ function usage() {
       "Usage:",
       "  bun run release:macos-local -- --version 0.9.6 [--notes '...'] [--pub-date 2026-04-20T02:00:00Z] [--clobber]",
       "  bun run release:macos-local -- 0.9.6",
-      "  bun run release:macos-local -- --version 0.9.7-rc1",
+      "  bun run release:macos-local -- --version 0.9.8",
       "",
       "This command assumes:",
       "- the matching tag and GitHub release already exist",

@@ -11,7 +11,7 @@ release cadence and Conventional Commit history.
 - `0.9.0` shipped as the first public preview release on 2026-04-15.
 - Follow-up work is now focused on stabilization, installer feedback, and core workflow regressions before broader Phase 11 implementation resumes.
 
-## 0.9.7-rc1 - 2026-04-20
+## 0.9.8 - 2026-04-20
 
 ### Changed
 - Added a local macOS release automation command that builds macOS artifacts, uploads them to

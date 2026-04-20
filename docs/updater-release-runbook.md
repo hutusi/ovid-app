@@ -120,7 +120,7 @@ bun run release:macos-local -- --version 0.9.6 --clobber
 Prerelease example:
 
 ```bash
-bun run release:macos-local -- --version 0.9.7-rc1
+bun run release:macos-local -- --version 0.9.8
 ```
 
 The command expects:
