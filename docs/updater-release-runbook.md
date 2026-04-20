@@ -117,6 +117,12 @@ Equivalent explicit example:
 bun run release:macos-local -- --version 0.9.6 --clobber
 ```
 
+Prerelease example:
+
+```bash
+bun run release:macos-local -- --version 0.9.7-rc1
+```
+
 The command expects:
 
 - the matching `v<version>` tag and GitHub release to already exist

@@ -13,6 +13,7 @@ function usage() {
       "Usage:",
       "  bun run release:macos-local -- --version 0.9.6 [--notes '...'] [--pub-date 2026-04-20T02:00:00Z] [--clobber]",
       "  bun run release:macos-local -- 0.9.6",
+      "  bun run release:macos-local -- --version 0.9.7-rc1",
       "",
       "This command assumes:",
       "- the matching tag and GitHub release already exist",
@@ -87,8 +88,8 @@ function parseArgs(argv) {
     fail("missing required version");
   }
 
-  if (!/^\d+\.\d+\.\d+$/.test(options.version)) {
-    fail(`invalid version: ${options.version}`);
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(options.version)) {
+    fail(`invalid version: ${options.version} (expected x.y.z or x.y.z-prerelease)`);
   }
 
   if (!options.pubDate) {
