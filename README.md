@@ -1,8 +1,36 @@
 # Ovid
 
-A minimalist desktop editor for [Amytis](https://github.com/hutusi/amytis) content workspaces. Purpose-built for content creators who want a calm, keyboard-first writing environment without leaving their workspace.
+A local-first desktop editor for [Amytis](https://github.com/hutusi/amytis) content workspaces.
+It is built for writing-heavy content work: calm editing, keyboard-first navigation, native
+workspace access, and Git-aware publishing flows without leaving the workspace.
 
 Built with **Tauri 2 + React + TypeScript + Tailwind CSS v4**, using **Bun** as the package manager.
+
+---
+
+## What Ovid Does
+
+Ovid combines the core workflows needed for Amytis-native writing in one desktop app:
+
+- open an Amytis workspace or a normal Markdown workspace directly from disk
+- edit Markdown in a Typora-style rich editor without a split preview
+- manage frontmatter and content-type metadata inline
+- search files and full workspace text quickly
+- handle daily Git actions such as commit, push, pull, fetch, and branch switching
+
+Current release status:
+
+- macOS and Windows packages exist
+- macOS public distribution is still limited by the missing Apple signing/notarization work tracked in [issue #43](https://github.com/hutusi/ovid/issues/43)
+
+---
+
+## Screenshot
+
+![Ovid main workspace view](./docs/screenshots/ovid-home.jpg)
+
+Ovid editing an Amytis workspace with the file tree, rich Markdown editor, properties panel, and
+Git-aware status bar visible in one writing-focused layout.
 
 ---
 
@@ -23,6 +51,16 @@ bun run tauri dev     # Start with hot reload
 bun run tauri build   # Build distributable app
 bun run validate      # Type-check + lint + tests + build + cargo test
 ```
+
+---
+
+## Release Notes
+
+For release work, use these repo artifacts:
+
+- [CHANGELOG.md](./CHANGELOG.md) for shipped scope
+- [docs/release-checklist.md](./docs/release-checklist.md) for release gates and packaging checks
+- [docs/updater-release-runbook.md](./docs/updater-release-runbook.md) for updater-compatible release steps
 
 ---
 
@@ -75,17 +113,6 @@ Menu items show their keyboard shortcut where one exists. Insert and Format menu
 Ovid includes built-in Git support for status, commit, push, pull, fetch, branch switching, and multi-remote workflows.
 
 See [Git Workflow](docs/git-workflow.md) for the status-bar model, sync behavior, remote handling, and current Git limits.
-
----
-
-## Release Preparation
-
-The current release line is `0.9.0`.
-
-For release work, use these repo artifacts:
-
-- [CHANGELOG.md](./CHANGELOG.md) for shipped scope
-- [docs/release-checklist.md](./docs/release-checklist.md) for the release gate and packaging checklist
 
 ---
 
