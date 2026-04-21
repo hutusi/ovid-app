@@ -8,49 +8,35 @@ release cadence and Conventional Commit history.
 ## Unreleased
 
 ### Post-release
-- `0.9.0` shipped as the first public preview release on 2026-04-15.
-- Follow-up work is now focused on stabilization, installer feedback, and core workflow regressions before broader Phase 11 implementation resumes.
+- Follow-up work is now focused on stabilization, distribution hardening, and the remaining
+  infrastructure gaps before `1.0.0`.
 
-## 0.9.9 - 2026-04-20
-
-### Changed
-- Added the first Ovid app logo source asset and regenerated the packaged icon set so fresh
-  installs and upgrade paths can be verified with the new bundled branding.
-
-## 0.9.8 - 2026-04-20
-
-### Changed
-- Added a local macOS release automation command that builds macOS artifacts, uploads them to
-  the GitHub release, and triggers updater metadata publishing.
-- Narrowed tag-triggered release CI to the Windows MSI path so the prerelease exercises the same
-  mixed Windows CI plus local macOS release flow intended for ongoing use.
-
-## 0.9.6 - 2026-04-19
-
-### Changed
-- Documented and standardized the mixed release flow: Windows bundles ship from GitHub Actions,
-  while macOS release artifacts are built locally and uploaded manually before publishing updater
-  metadata.
-
-## 0.9.5 - 2026-04-18
-
-### Fixed
-- Bumped the shipped app version metadata to match the release tag so updater artifacts and
-  `latest.json` stay consistent across macOS and Windows.
-
-## 0.9.3 - 2026-04-18
-
-### Fixed
-- Published updater artifacts and signatures to GitHub Releases so the Tauri updater can fetch
-  signed macOS and Windows update payloads from release assets.
-- Corrected the updater public key configuration format so updater-compatible release builds use
-  the base64-encoded minisign public key expected by Tauri.
+## 0.10.0 - 2026-04-21
 
 ### Added
-- Updater release infrastructure for signed release bundles, stable `latest.json` publishing,
-  and release-operator documentation.
-- An initial in-app manual update flow under `Help -> Check for Updates…`, including update
-  status, download/install progress, and restart-to-finish behavior.
+- Keyboard-first workspace and file navigation with workspace switcher, file switcher, and
+  full-text search.
+- Markdown editing with frontmatter-aware properties, Typora-style rich editing, code blocks,
+  tables, images, links, footnotes, and structural editing behavior.
+- Amytis-oriented content workflows including content types, draft/publish handling, and
+  writing-focused workspace behavior.
+- Built-in Git workflow support for status, commit, branch switching, fetch, pull, push, and
+  remote actions.
+- In-app manual update checks and updater infrastructure for signed release bundles, stable
+  `latest.json` publishing, and end-to-end Windows plus local macOS release operations.
+
+### Changed
+- Improved release and packaging workflows with Windows CI publishing, local macOS automation,
+  bundled app branding, and clearer release operator documentation.
+- Refined the desktop app presentation with the first Ovid app logo and regenerated packaged
+  icon set.
+- Continued stabilization and performance work across workspace opening, sidebar loading, search,
+  editing, and save flows.
+
+### Known Limits
+- macOS public distribution is still limited by the missing Apple signing and notarization work.
+- Some release and updater steps are still optimized for careful operator-driven publishing rather
+  than fully automated public distribution.
 
 ## 0.9.0 - 2026-04-13
 
@@ -63,10 +49,6 @@ release cadence and Conventional Commit history.
   writing-focused workspace behavior.
 - Built-in Git workflow support for status, commit, branch switching, fetch, pull, push, and
   remote actions.
-- Session and performance improvements from recent optimization passes across startup,
-  workspace opening, sidebar loading, search, and editing flows.
 
 ### Notes
-- `0.9.0` is the first public preview release scope for Ovid.
-- This release is aimed at early users who want a local-first desktop Markdown editor with
-  strong Amytis workflow support.
+- `0.9.0` established the first public preview scope for Ovid.
