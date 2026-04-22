@@ -63,7 +63,7 @@ export function FontSettingsButton({
     <div ref={anchorRef} className="fsp-anchor">
       <button
         type="button"
-        className="statusbar-theme-btn"
+        className="statusbar-control statusbar-font-button"
         title="Editor settings (font, spell check, session goal)"
         aria-label="Editor settings"
         aria-expanded={open}
