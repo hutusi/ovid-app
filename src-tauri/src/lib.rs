@@ -2237,6 +2237,8 @@ pub fn run() {
                     &MenuItemBuilder::with_id("format-bullet-list", "Bullet List").build(app)?,
                     &MenuItemBuilder::with_id("format-ordered-list", "Numbered List").build(app)?,
                     &MenuItemBuilder::with_id("format-task-list", "Task List").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-markdown", "Format Markdown").build(app)?,
                 ])
                 .build()?;
 

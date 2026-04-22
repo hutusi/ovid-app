@@ -17,6 +17,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Markdown } from "tiptap-markdown";
+import { normalizeMarkdownSpacing } from "../lib/markdown";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import { ActiveHeadingIndicator } from "../lib/tiptap/ActiveHeadingIndicator";
 import { FindReplace } from "../lib/tiptap/FindReplace";
@@ -138,6 +139,38 @@ export function Editor({
       onViewStateChange?.({ selection, scrollTop });
     },
     [onViewStateChange]
+  );
+
+  const formatMarkdownSpacing = useCallback(
+    (editorInstance: NonNullable<ReturnType<typeof useEditor>>) => {
+      const currentMarkdown = serializeMarkdown(editorInstance);
+      const formattedMarkdown = normalizeMarkdownSpacing(currentMarkdown);
+      const hasDocChange = formattedMarkdown !== currentMarkdown;
+      const hasSourceChange = formattedMarkdown !== content;
+      if (!hasDocChange && !hasSourceChange) return;
+
+      const selectionFrom = editorInstance.state.selection.from;
+      let nextSelectionFrom = selectionFrom;
+
+      if (hasDocChange) {
+        editorInstance.commands.setContent(formattedMarkdown, { emitUpdate: false });
+
+        const maxPos = Math.max(1, editorInstance.state.doc.content.size);
+        const nextSelection = TextSelection.create(
+          editorInstance.state.doc,
+          Math.min(Math.max(selectionFrom, 1), maxPos)
+        );
+        editorInstance.view.dispatch(
+          editorInstance.state.tr.setSelection(nextSelection).setMeta("scrollIntoView", false)
+        );
+        nextSelectionFrom = nextSelection.from;
+      }
+
+      onDirty?.();
+      onChange?.(formattedMarkdown);
+      emitViewState(nextSelectionFrom);
+    },
+    [content, emitViewState, onChange, onDirty, serializeMarkdown]
   );
 
   const clearPendingRestore = useCallback(() => {
@@ -568,6 +601,9 @@ export function Editor({
         case "format-task-list":
           editor.chain().focus().toggleTaskList().run();
           break;
+        case "format-markdown":
+          formatMarkdownSpacing(editor);
+          break;
         case "insert-link": {
           const href = editor.getAttributes("link").href ?? "";
           setLinkDialog({ href });
@@ -597,7 +633,7 @@ export function Editor({
       mounted = false;
       unlisten?.();
     };
-  }, [editor, linkDialog, filePath, onError]);
+  }, [editor, formatMarkdownSpacing, linkDialog, filePath, onError]);
 
   return (
     <div className="editor-wrapper">
