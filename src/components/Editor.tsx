@@ -123,9 +123,10 @@ export function Editor({
 
   const flushPendingSerialization = useCallback(
     (editorInstance = latestEditorRef.current) => {
-      const hasPendingSerialization = pendingSerializeTimerRef.current !== null;
+      const pendingTimer = pendingSerializeTimerRef.current;
+      const hasPendingSerialization = pendingTimer !== null;
       if (hasPendingSerialization) {
-        clearTimeout(pendingSerializeTimerRef.current);
+        clearTimeout(pendingTimer);
         pendingSerializeTimerRef.current = null;
       }
       if (!hasPendingSerialization || !editorInstance || !onChange) return;
