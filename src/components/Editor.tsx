@@ -146,32 +146,25 @@ export function Editor({
     (editorInstance: NonNullable<ReturnType<typeof useEditor>>) => {
       const currentMarkdown = serializeMarkdown(editorInstance);
       const formattedMarkdown = normalizeMarkdownSpacing(currentMarkdown);
-      const hasDocChange = formattedMarkdown !== currentMarkdown;
-      const hasSourceChange = formattedMarkdown !== content;
-      if (!hasDocChange && !hasSourceChange) return;
+      if (formattedMarkdown === currentMarkdown) return;
 
       const selectionFrom = editorInstance.state.selection.from;
-      let nextSelectionFrom = selectionFrom;
+      editorInstance.commands.setContent(formattedMarkdown, { emitUpdate: false });
 
-      if (hasDocChange) {
-        editorInstance.commands.setContent(formattedMarkdown, { emitUpdate: false });
-
-        const maxPos = Math.max(1, editorInstance.state.doc.content.size);
-        const nextSelection = TextSelection.create(
-          editorInstance.state.doc,
-          Math.min(Math.max(selectionFrom, 1), maxPos)
-        );
-        editorInstance.view.dispatch(
-          editorInstance.state.tr.setSelection(nextSelection).setMeta("scrollIntoView", false)
-        );
-        nextSelectionFrom = nextSelection.from;
-      }
+      const maxPos = Math.max(1, editorInstance.state.doc.content.size);
+      const nextSelection = TextSelection.create(
+        editorInstance.state.doc,
+        Math.min(Math.max(selectionFrom, 1), maxPos)
+      );
+      editorInstance.view.dispatch(
+        editorInstance.state.tr.setSelection(nextSelection).setMeta("scrollIntoView", false)
+      );
 
       onDirty?.();
       onChange?.(formattedMarkdown);
-      emitViewState(nextSelectionFrom);
+      emitViewState(nextSelection.from);
     },
-    [content, emitViewState, onChange, onDirty, serializeMarkdown]
+    [emitViewState, onChange, onDirty, serializeMarkdown]
   );
 
   const clearPendingRestore = useCallback(() => {

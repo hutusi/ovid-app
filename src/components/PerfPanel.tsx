@@ -40,9 +40,26 @@ export function PerfPanel() {
   }, []);
 
   const { events, summaries } = perfState;
-  if (!isPerfLoggingEnabled() || hidden || (events.length === 0 && summaries.length === 0)) {
+  if (!isPerfLoggingEnabled()) {
     return null;
   }
+
+  if (hidden) {
+    return (
+      <button
+        type="button"
+        className="perf-panel-show"
+        onClick={() => {
+          setHidden(false);
+          setPerfPanelHidden(false);
+        }}
+      >
+        Show Perf
+      </button>
+    );
+  }
+
+  if (events.length === 0 && summaries.length === 0) return null;
 
   const sortedSummaries = [...summaries].sort(
     (left, right) => right.maxElapsedMs - left.maxElapsedMs || right.count - left.count
@@ -59,6 +76,7 @@ export function PerfPanel() {
           <button
             type="button"
             className="perf-panel-clear"
+            aria-pressed={collapsed}
             onClick={() => {
               const next = !collapsed;
               setCollapsed(next);
