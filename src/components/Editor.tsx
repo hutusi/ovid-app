@@ -144,6 +144,11 @@ export function Editor({
 
   const formatMarkdownSpacing = useCallback(
     (editorInstance: NonNullable<ReturnType<typeof useEditor>>) => {
+      if (pendingSerializeTimerRef.current) {
+        clearTimeout(pendingSerializeTimerRef.current);
+        pendingSerializeTimerRef.current = null;
+      }
+
       const currentMarkdown = serializeMarkdown(editorInstance);
       const formattedMarkdown = normalizeMarkdownSpacing(currentMarkdown);
       if (formattedMarkdown === currentMarkdown) return;
@@ -246,6 +251,7 @@ export function Editor({
           href: text,
           rel: "noopener noreferrer",
         });
+        view.focus();
         view.dispatch(view.state.tr.addMark(from, to, linkMark));
         return true;
       },
@@ -278,6 +284,7 @@ export function Editor({
           if (saved.length === 0) return;
           const dropPos = view.posAtCoords({ left: dropX, top: dropY })?.pos;
           if (dropPos === undefined) return;
+          view.focus();
           // Apply all insertions in one transaction to avoid stale positions
           const tr = view.state.tr;
           let offset = 0;
