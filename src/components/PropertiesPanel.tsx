@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
-import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./PropertiesPanel.css";
 
 interface PropertiesPanelProps {
@@ -13,7 +12,6 @@ interface PropertiesPanelProps {
 }
 
 const STANDARD_FIELDS = new Set(["title", "type", "draft", "date", "tags", "coverImage"]);
-const STANDARD_TYPES = ["post", "flow", "note", "series", "book", "page"];
 
 function formatDate(value: string): string {
   try {
@@ -24,41 +22,6 @@ function formatDate(value: string): string {
     return value;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Type selector in header
-// ---------------------------------------------------------------------------
-
-function TypeSelector({
-  type,
-  onChange,
-}: {
-  type: string | null | undefined;
-  onChange: (t: string | null) => void;
-}) {
-  return (
-    <div className="prop-type-row">
-      <ContentTypeIcon type={type ?? undefined} size={14} />
-      <select
-        className="prop-type-select"
-        value={type ?? ""}
-        aria-label="Content type"
-        onChange={(e) => onChange(e.target.value || null)}
-      >
-        <option value="">unknown</option>
-        {STANDARD_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Date field with native date picker
-// ---------------------------------------------------------------------------
 
 function DateField({ value, onSave }: { value: string; onSave: (v: string | null) => void }) {
   const [editing, setEditing] = useState(false);
@@ -387,7 +350,6 @@ export function PropertiesPanel({
   onFieldChange,
   onToggleCoverImage,
 }: PropertiesPanelProps) {
-  const type = frontmatter.type as string | undefined;
   const draft = frontmatter.draft as boolean | undefined;
   const title = frontmatter.title;
   const date = frontmatter.date as string | undefined;
@@ -404,7 +366,7 @@ export function PropertiesPanel({
       <div className="prop-header">
         <div className="prop-header-main">
           <span className="prop-panel-kicker">Metadata</span>
-          <TypeSelector type={type} onChange={(t) => onFieldChange?.("type", t)} />
+          <span className="prop-panel-title">Frontmatter</span>
         </div>
         <button
           type="button"

@@ -52,6 +52,12 @@
   letter-spacing: 0.1em;
 }
 
+.prop-panel-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-fg);
+}
+
 .prop-status-badge {
   flex-shrink: 0;
   font-size: 10px;
@@ -239,31 +245,6 @@
 .prop-add-row {
   display: flex;
   gap: 6px;
-}
-
-/* ── Type selector ───────────────────────────── */
-.prop-type-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.prop-type-select {
-  font-size: 13px;
-  font-family: var(--font-ui);
-  font-weight: 500;
-  color: var(--color-fg-muted);
-  background: transparent;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  text-transform: capitalize;
-  padding: 0 2px;
-}
-
-.prop-type-select:focus {
-  color: var(--color-fg);
 }
 
 /* ── Inline input ────────────────────────────── */
