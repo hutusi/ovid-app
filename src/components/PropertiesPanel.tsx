@@ -17,7 +17,7 @@ interface PropertiesPanelProps {
   onToggleCoverImage?: () => void;
 }
 
-const PUBLISHING_BOOLEAN_FIELDS = ["featured", "pinned"];
+const PUBLISHING_BOOLEAN_FIELDS = ["draft", "featured", "pinned"];
 
 function formatDate(value: string): string {
   try {
@@ -274,22 +274,23 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: FrontmatterValue) 
 }
 
 function BooleanField({
-  fieldKey,
-  value,
+  label,
+  checked,
+  stateLabel,
   onSave,
 }: {
-  fieldKey: string;
-  value: FrontmatterValue;
+  label: string;
+  checked: boolean;
+  stateLabel?: string;
   onSave: (v: boolean) => void;
 }) {
-  const checked = readBooleanFrontmatterValue(value);
-  const label = getFrontmatterFieldLabel(fieldKey);
-
   return (
     <div className="prop-boolean-row">
       <div className="prop-boolean-copy">
         <span className="prop-boolean-label">{label}</span>
-        <span className="prop-boolean-state">{checked ? "Enabled" : "Disabled"}</span>
+        <span className="prop-boolean-state">
+          {stateLabel ?? (checked ? "Enabled" : "Disabled")}
+        </span>
       </div>
       <button
         type="button"
@@ -301,6 +302,26 @@ function BooleanField({
         <span className="prop-boolean-knob" />
       </button>
     </div>
+  );
+}
+
+function PublishingBooleanField({
+  fieldKey,
+  value,
+  onSave,
+}: {
+  fieldKey: string;
+  value: FrontmatterValue;
+  onSave: (fieldKey: string, value: boolean) => void;
+}) {
+  const checked = readBooleanFrontmatterValue(value);
+  return (
+    <BooleanField
+      label={getFrontmatterFieldLabel(fieldKey)}
+      checked={checked}
+      stateLabel={fieldKey === "draft" ? (checked ? "Draft" : "Published") : undefined}
+      onSave={(nextValue) => onSave(fieldKey, nextValue)}
+    />
   );
 }
 
@@ -387,7 +408,6 @@ export function PropertiesPanel({
   onFieldChange,
   onToggleCoverImage,
 }: PropertiesPanelProps) {
-  const draft = frontmatter.draft as boolean | undefined;
   const title = frontmatter.title;
   const date = frontmatter.date as string | undefined;
   const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]) : undefined;
@@ -400,20 +420,12 @@ export function PropertiesPanel({
 
   return (
     <div className={`properties-panel${visible ? "" : " hidden"}`}>
-      {/* ── Header: type + status ──────────────────── */}
+      {/* ── Header ─────────────────────────────────── */}
       <div className="prop-header">
         <div className="prop-header-main">
           <span className="prop-panel-kicker">Metadata</span>
           <span className="prop-panel-title">Frontmatter</span>
         </div>
-        <button
-          type="button"
-          className={`prop-status-badge${draft ? "" : " published"}`}
-          title={draft ? "Click to publish" : "Click to mark as draft"}
-          onClick={() => onFieldChange?.("draft", !draft)}
-        >
-          {draft ? "Draft" : "Published"}
-        </button>
       </div>
 
       {/* ── Body: standard fields ──────────────────── */}
@@ -456,11 +468,11 @@ export function PropertiesPanel({
           <section className="prop-section" aria-label="Publishing metadata">
             <span className="prop-section-title">Publishing</span>
             {publishingKeys.map((key) => (
-              <BooleanField
+              <PublishingBooleanField
                 key={key}
                 fieldKey={key}
                 value={frontmatter[key]}
-                onSave={(v) => onFieldChange?.(key, v)}
+                onSave={(fieldKey, value) => onFieldChange?.(fieldKey, value)}
               />
             ))}
           </section>
