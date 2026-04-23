@@ -127,6 +127,70 @@
   word-wrap: break-word;
 }
 
+/* ── Boolean metadata ────────────────────────── */
+.prop-boolean-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prop-boolean-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prop-boolean-label {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-fg);
+}
+
+.prop-boolean-state {
+  font-size: 10.5px;
+  color: var(--color-fg-muted);
+}
+
+.prop-boolean-toggle {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-fg) 8%, var(--color-surface));
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.prop-boolean-toggle.is-on {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  background: var(--color-accent-subtle);
+}
+
+.prop-boolean-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-fg-muted);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-fg) 18%, transparent);
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.prop-boolean-toggle.is-on .prop-boolean-knob {
+  background: var(--color-accent);
+  transform: translateX(14px);
+}
+
 /* ── Slug (read-only) ────────────────────────── */
 .prop-slug {
   font-size: 12px;

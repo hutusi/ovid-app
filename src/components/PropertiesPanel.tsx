@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
+import {
+  coerceFrontmatterInput,
+  getFrontmatterFieldLabel,
+  isKnownFrontmatterField,
+  readBooleanFrontmatterValue,
+} from "../lib/frontmatterSchema";
 import "./PropertiesPanel.css";
 
 interface PropertiesPanelProps {
@@ -11,7 +17,7 @@ interface PropertiesPanelProps {
   onToggleCoverImage?: () => void;
 }
 
-const STANDARD_FIELDS = new Set(["title", "type", "draft", "date", "tags", "coverImage"]);
+const PUBLISHING_BOOLEAN_FIELDS = ["featured", "pinned"];
 
 function formatDate(value: string): string {
   try {
@@ -205,7 +211,7 @@ function EditableValue({
 // Add field row
 // ---------------------------------------------------------------------------
 
-function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void }) {
+function AddFieldRow({ onAdd }: { onAdd: (key: string, value: FrontmatterValue) => void }) {
   const [adding, setAdding] = useState(false);
   const [key, setKey] = useState("");
   const [val, setVal] = useState("");
@@ -218,7 +224,7 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
   function submit() {
     const k = key.trim();
     if (!k) return;
-    onAdd(k, val.trim());
+    onAdd(k, coerceFrontmatterInput(k, val));
     setKey("");
     setVal("");
     setAdding(false);
@@ -263,6 +269,37 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
           else if (e.key === "Enter") submit();
         }}
       />
+    </div>
+  );
+}
+
+function BooleanField({
+  fieldKey,
+  value,
+  onSave,
+}: {
+  fieldKey: string;
+  value: FrontmatterValue;
+  onSave: (v: boolean) => void;
+}) {
+  const checked = readBooleanFrontmatterValue(value);
+  const label = getFrontmatterFieldLabel(fieldKey);
+
+  return (
+    <div className="prop-boolean-row">
+      <div className="prop-boolean-copy">
+        <span className="prop-boolean-label">{label}</span>
+        <span className="prop-boolean-state">{checked ? "Enabled" : "Disabled"}</span>
+      </div>
+      <button
+        type="button"
+        className={`prop-boolean-toggle${checked ? " is-on" : ""}`}
+        aria-label={`${label}: ${checked ? "enabled" : "disabled"}`}
+        aria-pressed={checked}
+        onClick={() => onSave(!checked)}
+      >
+        <span className="prop-boolean-knob" />
+      </button>
     </div>
   );
 }
@@ -356,8 +393,9 @@ export function PropertiesPanel({
   const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]) : undefined;
   const coverImage =
     frontmatter.coverImage !== undefined ? String(frontmatter.coverImage) : undefined;
+  const publishingKeys = PUBLISHING_BOOLEAN_FIELDS.filter((key) => frontmatter[key] !== undefined);
   const customKeys = Object.keys(frontmatter)
-    .filter((k) => !STANDARD_FIELDS.has(k))
+    .filter((k) => !isKnownFrontmatterField(k))
     .sort();
 
   return (
@@ -413,6 +451,20 @@ export function PropertiesPanel({
             </div>
           )}
         </section>
+
+        {publishingKeys.length > 0 && (
+          <section className="prop-section" aria-label="Publishing metadata">
+            <span className="prop-section-title">Publishing</span>
+            {publishingKeys.map((key) => (
+              <BooleanField
+                key={key}
+                fieldKey={key}
+                value={frontmatter[key]}
+                onSave={(v) => onFieldChange?.(key, v)}
+              />
+            ))}
+          </section>
+        )}
 
         {coverImage !== undefined && (
           <section className="prop-section" aria-label="Cover image metadata">
