@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 import {
   coerceFrontmatterInput,
+  getFrontmatterFieldDefaultValue,
   getFrontmatterFieldLabel,
+  getMissingAddableFrontmatterFields,
   isKnownFrontmatterField,
   readBooleanFrontmatterValue,
 } from "../lib/frontmatterSchema";
@@ -213,9 +215,13 @@ function EditableValue({
 
 function AddFieldRow({
   existingKeys,
+  addableKeys,
+  onAddKnownField,
   onAdd,
 }: {
   existingKeys: string[];
+  addableKeys: string[];
+  onAddKnownField: (key: string) => void;
   onAdd: (key: string, value: FrontmatterValue) => void;
 }) {
   const [adding, setAdding] = useState(false);
@@ -253,46 +259,64 @@ function AddFieldRow({
     setAdding(false);
   }
 
-  if (!adding) {
-    return (
-      <button type="button" className="prop-add-field-btn" onClick={() => setAdding(true)}>
-        + Add field
-      </button>
-    );
-  }
-
   return (
-    <div className="prop-add-row">
-      <input
-        ref={keyRef}
-        aria-label="Field name"
-        className="prop-input prop-input--sm"
-        placeholder="field name"
-        value={key}
-        onChange={(e) => {
-          setKey(e.target.value);
-          setError(null);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") cancel();
-          else if (e.key === "Enter") submit();
-        }}
-      />
-      <input
-        aria-label="Field value"
-        className="prop-input prop-input--sm"
-        placeholder="value"
-        value={val}
-        onChange={(e) => {
-          setVal(e.target.value);
-          setError(null);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") cancel();
-          else if (e.key === "Enter") submit();
-        }}
-      />
-      {error && <span className="prop-add-field-error">{error}</span>}
+    <div className="prop-add-block">
+      {addableKeys.length > 0 && (
+        <div className="prop-add-known">
+          <span className="prop-section-title">Add Metadata</span>
+          <div className="prop-add-known-list">
+            {addableKeys.map((fieldKey) => (
+              <button
+                key={fieldKey}
+                type="button"
+                className="prop-add-known-btn"
+                onClick={() => onAddKnownField(fieldKey)}
+              >
+                + {getFrontmatterFieldLabel(fieldKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!adding ? (
+        <button type="button" className="prop-add-field-btn" onClick={() => setAdding(true)}>
+          + Add field
+        </button>
+      ) : (
+        <div className="prop-add-row">
+          <input
+            ref={keyRef}
+            aria-label="Field name"
+            className="prop-input prop-input--sm"
+            placeholder="field name"
+            value={key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancel();
+              else if (e.key === "Enter") submit();
+            }}
+          />
+          <input
+            aria-label="Field value"
+            className="prop-input prop-input--sm"
+            placeholder="value"
+            value={val}
+            onChange={(e) => {
+              setVal(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancel();
+              else if (e.key === "Enter") submit();
+            }}
+          />
+          {error && <span className="prop-add-field-error">{error}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -438,6 +462,7 @@ export function PropertiesPanel({
   const coverImage =
     frontmatter.coverImage !== undefined ? String(frontmatter.coverImage) : undefined;
   const publishingKeys = PUBLISHING_BOOLEAN_FIELDS.filter((key) => frontmatter[key] !== undefined);
+  const addableKeys = getMissingAddableFrontmatterFields(frontmatter);
   const customKeys = Object.keys(frontmatter)
     .filter((k) => !isKnownFrontmatterField(k))
     .sort();
@@ -532,6 +557,8 @@ export function PropertiesPanel({
 
         <AddFieldRow
           existingKeys={Object.keys(frontmatter)}
+          addableKeys={addableKeys}
+          onAddKnownField={(key) => onFieldChange?.(key, getFrontmatterFieldDefaultValue(key))}
           onAdd={(k, v) => onFieldChange?.(k, v)}
         />
       </div>

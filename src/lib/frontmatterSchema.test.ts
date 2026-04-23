@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   coerceFrontmatterInput,
+  getFrontmatterFieldDefaultValue,
+  getMissingAddableFrontmatterFields,
   isKnownFrontmatterField,
   parseBooleanFrontmatterValue,
 } from "./frontmatterSchema";
@@ -29,5 +31,20 @@ describe("frontmatter schema", () => {
   test("tracks hidden known fields", () => {
     expect(isKnownFrontmatterField("type")).toBe(true);
     expect(isKnownFrontmatterField("unknownField")).toBe(false);
+  });
+
+  test("returns defaults for addable known fields", () => {
+    expect(getFrontmatterFieldDefaultValue("featured")).toBe(false);
+    expect(getFrontmatterFieldDefaultValue("coverImage")).toBe("");
+    expect(getFrontmatterFieldDefaultValue("unknownField")).toBeNull();
+  });
+
+  test("lists missing addable known fields", () => {
+    expect(
+      getMissingAddableFrontmatterFields({
+        title: "Post",
+        featured: false,
+      })
+    ).toEqual(["pinned", "coverImage"]);
   });
 });

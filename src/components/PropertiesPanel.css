@@ -258,6 +258,20 @@
 }
 
 /* ── Add field row ───────────────────────────── */
+.prop-add-block,
+.prop-add-known {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prop-add-known-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prop-add-known-btn,
 .prop-add-field-btn {
   align-self: flex-start;
   font-size: 11px;
@@ -271,6 +285,7 @@
     background 0.15s;
 }
 
+.prop-add-known-btn:hover,
 .prop-add-field-btn:hover {
   color: var(--color-fg);
   background: var(--color-surface-hover);
