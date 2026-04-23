@@ -956,9 +956,10 @@ fn strip_quote_pair<'a>(s: &'a str, key: &str, quote: char) -> Option<&'a str> {
     s.strip_prefix(quote)
 }
 
-/// Best-effort scanner: look for `cdnBase` or `cdnUrl` keys in `site.config.ts`
-/// and return the URL value. Handles both bare (`cdnBase:`) and quoted
-/// (`"cdnBase":` / `'cdnBase':`) key forms. Returns `None` on any parse failure.
+/// Best-effort scanner: look for `cdnBase`, `cdnBaseUrl`, or `cdnUrl` keys in
+/// `site.config.ts` and return the URL value. Handles both bare (`cdnBase:`)
+/// and quoted (`"cdnBase":` / `'cdnBase':`) key forms. Returns `None` on any
+/// parse failure.
 fn parse_cdn_base(config_path: &Path) -> Option<String> {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(config_path).ok()?;
@@ -982,7 +983,7 @@ fn parse_cdn_base(config_path: &Path) -> Option<String> {
         if trimmed.starts_with("//") || trimmed.starts_with('*') {
             continue;
         }
-        for key in &["cdnBase", "cdnUrl"] {
+        for key in &["cdnBase", "cdnBaseUrl", "cdnUrl"] {
             // Match: cdnBase, "cdnBase", or 'cdnBase'
             let after_key = trimmed
                 .strip_prefix(key)
@@ -2236,6 +2237,8 @@ pub fn run() {
                     &MenuItemBuilder::with_id("format-bullet-list", "Bullet List").build(app)?,
                     &MenuItemBuilder::with_id("format-ordered-list", "Numbered List").build(app)?,
                     &MenuItemBuilder::with_id("format-task-list", "Task List").build(app)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItemBuilder::with_id("format-markdown", "Format Markdown").build(app)?,
                 ])
                 .build()?;
 
@@ -2651,6 +2654,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_cdn_base_cdn_base_url_variant() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            "export const config = {\n  cdnBaseUrl: 'https://cdn.example.com',\n};\n",
+        );
+        assert_eq!(
+            parse_cdn_base(&path),
+            Some("https://cdn.example.com".to_string())
+        );
+    }
+
+    #[test]
     fn parse_cdn_base_skips_line_comments() {
         let dir = TempDir::new().unwrap();
         let path = write_config(
@@ -2710,6 +2726,18 @@ mod tests {
         fs::write(
             dir.path().join("site.config.ts"),
             "export const config = {\n  cdnBase: 'https://cdn.example.com',\n};\n",
+        )
+        .unwrap();
+        let (_, cdn_base) = derive_workspace_meta(dir.path());
+        assert_eq!(cdn_base, Some("https://cdn.example.com".to_string()));
+    }
+
+    #[test]
+    fn derive_workspace_meta_extracts_cdn_base_url_when_config_present() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join("site.config.ts"),
+            "export const config = {\n  cdnBaseUrl: 'https://cdn.example.com',\n};\n",
         )
         .unwrap();
         let (_, cdn_base) = derive_workspace_meta(dir.path());

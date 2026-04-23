@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
-import { ContentTypeIcon } from "./ContentTypeIcon";
+import {
+  coerceFrontmatterInput,
+  getFrontmatterFieldLabel,
+  isKnownFrontmatterField,
+  readBooleanFrontmatterValue,
+} from "../lib/frontmatterSchema";
 import "./PropertiesPanel.css";
 
 interface PropertiesPanelProps {
@@ -12,8 +17,7 @@ interface PropertiesPanelProps {
   onToggleCoverImage?: () => void;
 }
 
-const STANDARD_FIELDS = new Set(["title", "type", "draft", "date", "tags", "coverImage"]);
-const STANDARD_TYPES = ["post", "flow", "note", "series", "book", "page"];
+const PUBLISHING_BOOLEAN_FIELDS = ["draft", "featured", "pinned"];
 
 function formatDate(value: string): string {
   try {
@@ -24,41 +28,6 @@ function formatDate(value: string): string {
     return value;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Type selector in header
-// ---------------------------------------------------------------------------
-
-function TypeSelector({
-  type,
-  onChange,
-}: {
-  type: string | null | undefined;
-  onChange: (t: string | null) => void;
-}) {
-  return (
-    <div className="prop-type-row">
-      <ContentTypeIcon type={type ?? undefined} size={14} />
-      <select
-        className="prop-type-select"
-        value={type ?? ""}
-        aria-label="Content type"
-        onChange={(e) => onChange(e.target.value || null)}
-      >
-        <option value="">unknown</option>
-        {STANDARD_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Date field with native date picker
-// ---------------------------------------------------------------------------
 
 function DateField({ value, onSave }: { value: string; onSave: (v: string | null) => void }) {
   const [editing, setEditing] = useState(false);
@@ -242,10 +211,17 @@ function EditableValue({
 // Add field row
 // ---------------------------------------------------------------------------
 
-function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void }) {
+function AddFieldRow({
+  existingKeys,
+  onAdd,
+}: {
+  existingKeys: string[];
+  onAdd: (key: string, value: FrontmatterValue) => void;
+}) {
   const [adding, setAdding] = useState(false);
   const [key, setKey] = useState("");
   const [val, setVal] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -255,15 +231,25 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
   function submit() {
     const k = key.trim();
     if (!k) return;
-    onAdd(k, val.trim());
+    if (existingKeys.includes(k)) {
+      setError("This field already exists.");
+      return;
+    }
+    if (isKnownFrontmatterField(k)) {
+      setError("Use the dedicated editor for this field.");
+      return;
+    }
+    onAdd(k, coerceFrontmatterInput(k, val));
     setKey("");
     setVal("");
+    setError(null);
     setAdding(false);
   }
 
   function cancel() {
     setKey("");
     setVal("");
+    setError(null);
     setAdding(false);
   }
 
@@ -283,7 +269,10 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
         className="prop-input prop-input--sm"
         placeholder="field name"
         value={key}
-        onChange={(e) => setKey(e.target.value)}
+        onChange={(e) => {
+          setKey(e.target.value);
+          setError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") cancel();
           else if (e.key === "Enter") submit();
@@ -294,13 +283,69 @@ function AddFieldRow({ onAdd }: { onAdd: (key: string, value: string) => void })
         className="prop-input prop-input--sm"
         placeholder="value"
         value={val}
-        onChange={(e) => setVal(e.target.value)}
+        onChange={(e) => {
+          setVal(e.target.value);
+          setError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") cancel();
           else if (e.key === "Enter") submit();
         }}
       />
+      {error && <span className="prop-add-field-error">{error}</span>}
     </div>
+  );
+}
+
+function BooleanField({
+  label,
+  checked,
+  stateLabel,
+  onSave,
+}: {
+  label: string;
+  checked: boolean;
+  stateLabel?: string;
+  onSave: (v: boolean) => void;
+}) {
+  return (
+    <div className="prop-boolean-row">
+      <div className="prop-boolean-copy">
+        <span className="prop-boolean-label">{label}</span>
+        <span className="prop-boolean-state">
+          {stateLabel ?? (checked ? "Enabled" : "Disabled")}
+        </span>
+      </div>
+      <button
+        type="button"
+        className={`prop-boolean-toggle${checked ? " is-on" : ""}`}
+        aria-label={`${label}: ${checked ? "enabled" : "disabled"}`}
+        aria-pressed={checked}
+        onClick={() => onSave(!checked)}
+      >
+        <span className="prop-boolean-knob" />
+      </button>
+    </div>
+  );
+}
+
+function PublishingBooleanField({
+  fieldKey,
+  value,
+  onSave,
+}: {
+  fieldKey: string;
+  value: FrontmatterValue;
+  onSave: (fieldKey: string, value: boolean) => void;
+}) {
+  const checked = readBooleanFrontmatterValue(value);
+  return (
+    <BooleanField
+      label={getFrontmatterFieldLabel(fieldKey)}
+      checked={checked}
+      stateLabel={fieldKey === "draft" ? (checked ? "Draft" : "Published") : undefined}
+      onSave={(nextValue) => onSave(fieldKey, nextValue)}
+    />
   );
 }
 
@@ -387,79 +432,91 @@ export function PropertiesPanel({
   onFieldChange,
   onToggleCoverImage,
 }: PropertiesPanelProps) {
-  const type = frontmatter.type as string | undefined;
-  const draft = frontmatter.draft as boolean | undefined;
   const title = frontmatter.title;
   const date = frontmatter.date as string | undefined;
   const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]) : undefined;
   const coverImage =
     frontmatter.coverImage !== undefined ? String(frontmatter.coverImage) : undefined;
+  const publishingKeys = PUBLISHING_BOOLEAN_FIELDS.filter((key) => frontmatter[key] !== undefined);
   const customKeys = Object.keys(frontmatter)
-    .filter((k) => !STANDARD_FIELDS.has(k))
+    .filter((k) => !isKnownFrontmatterField(k))
     .sort();
 
   return (
     <div className={`properties-panel${visible ? "" : " hidden"}`}>
-      {/* ── Header: type + status ──────────────────── */}
+      {/* ── Header ─────────────────────────────────── */}
       <div className="prop-header">
-        <TypeSelector type={type} onChange={(t) => onFieldChange?.("type", t)} />
-        <button
-          type="button"
-          className={`prop-status-badge${draft ? "" : " published"}`}
-          title={draft ? "Click to publish" : "Click to mark as draft"}
-          onClick={() => onFieldChange?.("draft", !draft)}
-        >
-          {draft ? "Draft" : "Published"}
-        </button>
+        <div className="prop-header-main">
+          <span className="prop-panel-kicker">Metadata</span>
+          <span className="prop-panel-title">Frontmatter</span>
+        </div>
       </div>
 
       {/* ── Body: standard fields ──────────────────── */}
       <div className="properties-body">
-        {title !== undefined && (
-          <div className="prop-field">
-            <span className="prop-label">Title</span>
-            <EditableValue
-              label="Title"
-              value={title}
-              onSave={(v) => onFieldChange?.("title", v)}
-            />
-          </div>
-        )}
+        <section className="prop-section" aria-label="Document metadata">
+          {title !== undefined && (
+            <div className="prop-field">
+              <span className="prop-label">Title</span>
+              <EditableValue
+                label="Title"
+                value={title}
+                onSave={(v) => onFieldChange?.("title", v)}
+              />
+            </div>
+          )}
 
-        {slug && (
-          <div className="prop-field">
-            <span className="prop-label">Slug</span>
-            <span className="prop-slug">{slug}</span>
-          </div>
-        )}
+          {slug && (
+            <div className="prop-field">
+              <span className="prop-label">Slug</span>
+              <span className="prop-slug">{slug}</span>
+            </div>
+          )}
 
-        {date !== undefined && (
-          <div className="prop-field">
-            <span className="prop-label">Date</span>
-            <DateField value={date} onSave={(v) => onFieldChange?.("date", v)} />
-          </div>
-        )}
+          {date !== undefined && (
+            <div className="prop-field">
+              <span className="prop-label">Date</span>
+              <DateField value={date} onSave={(v) => onFieldChange?.("date", v)} />
+            </div>
+          )}
 
-        {tags !== undefined && (
-          <div className="prop-field">
-            <span className="prop-label">Tags</span>
-            <TagInput tags={tags} onSave={(v) => onFieldChange?.("tags", v)} />
-          </div>
+          {tags !== undefined && (
+            <div className="prop-field">
+              <span className="prop-label">Tags</span>
+              <TagInput tags={tags} onSave={(v) => onFieldChange?.("tags", v)} />
+            </div>
+          )}
+        </section>
+
+        {publishingKeys.length > 0 && (
+          <section className="prop-section" aria-label="Publishing metadata">
+            <span className="prop-section-title">Publishing</span>
+            {publishingKeys.map((key) => (
+              <PublishingBooleanField
+                key={key}
+                fieldKey={key}
+                value={frontmatter[key]}
+                onSave={(fieldKey, value) => onFieldChange?.(fieldKey, value)}
+              />
+            ))}
+          </section>
         )}
 
         {coverImage !== undefined && (
-          <CoverImageField
-            value={coverImage}
-            previewVisible={coverImageVisible}
-            onTogglePreview={() => onToggleCoverImage?.()}
-            onSave={(v) => onFieldChange?.("coverImage", v)}
-          />
+          <section className="prop-section" aria-label="Cover image metadata">
+            <CoverImageField
+              value={coverImage}
+              previewVisible={coverImageVisible}
+              onTogglePreview={() => onToggleCoverImage?.()}
+              onSave={(v) => onFieldChange?.("coverImage", v)}
+            />
+          </section>
         )}
 
         {/* ── Custom fields ─────────────────────────── */}
         {customKeys.length > 0 && (
-          <>
-            <div className="prop-divider" />
+          <section className="prop-section" aria-label="Custom metadata">
+            <span className="prop-section-title">Custom</span>
             {customKeys.map((key) => (
               <div key={key} className="prop-field">
                 <span className="prop-label">{key}</span>
@@ -470,10 +527,13 @@ export function PropertiesPanel({
                 />
               </div>
             ))}
-          </>
+          </section>
         )}
 
-        <AddFieldRow onAdd={(k, v) => onFieldChange?.(k, v)} />
+        <AddFieldRow
+          existingKeys={Object.keys(frontmatter)}
+          onAdd={(k, v) => onFieldChange?.(k, v)}
+        />
       </div>
     </div>
   );

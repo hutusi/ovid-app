@@ -1,3 +1,4 @@
+import { Type } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FontFamily, FontSize } from "../lib/useEditorPreferences";
 import "./FontSettings.css";
@@ -63,13 +64,13 @@ export function FontSettingsButton({
     <div ref={anchorRef} className="fsp-anchor">
       <button
         type="button"
-        className="statusbar-theme-btn"
+        className="statusbar-control statusbar-font-button"
         title="Editor settings (font, spell check, session goal)"
         aria-label="Editor settings"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        Aa
+        <Type className="statusbar-mode-icon" aria-hidden="true" />
       </button>
 
       {open && (

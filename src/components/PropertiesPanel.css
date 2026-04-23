@@ -1,8 +1,12 @@
 /* ── Right-side properties panel ─────────────── */
 .properties-panel {
-  width: 220px;
-  min-width: 220px;
-  background: var(--color-surface-subtle);
+  width: 248px;
+  min-width: 248px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-surface-subtle) 92%, var(--color-surface)) 0%,
+    var(--color-surface-subtle) 100%
+  );
   border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -22,55 +26,59 @@
   visibility: hidden;
 }
 
-/* ── Header: type + status badge ─────────────── */
+/* ── Header ──────────────────────────────────── */
 .prop-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px 10px;
-  border-bottom: 1px solid var(--color-border);
-  gap: 8px;
+  align-items: flex-start;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
 }
 
-.prop-status-badge {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+.prop-header-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.prop-panel-kicker,
+.prop-section-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--color-fg-subtle);
   text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--color-warning);
-  background: var(--color-warning-subtle);
-  transition:
-    color 0.15s,
-    background 0.15s,
-    opacity 0.15s;
+  letter-spacing: 0.1em;
 }
 
-.prop-status-badge:hover {
-  opacity: 0.8;
-}
-
-.prop-status-badge.published {
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
+.prop-panel-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-fg);
 }
 
 /* ── Body ────────────────────────────────────── */
 .properties-body {
-  padding: 14px 14px;
+  padding: 14px 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.prop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 74%, transparent);
 }
 
 /* ── Individual field ────────────────────────── */
 .prop-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
 .prop-label {
@@ -83,19 +91,85 @@
 
 .prop-value {
   font-size: 13px;
-  color: var(--color-fg-muted);
+  color: var(--color-fg);
   line-height: 1.4;
   overflow-wrap: anywhere;
   word-wrap: break-word;
 }
 
+/* ── Boolean metadata ────────────────────────── */
+.prop-boolean-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prop-boolean-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prop-boolean-label {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-fg);
+}
+
+.prop-boolean-state {
+  font-size: 10.5px;
+  color: var(--color-fg-muted);
+}
+
+.prop-boolean-toggle {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-fg) 8%, var(--color-surface));
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.prop-boolean-toggle.is-on {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  background: var(--color-accent-subtle);
+}
+
+.prop-boolean-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-fg-muted);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-fg) 18%, transparent);
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.prop-boolean-toggle.is-on .prop-boolean-knob {
+  background: var(--color-accent);
+  transform: translateX(14px);
+}
+
 /* ── Slug (read-only) ────────────────────────── */
 .prop-slug {
   font-size: 12px;
-  color: var(--color-fg-subtle);
+  color: var(--color-fg-muted);
   font-family: var(--font-mono, monospace);
   word-break: break-all;
-  padding: 2px 0;
+  padding: 5px 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-fg) 4%, var(--color-surface));
 }
 
 /* ── Editable areas ──────────────────────────── */
@@ -103,16 +177,19 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 3px 6px;
-  margin: 0 -6px;
-  border-radius: 4px;
+  padding: 6px 7px;
+  margin: 0 -7px;
+  border-radius: 7px;
   cursor: text;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
   box-sizing: content-box;
 }
 
 .prop-editable-area:hover {
   background: var(--color-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 /* ── Tag chip input ──────────────────────────── */
@@ -123,7 +200,7 @@
   gap: 4px;
   padding: 4px 6px;
   border: 1px solid var(--color-border);
-  border-radius: 5px;
+  border-radius: 8px;
   background: var(--color-surface);
   cursor: text;
   min-height: 28px;
@@ -141,8 +218,8 @@
   font-size: 11px;
   color: var(--color-accent);
   background: var(--color-accent-subtle);
-  border-radius: 4px;
-  padding: 1px 5px 1px 7px;
+  border-radius: 999px;
+  padding: 1px 6px 1px 8px;
   line-height: 1.6;
 }
 
@@ -184,9 +261,10 @@
 .prop-add-field-btn {
   align-self: flex-start;
   font-size: 11px;
-  color: var(--color-fg-subtle);
-  padding: 2px 4px;
-  border-radius: 4px;
+  color: var(--color-fg-muted);
+  padding: 5px 8px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 999px;
   cursor: pointer;
   transition:
     color 0.15s,
@@ -194,38 +272,20 @@
 }
 
 .prop-add-field-btn:hover {
-  color: var(--color-fg-muted);
+  color: var(--color-fg);
   background: var(--color-surface-hover);
 }
 
 .prop-add-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
-/* ── Type selector ───────────────────────────── */
-.prop-type-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.prop-type-select {
-  font-size: 12px;
-  font-family: var(--font-ui);
-  font-weight: 500;
-  color: var(--color-fg-muted);
-  background: transparent;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  text-transform: capitalize;
-  padding: 0 2px;
-}
-
-.prop-type-select:focus {
-  color: var(--color-fg);
+.prop-add-field-error {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  color: var(--color-warning);
 }
 
 /* ── Inline input ────────────────────────────── */
@@ -238,7 +298,7 @@
   color: var(--color-fg);
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: 5px;
+  border-radius: 7px;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.15s;
@@ -262,12 +322,6 @@
   cursor: pointer;
 }
 
-/* ── Divider ─────────────────────────────────── */
-.prop-divider {
-  height: 1px;
-  background: var(--color-border);
-}
-
 /* ── Cover image field ───────────────────────── */
 .prop-cover-header {
   display: flex;
@@ -281,7 +335,7 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: 7px;
   color: var(--color-fg-subtle);
   cursor: pointer;
   transition:

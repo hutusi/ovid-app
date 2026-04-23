@@ -58,6 +58,78 @@
   flex-shrink: 0;
 }
 
+.statusbar-mode-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 4px;
+}
+
+.statusbar-control {
+  height: 22px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-fg-muted);
+  font-size: 11.5px;
+  font-family: var(--font-ui);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    border-color 0.12s,
+    color 0.12s,
+    background 0.12s;
+}
+
+.statusbar-control:hover,
+.statusbar-control:focus-visible {
+  color: var(--color-fg);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.statusbar-control-active {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.statusbar-control-active:hover,
+.statusbar-control-active:focus-visible {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--color-accent-subtle) 82%, var(--color-surface-hover));
+}
+
+.statusbar-mode-toggle {
+  font-size: 13px;
+  padding: 0 6px;
+}
+
+.statusbar-typewriter-toggle {
+  min-width: 24px;
+  padding-right: 7px;
+}
+
+.statusbar-mode-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  stroke-width: 2;
+}
+
+.statusbar-zen-icon {
+  width: 13px;
+  height: 13px;
+  border: 1.6px solid currentColor;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
 .statusbar-git {
   display: flex;
   align-items: center;
@@ -88,7 +160,7 @@
 .statusbar-branch {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--color-fg);
+  color: var(--color-fg-muted);
   border-radius: 999px;
   height: 22px;
   padding: 0 9px;
@@ -106,9 +178,9 @@
 
 .statusbar-branch:hover,
 .statusbar-branch:focus-visible {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background: var(--color-accent-subtle);
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
 }
 
 .statusbar-git-sync,
