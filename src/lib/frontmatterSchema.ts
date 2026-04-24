@@ -14,28 +14,28 @@ export interface FrontmatterFieldSchema {
 }
 
 export const FRONTMATTER_FIELD_SCHEMA: Record<string, FrontmatterFieldSchema> = {
-  title: { key: "title", label: "Title", kind: "text" },
-  type: { key: "type", label: "Type", kind: "text", hidden: true },
-  draft: { key: "draft", label: "Draft", kind: "boolean" },
+  title: { key: "title", label: "title", kind: "text" },
+  type: { key: "type", label: "type", kind: "text", hidden: true },
+  draft: { key: "draft", label: "draft", kind: "boolean" },
   featured: {
     key: "featured",
-    label: "Featured",
+    label: "featured",
     kind: "boolean",
     addable: true,
     defaultValue: false,
   },
   pinned: {
     key: "pinned",
-    label: "Pinned",
+    label: "pinned",
     kind: "boolean",
     addable: true,
     defaultValue: false,
   },
-  date: { key: "date", label: "Date", kind: "date" },
-  tags: { key: "tags", label: "Tags", kind: "tags" },
+  date: { key: "date", label: "date", kind: "date" },
+  tags: { key: "tags", label: "tags", kind: "tags" },
   coverImage: {
     key: "coverImage",
-    label: "Cover Image",
+    label: "coverImage",
     kind: "path",
     addable: true,
     defaultValue: "",
