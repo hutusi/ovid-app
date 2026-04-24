@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  coerceCustomFrontmatterValue,
   coerceFrontmatterInput,
   getFrontmatterFieldDefaultValue,
   getMissingAddableFrontmatterFields,
@@ -46,5 +47,14 @@ describe("frontmatter schema", () => {
         featured: false,
       })
     ).toEqual(["pinned", "coverImage"]);
+  });
+
+  test("coerces custom metadata values by type", () => {
+    expect(coerceCustomFrontmatterValue("text", " hello ")).toBe("hello");
+    expect(coerceCustomFrontmatterValue("boolean", "", true)).toBe(true);
+    expect(coerceCustomFrontmatterValue("number", "42")).toBe(42);
+    expect(coerceCustomFrontmatterValue("number", "abc")).toBeNull();
+    expect(coerceCustomFrontmatterValue("date", "2026-04-24")).toBe("2026-04-24");
+    expect(coerceCustomFrontmatterValue("tags", "one, two")).toEqual(["one", "two"]);
   });
 });

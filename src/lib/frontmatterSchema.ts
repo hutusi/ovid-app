@@ -1,6 +1,7 @@
 import type { FrontmatterValue, ParsedFrontmatter } from "./frontmatter";
 
 export type FrontmatterFieldKind = "text" | "boolean" | "date" | "tags" | "path";
+export type CustomFrontmatterValueType = "text" | "boolean" | "number" | "date" | "tags";
 
 export interface FrontmatterFieldSchema {
   key: string;
@@ -60,6 +61,35 @@ export function getMissingAddableFrontmatterFields(frontmatter: ParsedFrontmatte
 
 export function getFrontmatterFieldDefaultValue(key: string): FrontmatterValue | null {
   return getFrontmatterFieldSchema(key)?.defaultValue ?? null;
+}
+
+export function coerceCustomFrontmatterValue(
+  type: CustomFrontmatterValueType,
+  rawValue: string,
+  booleanValue = false
+): FrontmatterValue {
+  const trimmed = rawValue.trim();
+
+  switch (type) {
+    case "boolean":
+      return booleanValue;
+    case "number": {
+      if (!trimmed) return null;
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    case "date":
+      return trimmed || null;
+    case "tags":
+      return trimmed
+        ? trimmed
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        : null;
+    default:
+      return trimmed || null;
+  }
 }
 
 export function parseBooleanFrontmatterValue(value: FrontmatterValue): boolean | null {

@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 import {
-  coerceFrontmatterInput,
+  type CustomFrontmatterValueType,
+  coerceCustomFrontmatterValue,
   getFrontmatterFieldDefaultValue,
   getFrontmatterFieldLabel,
   getMissingAddableFrontmatterFields,
   isKnownFrontmatterField,
   readBooleanFrontmatterValue,
 } from "../lib/frontmatterSchema";
+import { useFocusTrap } from "../lib/useFocusTrap";
+import "./Modal.css";
 import "./PropertiesPanel.css";
 
 interface PropertiesPanelProps {
@@ -20,6 +23,13 @@ interface PropertiesPanelProps {
 }
 
 const PUBLISHING_BOOLEAN_FIELDS = ["draft", "featured", "pinned"];
+const CUSTOM_METADATA_TYPES: CustomFrontmatterValueType[] = [
+  "text",
+  "boolean",
+  "number",
+  "date",
+  "tags",
+];
 
 function formatDate(value: string): string {
   try {
@@ -213,30 +223,28 @@ function EditableValue({
 // Add field row
 // ---------------------------------------------------------------------------
 
-function AddFieldRow({
+function CustomMetadataDialog({
   existingKeys,
-  addableKeys,
-  onAddKnownField,
-  onAdd,
+  onConfirm,
+  onCancel,
 }: {
   existingKeys: string[];
-  addableKeys: string[];
-  onAddKnownField: (key: string) => void;
-  onAdd: (key: string, value: FrontmatterValue) => void;
+  onConfirm: (key: string, value: FrontmatterValue) => void;
+  onCancel: () => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
   const [key, setKey] = useState("");
-  const [val, setVal] = useState("");
+  const [valueType, setValueType] = useState<CustomFrontmatterValueType>("text");
+  const [rawValue, setRawValue] = useState("");
+  const [booleanValue, setBooleanValue] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const keyRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (adding) keyRef.current?.focus();
-  }, [adding]);
 
   function submit() {
     const k = key.trim();
-    if (!k) return;
+    if (!k) {
+      setError("Key is required.");
+      return;
+    }
     if (existingKeys.includes(k)) {
       setError("This field already exists.");
       return;
@@ -245,25 +253,148 @@ function AddFieldRow({
       setError("Use the dedicated editor for this field.");
       return;
     }
-    onAdd(k, coerceFrontmatterInput(k, val));
-    setKey("");
-    setVal("");
-    setError(null);
-    setAdding(false);
+
+    const value = coerceCustomFrontmatterValue(valueType, rawValue, booleanValue);
+    if (value === null) {
+      setError("Value is required for this metadata type.");
+      return;
+    }
+
+    onConfirm(k, value);
   }
 
-  function cancel() {
-    setKey("");
-    setVal("");
-    setError(null);
-    setAdding(false);
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onCancel();
+    } else if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement)) {
+      e.preventDefault();
+      submit();
+    }
   }
 
   return (
+    <div className="modal-overlay" role="presentation">
+      <button type="button" className="modal-backdrop" aria-label="Close" onClick={onCancel} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add custom metadata"
+        className="modal-panel prop-dialog"
+        onKeyDown={handleKeyDown}
+      >
+        <p className="modal-title">Add Custom Metadata</p>
+        <p className="modal-copy">Add a custom frontmatter field with an explicit value type.</p>
+
+        <div className="prop-dialog-grid">
+          <label className="prop-dialog-field">
+            <span className="prop-label">Key</span>
+            <input
+              aria-label="Metadata key"
+              className="modal-input"
+              placeholder="readingTime"
+              value={key}
+              onChange={(e) => {
+                setKey(e.target.value);
+                setError(null);
+              }}
+            />
+          </label>
+
+          <label className="prop-dialog-field">
+            <span className="prop-label">Type</span>
+            <select
+              aria-label="Metadata type"
+              className="modal-input prop-dialog-select"
+              value={valueType}
+              onChange={(e) => {
+                setValueType(e.target.value as CustomFrontmatterValueType);
+                setError(null);
+              }}
+            >
+              {CUSTOM_METADATA_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {valueType === "boolean" ? (
+          <div className="prop-dialog-field">
+            <span className="prop-label">Value</span>
+            <div className="prop-dialog-toggle-row">
+              <button
+                type="button"
+                className={`prop-dialog-choice${booleanValue ? " is-active" : ""}`}
+                aria-pressed={booleanValue}
+                onClick={() => setBooleanValue(true)}
+              >
+                True
+              </button>
+              <button
+                type="button"
+                className={`prop-dialog-choice${!booleanValue ? " is-active" : ""}`}
+                aria-pressed={!booleanValue}
+                onClick={() => setBooleanValue(false)}
+              >
+                False
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="prop-dialog-field">
+            <span className="prop-label">Value</span>
+            <input
+              aria-label="Metadata value"
+              type={valueType === "number" ? "number" : valueType === "date" ? "date" : "text"}
+              className="modal-input"
+              placeholder={valueType === "tags" ? "tag-one, tag-two" : "Value"}
+              value={rawValue}
+              onChange={(e) => {
+                setRawValue(e.target.value);
+                setError(null);
+              }}
+            />
+          </label>
+        )}
+
+        {error && <p className="prop-dialog-error">{error}</p>}
+
+        <div className="modal-actions">
+          <div className="modal-spacer" />
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="modal-btn modal-btn-primary" onClick={submit}>
+            Add metadata
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddFieldRow({
+  addableKeys,
+  onAddKnownField,
+  onAdd,
+  existingKeys,
+}: {
+  addableKeys: string[];
+  onAddKnownField: (key: string) => void;
+  onAdd: (key: string, value: FrontmatterValue) => void;
+  existingKeys: string[];
+}) {
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+
+  return (
     <div className="prop-add-block">
-      {addableKeys.length > 0 && (
-        <div className="prop-add-known">
-          <span className="prop-section-title">Add Metadata</span>
+      <div className="prop-add-known">
+        <span className="prop-section-title">Add Metadata</span>
+        {addableKeys.length > 0 && (
           <div className="prop-add-known-list">
             {addableKeys.map((fieldKey) => (
               <button
@@ -276,46 +407,26 @@ function AddFieldRow({
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {!adding ? (
-        <button type="button" className="prop-add-field-btn" onClick={() => setAdding(true)}>
-          + Add field
+        <button
+          type="button"
+          className="prop-add-field-btn"
+          onClick={() => setCustomDialogOpen(true)}
+        >
+          + Custom metadata
         </button>
-      ) : (
-        <div className="prop-add-row">
-          <input
-            ref={keyRef}
-            aria-label="Field name"
-            className="prop-input prop-input--sm"
-            placeholder="field name"
-            value={key}
-            onChange={(e) => {
-              setKey(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") cancel();
-              else if (e.key === "Enter") submit();
-            }}
-          />
-          <input
-            aria-label="Field value"
-            className="prop-input prop-input--sm"
-            placeholder="value"
-            value={val}
-            onChange={(e) => {
-              setVal(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") cancel();
-              else if (e.key === "Enter") submit();
-            }}
-          />
-          {error && <span className="prop-add-field-error">{error}</span>}
-        </div>
+      </div>
+
+      {customDialogOpen && (
+        <CustomMetadataDialog
+          existingKeys={existingKeys}
+          onConfirm={(key, value) => {
+            onAdd(key, value);
+            setCustomDialogOpen(false);
+          }}
+          onCancel={() => setCustomDialogOpen(false)}
+        />
       )}
     </div>
   );

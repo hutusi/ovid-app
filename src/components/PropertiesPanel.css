@@ -291,6 +291,62 @@
   background: var(--color-surface-hover);
 }
 
+.prop-dialog {
+  width: 420px;
+  max-width: calc(100vw - 48px);
+}
+
+.prop-dialog-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr);
+  gap: 10px;
+}
+
+.prop-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prop-dialog-select {
+  appearance: none;
+}
+
+.prop-dialog-toggle-row {
+  display: flex;
+  gap: 8px;
+}
+
+.prop-dialog-choice {
+  height: 32px;
+  min-width: 72px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.prop-dialog-choice.is-active {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  background: var(--color-accent-subtle);
+}
+
+.prop-dialog-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-warning);
+}
+
 .prop-add-row {
   display: flex;
   flex-wrap: wrap;
