@@ -5,6 +5,7 @@ import {
   coerceCustomFrontmatterValue,
   getFrontmatterFieldDefaultValue,
   getFrontmatterFieldLabel,
+  getFrontmatterFieldValue,
   getMissingAddableFrontmatterFields,
   inferCustomFrontmatterValueType,
   isKnownFrontmatterField,
@@ -683,12 +684,18 @@ export function PropertiesPanel({
   onFieldChange,
   onToggleCoverImage,
 }: PropertiesPanelProps) {
-  const title = frontmatter.title;
-  const date = typeof frontmatter.date === "string" ? frontmatter.date : undefined;
-  const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]) : undefined;
-  const coverImage =
-    typeof frontmatter.coverImage === "string" ? frontmatter.coverImage : undefined;
-  const publishingKeys = PUBLISHING_BOOLEAN_FIELDS.filter((key) => frontmatter[key] != null);
+  const titleValue = getFrontmatterFieldValue(frontmatter, "title");
+  const dateValue = getFrontmatterFieldValue(frontmatter, "date");
+  const tagsValue = getFrontmatterFieldValue(frontmatter, "tags");
+  const coverImageValue = getFrontmatterFieldValue(frontmatter, "coverImage");
+  const title = typeof titleValue === "string" ? titleValue : undefined;
+  const date = typeof dateValue === "string" ? dateValue : undefined;
+  const tags = Array.isArray(tagsValue) ? tagsValue : undefined;
+  const coverImage = typeof coverImageValue === "string" ? coverImageValue : undefined;
+  const publishingFields = PUBLISHING_BOOLEAN_FIELDS.map((key) => ({
+    key,
+    value: getFrontmatterFieldValue(frontmatter, key),
+  })).filter((field): field is { key: string; value: FrontmatterValue } => field.value != null);
   const addableKeys = getMissingAddableFrontmatterFields(frontmatter);
   const customKeys = Object.keys(frontmatter)
     .filter((k) => frontmatter[k] != null && !isKnownFrontmatterField(k))
@@ -740,14 +747,14 @@ export function PropertiesPanel({
           )}
         </section>
 
-        {publishingKeys.length > 0 && (
+        {publishingFields.length > 0 && (
           <section className="prop-section" aria-label="Publishing metadata">
             <span className="prop-section-title">Publishing</span>
-            {publishingKeys.map((key) => (
+            {publishingFields.map(({ key, value }) => (
               <PublishingBooleanField
                 key={key}
                 fieldKey={key}
-                value={frontmatter[key]}
+                value={value}
                 onSave={(fieldKey, value) => onFieldChange?.(fieldKey, value)}
                 onRemove={key === "draft" ? undefined : () => onFieldChange?.(key, null)}
               />

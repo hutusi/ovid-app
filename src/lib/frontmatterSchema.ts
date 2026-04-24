@@ -67,9 +67,48 @@ export function getFrontmatterFieldLabel(key: string): string {
   return getFrontmatterFieldSchema(key)?.label ?? key;
 }
 
+export function resolveDocumentFrontmatterKey(
+  frontmatter: ParsedFrontmatter,
+  key: string
+): string | null {
+  const targetKey = resolveKnownFrontmatterFieldKey(key) ?? key;
+  return (
+    Object.keys(frontmatter).find((existingKey) => {
+      const resolvedExistingKey = resolveKnownFrontmatterFieldKey(existingKey) ?? existingKey;
+      return resolvedExistingKey === targetKey;
+    }) ?? null
+  );
+}
+
+export function getFrontmatterFieldValue(
+  frontmatter: ParsedFrontmatter,
+  key: string
+): FrontmatterValue | undefined {
+  const documentKey = resolveDocumentFrontmatterKey(frontmatter, key);
+  return documentKey ? frontmatter[documentKey] : undefined;
+}
+
+export function setFrontmatterFieldValue(
+  frontmatter: ParsedFrontmatter,
+  key: string,
+  value: FrontmatterValue
+): ParsedFrontmatter {
+  const canonicalKey = resolveKnownFrontmatterFieldKey(key) ?? key;
+  const existingKey = resolveDocumentFrontmatterKey(frontmatter, key);
+  const updated = { ...frontmatter };
+  if (existingKey && existingKey !== canonicalKey) {
+    delete updated[existingKey];
+  }
+  updated[canonicalKey] = value;
+  return updated;
+}
+
 export function getMissingAddableFrontmatterFields(frontmatter: ParsedFrontmatter): string[] {
+  const presentKeys = new Set(
+    Object.keys(frontmatter).map((key) => resolveKnownFrontmatterFieldKey(key) ?? key)
+  );
   return Object.values(FRONTMATTER_FIELD_SCHEMA)
-    .filter((field) => field.addable && frontmatter[field.key] == null)
+    .filter((field) => field.addable && !presentKeys.has(field.key))
     .map((field) => field.key);
 }
 

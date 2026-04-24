@@ -3,12 +3,14 @@ import {
   coerceCustomFrontmatterValue,
   coerceFrontmatterInput,
   getFrontmatterFieldDefaultValue,
+  getFrontmatterFieldValue,
   getMissingAddableFrontmatterFields,
   inferCustomFrontmatterValueType,
   isKnownFrontmatterField,
   normalizeFrontmatterKey,
   parseBooleanFrontmatterValue,
   resolveKnownFrontmatterFieldKey,
+  setFrontmatterFieldValue,
 } from "./frontmatterSchema";
 
 describe("frontmatter schema", () => {
@@ -53,6 +55,15 @@ describe("frontmatter schema", () => {
     ).toEqual(["pinned", "coverImage"]);
   });
 
+  test("treats mixed-case known keys as present for addable fields", () => {
+    expect(
+      getMissingAddableFrontmatterFields({
+        Featured: true,
+        CoverImage: "/hero.png",
+      })
+    ).toEqual(["pinned"]);
+  });
+
   test("coerces custom metadata values by type", () => {
     expect(coerceCustomFrontmatterValue("text", " hello ")).toBe("hello");
     expect(coerceCustomFrontmatterValue("boolean", "", true)).toBe(true);
@@ -66,6 +77,20 @@ describe("frontmatter schema", () => {
     expect(normalizeFrontmatterKey(" ReadingTime ")).toBe("readingtime");
     expect(resolveKnownFrontmatterFieldKey("Featured")).toBe("featured");
     expect(resolveKnownFrontmatterFieldKey("unknown")).toBeNull();
+  });
+
+  test("reads mixed-case known field values from parsed frontmatter", () => {
+    expect(getFrontmatterFieldValue({ Featured: true }, "featured")).toBe(true);
+    expect(getFrontmatterFieldValue({ CoverImage: "/hero.png" }, "coverImage")).toBe("/hero.png");
+  });
+
+  test("writes known fields back using canonical schema keys", () => {
+    expect(setFrontmatterFieldValue({ Featured: true }, "featured", false)).toEqual({
+      featured: false,
+    });
+    expect(setFrontmatterFieldValue({ CoverImage: "/hero.png" }, "coverImage", null)).toEqual({
+      coverImage: null,
+    });
   });
 
   test("infers custom metadata value types from stored values", () => {
