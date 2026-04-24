@@ -33,6 +33,11 @@ const CUSTOM_METADATA_TYPES: CustomFrontmatterValueType[] = [
   "date",
   "tags",
 ];
+const METADATA_TEXT_INPUT_PROPS = {
+  autoCapitalize: "off" as const,
+  autoCorrect: "off" as const,
+  spellCheck: false,
+};
 
 function formatDate(value: string): string {
   try {
@@ -122,6 +127,7 @@ function TagInput({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) =
         ref={inputRef}
         aria-label="Add tag"
         className="tag-input"
+        {...METADATA_TEXT_INPUT_PROPS}
         value={input}
         placeholder={tags.length === 0 ? "add tag…" : ""}
         onChange={(e) => setInput(e.target.value)}
@@ -180,6 +186,7 @@ function EditableValue({
         ref={inputRef}
         aria-label={label}
         className="prop-input"
+        {...METADATA_TEXT_INPUT_PROPS}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -316,6 +323,7 @@ function CustomMetadataDialog({
             <input
               aria-label="Metadata key"
               className="modal-input"
+              {...METADATA_TEXT_INPUT_PROPS}
               placeholder="readingTime"
               value={key}
               onChange={(e) => {
@@ -374,6 +382,7 @@ function CustomMetadataDialog({
               aria-label="Metadata value"
               type={valueType === "number" ? "number" : valueType === "date" ? "date" : "text"}
               className="modal-input"
+              {...(valueType === "text" || valueType === "tags" ? METADATA_TEXT_INPUT_PROPS : {})}
               placeholder={valueType === "tags" ? "tag-one, tag-two" : "Value"}
               value={rawValue}
               onChange={(e) => {
