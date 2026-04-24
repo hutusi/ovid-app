@@ -4,8 +4,11 @@ import {
   coerceFrontmatterInput,
   getFrontmatterFieldDefaultValue,
   getMissingAddableFrontmatterFields,
+  inferCustomFrontmatterValueType,
   isKnownFrontmatterField,
+  normalizeFrontmatterKey,
   parseBooleanFrontmatterValue,
+  resolveKnownFrontmatterFieldKey,
 } from "./frontmatterSchema";
 
 describe("frontmatter schema", () => {
@@ -31,6 +34,7 @@ describe("frontmatter schema", () => {
 
   test("tracks hidden known fields", () => {
     expect(isKnownFrontmatterField("type")).toBe(true);
+    expect(isKnownFrontmatterField("Type")).toBe(true);
     expect(isKnownFrontmatterField("unknownField")).toBe(false);
   });
 
@@ -56,5 +60,19 @@ describe("frontmatter schema", () => {
     expect(coerceCustomFrontmatterValue("number", "abc")).toBeNull();
     expect(coerceCustomFrontmatterValue("date", "2026-04-24")).toBe("2026-04-24");
     expect(coerceCustomFrontmatterValue("tags", "one, two")).toEqual(["one", "two"]);
+  });
+
+  test("normalizes and resolves frontmatter keys", () => {
+    expect(normalizeFrontmatterKey(" ReadingTime ")).toBe("readingtime");
+    expect(resolveKnownFrontmatterFieldKey("Featured")).toBe("featured");
+    expect(resolveKnownFrontmatterFieldKey("unknown")).toBeNull();
+  });
+
+  test("infers custom metadata value types from stored values", () => {
+    expect(inferCustomFrontmatterValueType(true)).toBe("boolean");
+    expect(inferCustomFrontmatterValueType(12)).toBe("number");
+    expect(inferCustomFrontmatterValueType(["one"])).toBe("tags");
+    expect(inferCustomFrontmatterValueType("2026-04-24")).toBe("date");
+    expect(inferCustomFrontmatterValueType("notes")).toBe("text");
   });
 });

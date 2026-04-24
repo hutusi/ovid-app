@@ -6,8 +6,11 @@ import {
   getFrontmatterFieldDefaultValue,
   getFrontmatterFieldLabel,
   getMissingAddableFrontmatterFields,
+  inferCustomFrontmatterValueType,
   isKnownFrontmatterField,
+  normalizeFrontmatterKey,
   readBooleanFrontmatterValue,
+  resolveKnownFrontmatterFieldKey,
 } from "../lib/frontmatterSchema";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import "./Modal.css";
@@ -241,15 +244,18 @@ function CustomMetadataDialog({
 
   function submit() {
     const k = key.trim();
+    const normalizedKey = normalizeFrontmatterKey(k);
     if (!k) {
       setError("Key is required.");
       return;
     }
-    if (existingKeys.includes(k)) {
+    if (
+      existingKeys.some((existingKey) => normalizeFrontmatterKey(existingKey) === normalizedKey)
+    ) {
       setError("This field already exists.");
       return;
     }
-    if (isKnownFrontmatterField(k)) {
+    if (resolveKnownFrontmatterFieldKey(k)) {
       setError("Use the dedicated editor for this field.");
       return;
     }
@@ -375,6 +381,60 @@ function CustomMetadataDialog({
       </div>
     </div>
   );
+}
+
+function CustomMetadataField({
+  fieldKey,
+  value,
+  onSave,
+}: {
+  fieldKey: string;
+  value: FrontmatterValue;
+  onSave: (value: FrontmatterValue) => void;
+}) {
+  const inferredType = inferCustomFrontmatterValueType(value);
+
+  if (inferredType === "boolean") {
+    return (
+      <BooleanField
+        label={fieldKey}
+        checked={readBooleanFrontmatterValue(value)}
+        onSave={(nextValue) => onSave(nextValue)}
+      />
+    );
+  }
+
+  if (inferredType === "tags") {
+    return (
+      <TagInput
+        tags={Array.isArray(value) ? value : []}
+        onSave={(nextValue) => onSave(nextValue)}
+      />
+    );
+  }
+
+  if (inferredType === "date" && typeof value === "string") {
+    return <DateField value={value} onSave={(nextValue) => onSave(nextValue)} />;
+  }
+
+  if (inferredType === "number") {
+    return (
+      <EditableValue
+        label={fieldKey}
+        value={value}
+        onSave={(nextValue) => {
+          if (nextValue === null) {
+            onSave(null);
+            return;
+          }
+          const parsed = Number(String(nextValue).trim());
+          onSave(Number.isFinite(parsed) ? parsed : value);
+        }}
+      />
+    );
+  }
+
+  return <EditableValue label={fieldKey} value={value} onSave={(nextValue) => onSave(nextValue)} />;
 }
 
 function AddFieldRow({
@@ -656,8 +716,8 @@ export function PropertiesPanel({
             {customKeys.map((key) => (
               <div key={key} className="prop-field">
                 <span className="prop-label">{key}</span>
-                <EditableValue
-                  label={key}
+                <CustomMetadataField
+                  fieldKey={key}
                   value={frontmatter[key]}
                   onSave={(v) => onFieldChange?.(key, v)}
                 />

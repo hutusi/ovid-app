@@ -2,6 +2,7 @@ import type { FrontmatterValue, ParsedFrontmatter } from "./frontmatter";
 
 export type FrontmatterFieldKind = "text" | "boolean" | "date" | "tags" | "path";
 export type CustomFrontmatterValueType = "text" | "boolean" | "number" | "date" | "tags";
+const DATE_STRING_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface FrontmatterFieldSchema {
   key: string;
@@ -45,8 +46,21 @@ export function getFrontmatterFieldSchema(key: string): FrontmatterFieldSchema |
   return FRONTMATTER_FIELD_SCHEMA[key];
 }
 
+export function normalizeFrontmatterKey(key: string): string {
+  return key.trim().toLowerCase();
+}
+
+export function resolveKnownFrontmatterFieldKey(key: string): string | null {
+  const normalized = normalizeFrontmatterKey(key);
+  return (
+    Object.keys(FRONTMATTER_FIELD_SCHEMA).find(
+      (schemaKey) => normalizeFrontmatterKey(schemaKey) === normalized
+    ) ?? null
+  );
+}
+
 export function isKnownFrontmatterField(key: string): boolean {
-  return getFrontmatterFieldSchema(key) !== undefined;
+  return resolveKnownFrontmatterFieldKey(key) !== null;
 }
 
 export function getFrontmatterFieldLabel(key: string): string {
@@ -90,6 +104,16 @@ export function coerceCustomFrontmatterValue(
     default:
       return trimmed || null;
   }
+}
+
+export function inferCustomFrontmatterValueType(
+  value: FrontmatterValue
+): CustomFrontmatterValueType {
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "number") return "number";
+  if (Array.isArray(value)) return "tags";
+  if (typeof value === "string" && DATE_STRING_RE.test(value)) return "date";
+  return "text";
 }
 
 export function parseBooleanFrontmatterValue(value: FrontmatterValue): boolean | null {
