@@ -8,6 +8,7 @@ import {
   parseYamlFrontmatter,
   serializeFrontmatter,
 } from "./frontmatter";
+import { setFrontmatterFieldValue } from "./frontmatterSchema";
 import { measureAsync } from "./perf";
 import type { FileNode, SaveStatus } from "./types";
 
@@ -199,7 +200,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
 
   async function handleFieldChange(key: string, value: FrontmatterValue) {
     if (!selectedFile) return;
-    const updated = { ...parsedFrontmatter, [key]: value };
+    const updated = setFrontmatterFieldValue(parsedFrontmatter, key, value);
     setParsedFrontmatter(updated);
     const newFrontmatter = serializeFrontmatter(updated);
     frontmatterRef.current = newFrontmatter;
