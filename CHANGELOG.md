@@ -11,6 +11,12 @@ release cadence and Conventional Commit history.
 - Follow-up work is now focused on stabilization, distribution hardening, and the remaining
   infrastructure gaps before `1.0.0`.
 
+## 0.10.1 - 2026-04-25
+
+### Fixed
+- Prevented Windows git actions from flashing console windows in front of the app by hiding spawned
+  git child processes during status refreshes and git commands.
+
 ## 0.10.0 - 2026-04-21
 
 ### Added
