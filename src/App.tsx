@@ -29,6 +29,7 @@ import "./App.css";
 type ModalState =
   | { type: "new-file"; dirPath: string; contentType?: string }
   | { type: "duplicate-file"; node: FileNode }
+  | { type: "rename-path"; node: FileNode }
   | null;
 type EditorViewState = { selection: number; scrollTop: number };
 
@@ -77,6 +78,9 @@ const PerfPanel = lazy(async () => ({
 const UpdateDialog = lazy(async () => ({
   default: (await import("./components/UpdateDialog")).UpdateDialog,
 }));
+const RenamePathDialog = lazy(async () => ({
+  default: (await import("./components/RenamePathDialog")).RenamePathDialog,
+}));
 
 function makeFileNodeFromPath(path: string): FileNode {
   const normalizedPath = path.replace(/\\/g, "/");
@@ -105,6 +109,41 @@ function getDuplicateNameSuggestion(node: FileNode): string {
     ? node.name.replace(/\.(md|mdx)$/i, "")
     : sourceName.replace(/\.(md|mdx)$/i, "");
   return `${baseName}-copy`;
+}
+
+function isFolderBackedPostNode(node: FileNode): boolean {
+  return Boolean(node.containerDirPath) || /^index\.mdx?$/i.test(node.name);
+}
+
+function getPathDisplayLabel(node: FileNode): string {
+  if (!isFolderBackedPostNode(node)) {
+    return node.name;
+  }
+  const folderPath = node.containerDirPath ?? node.path.slice(0, node.path.lastIndexOf("/"));
+  const folderName = folderPath.split("/").filter(Boolean).pop() ?? node.name;
+  return `${folderName}/${node.name}`;
+}
+
+function getRenamePathDialogState(node: FileNode): {
+  currentPath: string;
+  currentName: string;
+  suffix: string;
+} {
+  const ext = node.extension ?? ".md";
+  if (!isFolderBackedPostNode(node)) {
+    return {
+      currentPath: node.name,
+      currentName: node.name.replace(/\.(md|mdx)$/i, ""),
+      suffix: ext,
+    };
+  }
+  const folderPath = node.containerDirPath ?? node.path.slice(0, node.path.lastIndexOf("/"));
+  const folderName = folderPath.split("/").filter(Boolean).pop() ?? node.name;
+  return {
+    currentPath: `${folderName}/${node.name}`,
+    currentName: folderName,
+    suffix: `/${node.name}`,
+  };
 }
 
 function App() {
@@ -792,7 +831,7 @@ function App() {
         )}
       </div>
       <StatusBar
-        fileName={selectedFile?.name ?? null}
+        fileLabel={selectedFile ? getPathDisplayLabel(selectedFile) : null}
         wordCount={wordCount}
         resolvedTheme={resolvedTheme}
         saveStatus={saveStatus}
@@ -811,6 +850,11 @@ function App() {
         gitChangeTitle={gitChangeSummary?.title}
         gitSyncPopoverOpen={gitSyncPopoverOpen}
         onOpenBranches={() => void openBranchSwitcher()}
+        onRenamePath={
+          selectedFile && !selectedFile.isDirectory
+            ? () => setModal({ type: "rename-path", node: selectedFile })
+            : undefined
+        }
         onOpenCommit={() => void openCommitDialog("Update")}
         onOpenGitSync={() => setGitSyncPopoverOpen((open) => !open)}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
@@ -855,6 +899,18 @@ function App() {
           <UpdateDialog
             onBeforeRestart={flushPendingSave}
             onClose={() => setUpdateDialogOpen(false)}
+          />
+        </Suspense>
+      )}
+      {modal?.type === "rename-path" && (
+        <Suspense fallback={null}>
+          <RenamePathDialog
+            {...getRenamePathDialogState(modal.node)}
+            onConfirm={(name) => {
+              void handleRename(modal.node, name);
+              setModal(null);
+            }}
+            onCancel={() => setModal(null)}
           />
         </Suspense>
       )}

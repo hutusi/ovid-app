@@ -70,6 +70,14 @@ function getDuplicateEntrySourcePath(node: FileNode): string {
   return node.path;
 }
 
+function getRenameEntrySourcePath(node: FileNode): string {
+  if (node.containerDirPath) return node.containerDirPath;
+  if (/^index\.mdx?$/i.test(node.name)) {
+    return node.path.slice(0, node.path.lastIndexOf("/"));
+  }
+  return node.path;
+}
+
 export function useWorkspace({
   showToast,
   flushPendingSave,
@@ -225,9 +233,10 @@ export function useWorkspace({
     setRenamingPath(null);
     await flushPendingSave();
     const ext = node.extension ?? ".md";
-    const oldPath = node.containerDirPath ?? node.path;
+    const oldPath = getRenameEntrySourcePath(node);
     const dir = oldPath.substring(0, oldPath.lastIndexOf("/"));
-    const newPath = node.containerDirPath
+    const isFolderBackedRename = oldPath !== node.path || Boolean(node.containerDirPath);
+    const newPath = isFolderBackedRename
       ? `${dir}/${newName}`
       : `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
     try {
@@ -235,7 +244,7 @@ export function useWorkspace({
       if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
       const updated = await refreshTree();
       if (selectedFile?.path === node.path) {
-        const selectedPath = node.containerDirPath ? `${newPath}/index${ext}` : newPath;
+        const selectedPath = isFolderBackedRename ? `${newPath}/${node.name}` : newPath;
         const renamed = findNode(updated, selectedPath);
         if (renamed) {
           selectedPathRef.current = selectedPath;
