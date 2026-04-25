@@ -205,7 +205,7 @@ function FileItem({
   async function showFileContextMenu() {
     const menu = await Menu.new({
       items: [
-        await MenuItem.new({ text: "Duplicate", action: () => onDuplicate(node) }),
+        await MenuItem.new({ text: "Make a Copy", action: () => onDuplicate(node) }),
         await PredefinedMenuItem.new({ item: "Separator" }),
         await MenuItem.new({ text: "Rename", action: () => onStartRename(node.path) }),
         await MenuItem.new({ text: "Delete", action: () => onDelete(node) }),

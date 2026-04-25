@@ -890,8 +890,8 @@ function App() {
           <NewFileDialog
             contentTypes={[]}
             initialFilename={getDuplicateNameSuggestion(modal.node)}
-            title="Duplicate Post"
-            confirmLabel="Duplicate"
+            title="Make a Copy"
+            confirmLabel="Copy"
             showTypeSelector={false}
             onConfirm={(name) => {
               void handleDuplicate(modal.node, name);
