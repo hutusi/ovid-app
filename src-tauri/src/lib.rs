@@ -54,7 +54,12 @@ struct SearchResult {
 }
 
 fn search_display_name(result: &SearchResult) -> String {
-    if let Some(title) = result.title.as_deref().map(str::trim).filter(|title| !title.is_empty()) {
+    if let Some(title) = result
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+    {
         return title.to_lowercase();
     }
 
@@ -89,10 +94,11 @@ fn score_search_result(result: &SearchResult, query_lower: &str, root: &Path) ->
         900 - (display_name.len().saturating_sub(query_lower.len()) as i64)
     } else if base_name.starts_with(query_lower) {
         850 - (base_name.len().saturating_sub(query_lower.len()) as i64)
-    } else if relative_path
-        .split('/')
-        .any(|part| part == query_lower || part == format!("{query_lower}.md") || part == format!("{query_lower}.mdx"))
-    {
+    } else if relative_path.split('/').any(|part| {
+        part == query_lower
+            || part == format!("{query_lower}.md")
+            || part == format!("{query_lower}.mdx")
+    }) {
         825
     } else if relative_path
         .split(|c: char| matches!(c, '/' | '\\' | '.' | '_' | '-' | ' '))
@@ -670,7 +676,10 @@ fn list_workspace(state: State<'_, WorkspaceState>) -> Result<Vec<FileNode>, Str
 }
 
 #[tauri::command]
-fn list_workspace_children(path: String, state: State<'_, WorkspaceState>) -> Result<Vec<FileNode>, String> {
+fn list_workspace_children(
+    path: String,
+    state: State<'_, WorkspaceState>,
+) -> Result<Vec<FileNode>, String> {
     let root = {
         let root_guard = state.tree_root.lock().map_err(|e| e.to_string())?;
         root_guard.as_ref().ok_or("no workspace open")?.clone()
@@ -1149,15 +1158,26 @@ struct GitRemoteInfo {
 /// Run a git subcommand rooted at `root`. Returns stdout on success or an
 /// error string (stderr) on failure. Returns an empty string if git is not
 /// found, so callers can treat a missing git as a graceful no-op.
+#[cfg(windows)]
+fn configure_child_process(cmd: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn configure_child_process(_cmd: &mut std::process::Command) {}
+
 fn run_git(root: &str, args: &[&str]) -> Result<String, String> {
     let mut cmd_args = vec!["-C", root];
     cmd_args.extend_from_slice(args);
-    let output = std::process::Command::new("git")
-        .args(&cmd_args)
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(&cmd_args)
         .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GCM_INTERACTIVE", "Never")
-        .output()
-        .map_err(|_| "git not found".to_string())?;
+        .env("GCM_INTERACTIVE", "Never");
+    configure_child_process(&mut cmd);
+    let output = cmd.output().map_err(|_| "git not found".to_string())?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(if stderr.is_empty() {
@@ -2926,7 +2946,10 @@ mod tests {
         let exact = make_search_result("/workspace/notes/rust.md", Some("Rust"), 1);
         let prefix = make_search_result("/workspace/notes/rust-book.md", Some("Rust Book"), 1);
 
-        assert!(score_search_result(&exact, "rust", &root) > score_search_result(&prefix, "rust", &root));
+        assert!(
+            score_search_result(&exact, "rust", &root)
+                > score_search_result(&prefix, "rust", &root)
+        );
     }
 
     #[test]
