@@ -1,0 +1,131 @@
+.tab-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 6px;
+  height: 32px;
+  background: var(--color-surface-subtle);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-bar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 8px;
+  height: 100%;
+  min-width: 0;
+  max-width: 200px;
+  border-right: 1px solid transparent;
+  border-left: 1px solid transparent;
+  position: relative;
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: default;
+  user-select: none;
+}
+
+.tab-bar-item:hover {
+  color: var(--color-fg);
+  background: var(--color-surface-hover);
+}
+
+.tab-bar-item.is-active {
+  color: var(--color-fg);
+  background: var(--color-surface);
+  border-left-color: var(--color-border);
+  border-right-color: var(--color-border);
+}
+
+.tab-bar-item.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--color-surface);
+}
+
+.tab-bar-item.is-dragging {
+  opacity: 0.5;
+}
+
+.tab-bar-item.is-drop-target {
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+.tab-bar-label {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 100%;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab-bar-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tab-bar-dot {
+  flex-shrink: 0;
+}
+
+.tab-bar-close {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  margin-left: 2px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-fg-subtle);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.tab-bar-item:hover .tab-bar-close,
+.tab-bar-item.is-active .tab-bar-close {
+  opacity: 1;
+}
+
+.tab-bar-close:hover {
+  background: var(--color-surface-active);
+  color: var(--color-fg);
+}
+
+.tab-bar-close:focus-visible {
+  opacity: 1;
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.app[data-zen] .tab-bar {
+  display: none;
+}
