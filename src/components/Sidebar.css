@@ -227,11 +227,6 @@
   opacity: 0.6;
 }
 
-/* ── Inline rename ───────────────────────────── */
-.sidebar-rename-row {
-  padding: 3px 10px 3px 0;
-}
-
 /* ── Empty workspace state ───────────────────── */
 .sidebar-empty {
   display: flex;
