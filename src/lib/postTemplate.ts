@@ -40,7 +40,10 @@ export function createPostFromExistingContent(raw: string, now: Date = new Date(
     return frontmatter;
   }
 
-  const today = now.toISOString().slice(0, 10);
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const today = `${yyyy}-${mm}-${dd}`;
   const next: ParsedFrontmatter = {};
 
   for (const [key, value] of Object.entries(parsed)) {

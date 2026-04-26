@@ -260,6 +260,11 @@ export function useWorkspace({
     const { newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
     const targetPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
 
+    if (findNode(tree, newPath)) {
+      showToast(`Failed to create post from existing: "${newName}" already exists`);
+      return;
+    }
+
     try {
       const raw = await invoke<string>("read_file", { path: node.path });
       const content = createPostFromExistingContent(raw);

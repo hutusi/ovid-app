@@ -24,7 +24,7 @@ series: weekly-notes
 Body text
 `;
 
-    expect(createPostFromExistingContent(raw, new Date("2026-04-26T08:00:00Z"))).toBe(`---
+    expect(createPostFromExistingContent(raw, new Date(2026, 3, 26))).toBe(`---
 title: ''
 date: '2026-04-26'
 draft: true
