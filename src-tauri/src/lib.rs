@@ -2079,7 +2079,10 @@ async fn pick_image_file(app: tauri::AppHandle) -> Result<Option<String>, String
     };
     let path = match file {
         tauri_plugin_dialog::FilePath::Path(p) => to_slash(&p),
-        tauri_plugin_dialog::FilePath::Url(u) => u.path().to_string(),
+        tauri_plugin_dialog::FilePath::Url(u) => {
+            let p = u.to_file_path().unwrap_or_else(|_| PathBuf::from(u.path()));
+            to_slash(&p)
+        }
     };
     Ok(Some(path))
 }
