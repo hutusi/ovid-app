@@ -13,7 +13,7 @@ function renderStatusBar(gitChangeLabel: string | null, onOpenCommit = mock(() =
   return {
     onOpenCommit,
     tree: StatusBar({
-      fileName: "draft.md",
+      fileLabel: "draft.md",
       wordCount: 120,
       resolvedTheme: "light",
       saveStatus: "saved",

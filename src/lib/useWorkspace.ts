@@ -7,6 +7,7 @@ import {
   createTypedFrontmatter,
 } from "./frontmatter";
 import { measureAsync } from "./perf";
+import { buildPostTargetPath } from "./postPath";
 import type { FileNode } from "./types";
 import { syncRecentDelete, syncRecentRename } from "./useRecentFiles";
 
@@ -216,18 +217,13 @@ export function useWorkspace({
   async function handleRename(node: FileNode, newName: string) {
     setRenamingPath(null);
     await flushPendingSave();
-    const ext = node.extension ?? ".md";
-    const oldPath = node.containerDirPath ?? node.path;
-    const dir = oldPath.substring(0, oldPath.lastIndexOf("/"));
-    const newPath = node.containerDirPath
-      ? `${dir}/${newName}`
-      : `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
+    const { oldPath, newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
     try {
       await invoke("rename_file", { oldPath, newPath });
       if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
       const updated = await refreshTree();
       if (selectedFile?.path === node.path) {
-        const selectedPath = node.containerDirPath ? `${newPath}/index${ext}` : newPath;
+        const selectedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
         const renamed = findNode(updated, selectedPath);
         if (renamed) {
           selectedPathRef.current = selectedPath;
@@ -237,6 +233,24 @@ export function useWorkspace({
     } catch (err) {
       console.error("Failed to rename file:", err);
       showToast(`Failed to rename: ${err}`);
+    }
+  }
+
+  async function handleDuplicate(node: FileNode, newName: string) {
+    await flushPendingSave();
+    const { oldPath, newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
+
+    try {
+      await invoke("duplicate_entry", { srcPath: oldPath, destPath: newPath });
+      const updated = await refreshTree();
+      const duplicatedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
+      const duplicated = findNode(updated, duplicatedPath);
+      if (duplicated) {
+        await handleSelectFile(duplicated);
+      }
+    } catch (err) {
+      console.error("Failed to duplicate file:", err);
+      showToast(`Failed to duplicate: ${err}`);
     }
   }
 
@@ -272,6 +286,7 @@ export function useWorkspace({
     handleNewFile,
     handleNewTodayFlow,
     handleRename,
+    handleDuplicate,
     handleDelete,
     loadDirectoryChildren,
   };

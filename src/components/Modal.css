@@ -181,6 +181,19 @@
   padding: 1px 6px;
 }
 
+.modal-path-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-path-suffix {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--color-fg-subtle);
+  font-family: var(--font-mono);
+}
+
 /* ── Checkbox label ───────────────────────────── */
 .modal-checkbox-label {
   display: flex;

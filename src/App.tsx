@@ -11,6 +11,11 @@ import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch"
 import { getGitBranchTitle } from "./lib/gitUi";
 import { resolveImageSrc } from "./lib/imageUtils";
 import { isPerfLoggingEnabled } from "./lib/perf";
+import {
+  getDuplicateNameSuggestion,
+  getPathDisplayLabel,
+  getRenamePathDialogState,
+} from "./lib/postPath";
 import type { FileNode } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
@@ -26,7 +31,11 @@ import { useWorkspace } from "./lib/useWorkspace";
 import "./styles/global.css";
 import "./App.css";
 
-type ModalState = { type: "new-file"; dirPath: string; contentType?: string } | null;
+type ModalState =
+  | { type: "new-file"; dirPath: string; contentType?: string }
+  | { type: "duplicate-file"; node: FileNode }
+  | { type: "rename-path"; node: FileNode }
+  | null;
 type EditorViewState = { selection: number; scrollTop: number };
 
 const SIDEBAR_VISIBLE_KEY = "ovid:sidebarVisible";
@@ -73,6 +82,9 @@ const PerfPanel = lazy(async () => ({
 }));
 const UpdateDialog = lazy(async () => ({
   default: (await import("./components/UpdateDialog")).UpdateDialog,
+}));
+const RenamePathDialog = lazy(async () => ({
+  default: (await import("./components/RenamePathDialog")).RenamePathDialog,
 }));
 
 function makeFileNodeFromPath(path: string): FileNode {
@@ -148,6 +160,7 @@ function App() {
     handleNewFile,
     handleNewTodayFlow,
     handleRename,
+    handleDuplicate,
     handleDelete,
     loadDirectoryChildren,
   } = useWorkspace({
@@ -712,6 +725,7 @@ function App() {
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
             onLoadDirectoryChildren={(dirPath) => void loadDirectoryChildren(dirPath)}
             onRename={handleRename}
+            onDuplicate={(node) => setModal({ type: "duplicate-file", node })}
             onDelete={handleDelete}
             onStartRename={setRenamingPath}
             onCancelRename={() => setRenamingPath(null)}
@@ -770,7 +784,7 @@ function App() {
         )}
       </div>
       <StatusBar
-        fileName={selectedFile?.name ?? null}
+        fileLabel={selectedFile ? getPathDisplayLabel(selectedFile) : null}
         wordCount={wordCount}
         resolvedTheme={resolvedTheme}
         saveStatus={saveStatus}
@@ -789,6 +803,11 @@ function App() {
         gitChangeTitle={gitChangeSummary?.title}
         gitSyncPopoverOpen={gitSyncPopoverOpen}
         onOpenBranches={() => void openBranchSwitcher()}
+        onRenamePath={
+          selectedFile && !selectedFile.isDirectory
+            ? () => setModal({ type: "rename-path", node: selectedFile })
+            : undefined
+        }
         onOpenCommit={() => void openCommitDialog("Update")}
         onOpenGitSync={() => setGitSyncPopoverOpen((open) => !open)}
         onToggleTheme={() => setPreference(resolvedTheme === "dark" ? "light" : "dark")}
@@ -836,6 +855,18 @@ function App() {
           />
         </Suspense>
       )}
+      {modal?.type === "rename-path" && (
+        <Suspense fallback={null}>
+          <RenamePathDialog
+            {...getRenamePathDialogState(modal.node)}
+            onConfirm={(name) => {
+              void handleRename(modal.node, name);
+              setModal(null);
+            }}
+            onCancel={() => setModal(null)}
+          />
+        </Suspense>
+      )}
       {switcherOpen && (
         <Suspense fallback={null}>
           <FileSwitcher
@@ -857,6 +888,22 @@ function App() {
             preselectedType={modal.contentType}
             onConfirm={(name, contentType) => {
               void handleNewFile(modal.dirPath, name, contentType);
+              setModal(null);
+            }}
+            onCancel={() => setModal(null)}
+          />
+        </Suspense>
+      )}
+      {modal?.type === "duplicate-file" && (
+        <Suspense fallback={null}>
+          <NewFileDialog
+            contentTypes={[]}
+            initialFilename={getDuplicateNameSuggestion(modal.node)}
+            title="Make a Copy"
+            confirmLabel="Copy"
+            showTypeSelector={false}
+            onConfirm={(name) => {
+              void handleDuplicate(modal.node, name);
               setModal(null);
             }}
             onCancel={() => setModal(null)}

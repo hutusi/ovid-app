@@ -2,6 +2,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  FilePenLine,
   GitBranch,
   Keyboard,
   MoonStar,
@@ -30,7 +31,7 @@ function GitSyncStatusIcon({ label }: { label: string }) {
 }
 
 interface StatusBarProps {
-  fileName: string | null;
+  fileLabel: string | null;
   wordCount: number;
   resolvedTheme: ResolvedTheme;
   saveStatus: SaveStatus;
@@ -49,6 +50,7 @@ interface StatusBarProps {
   gitChangeTitle?: string;
   gitSyncPopoverOpen?: boolean;
   onOpenBranches: () => void;
+  onRenamePath?: () => void;
   onOpenCommit: () => void;
   onOpenGitSync: () => void;
   onToggleTheme: () => void;
@@ -61,7 +63,7 @@ interface StatusBarProps {
 }
 
 export function StatusBar({
-  fileName,
+  fileLabel,
   wordCount,
   resolvedTheme,
   saveStatus,
@@ -80,6 +82,7 @@ export function StatusBar({
   gitChangeTitle,
   gitSyncPopoverOpen = false,
   onOpenBranches,
+  onRenamePath,
   onOpenCommit,
   onOpenGitSync,
   onToggleTheme,
@@ -109,13 +112,25 @@ export function StatusBar({
   return (
     <div className="statusbar">
       <div className="statusbar-left">
-        {fileName && (
+        {fileLabel && (
           <span
             className={`save-dot ${saveStatus}`}
             title={saveStatus === "unsaved" ? "Unsaved changes" : "Saved"}
           />
         )}
-        <span className="statusbar-file">{fileName ?? "—"}</span>
+        {fileLabel ? (
+          <button
+            type="button"
+            className="statusbar-file statusbar-file-button"
+            onClick={onRenamePath}
+            title="Rename path"
+          >
+            <FilePenLine className="statusbar-git-icon" aria-hidden="true" />
+            {fileLabel}
+          </button>
+        ) : (
+          <span className="statusbar-file">—</span>
+        )}
         {gitBranch && (
           <div className="statusbar-git">
             <button
