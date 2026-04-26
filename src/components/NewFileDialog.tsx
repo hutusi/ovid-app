@@ -28,8 +28,14 @@ export function NewFileDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    if (!initialFilename) return;
+    const dot = initialFilename.lastIndexOf(".");
+    const end = dot > 0 ? dot : initialFilename.length;
+    input.setSelectionRange(0, end);
+  }, [initialFilename]);
 
   useEffect(() => {
     if (

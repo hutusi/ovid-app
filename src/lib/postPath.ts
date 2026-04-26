@@ -20,6 +20,37 @@ export function getPostEntrySourcePath(node: FileNode): string {
   return node.path;
 }
 
+export function getPostEntryFileName(node: FileNode): string {
+  return getPathBaseName(node.path);
+}
+
+export function buildPostTargetPath(
+  node: FileNode,
+  newName: string
+): {
+  oldPath: string;
+  newPath: string;
+  folderBacked: boolean;
+  ext: string;
+  entryFileName: string;
+} {
+  const oldPath = getPostEntrySourcePath(node);
+  const ext = node.extension ?? ".md";
+  const folderBacked = isFolderBackedPostNode(node);
+  const dir = getNodeParentPath(oldPath);
+  const newPath = folderBacked
+    ? `${dir}/${newName}`
+    : `${dir}/${newName}${newName.endsWith(ext) ? "" : ext}`;
+
+  return {
+    oldPath,
+    newPath,
+    folderBacked,
+    ext,
+    entryFileName: getPostEntryFileName(node),
+  };
+}
+
 export function getDuplicateNameSuggestion(node: FileNode): string {
   const sourcePath = getPostEntrySourcePath(node);
   const sourceName = getPathBaseName(sourcePath);

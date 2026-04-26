@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildPostTargetPath,
   getDuplicateNameSuggestion,
   getPathDisplayLabel,
+  getPostEntryFileName,
   getPostEntrySourcePath,
   getRenamePathDialogState,
   isFolderBackedPostNode,
@@ -46,6 +48,17 @@ describe("postPath", () => {
     expect(getPostEntrySourcePath(makeNode("/workspace/posts/hello/index.mdx"))).toBe(
       "/workspace/posts/hello"
     );
+  });
+
+  test("returns the actual entry filename for folder-backed and file-backed posts", () => {
+    expect(getPostEntryFileName(makeNode("/workspace/posts/hello.md"))).toBe("hello.md");
+    expect(
+      getPostEntryFileName(
+        makeNode("/workspace/posts/hello/index.md", {
+          containerDirPath: "/workspace/posts/hello",
+        })
+      )
+    ).toBe("index.md");
   });
 
   test("builds duplicate name suggestions from the post identity", () => {
@@ -97,6 +110,31 @@ describe("postPath", () => {
       currentPath: "hello/index.mdx",
       currentName: "hello",
       suffix: "/index.mdx",
+    });
+  });
+
+  test("builds post target paths for rename and duplicate flows", () => {
+    expect(buildPostTargetPath(makeNode("/workspace/posts/hello.md"), "draft-copy")).toEqual({
+      oldPath: "/workspace/posts/hello.md",
+      newPath: "/workspace/posts/draft-copy.md",
+      folderBacked: false,
+      ext: ".md",
+      entryFileName: "hello.md",
+    });
+
+    expect(
+      buildPostTargetPath(
+        makeNode("/workspace/posts/hello/index.mdx", {
+          containerDirPath: "/workspace/posts/hello",
+        }),
+        "hello-copy"
+      )
+    ).toEqual({
+      oldPath: "/workspace/posts/hello",
+      newPath: "/workspace/posts/hello-copy",
+      folderBacked: true,
+      ext: ".mdx",
+      entryFileName: "index.mdx",
     });
   });
 });
