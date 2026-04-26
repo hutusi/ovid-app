@@ -58,6 +58,13 @@ export function getDuplicateNameSuggestion(node: FileNode): string {
   return `${baseName}-copy`;
 }
 
+export function getNewFromExistingNameSuggestion(node: FileNode): string {
+  const sourcePath = getPostEntrySourcePath(node);
+  const sourceName = getPathBaseName(sourcePath);
+  const baseName = sourceName.replace(/\.(md|mdx)$/i, "");
+  return `${baseName}-new`;
+}
+
 export function getPathDisplayLabel(node: FileNode): string {
   if (!isFolderBackedPostNode(node)) {
     return node.name;
