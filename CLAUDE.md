@@ -56,7 +56,7 @@ Three-zone layout managed by `src/App.tsx`:
 - `Sidebar.tsx` — File tree; shows only `.md` / `.mdx` files
 - `TabBar.tsx` — Open-file tab strip above the editor; drag-to-reorder, middle-click or close button to close, hidden in zen mode and only rendered with 2+ tabs
 - `StatusBar.tsx` — Filename, word count, dark mode toggle, zen/typewriter toggles
-- `PropertiesPanel.tsx` — Collapsible bar above editor showing parsed frontmatter fields
+- `PropertiesPanel.tsx` — Collapsible bar above editor for frontmatter metadata; always shown for any open markdown file; displays an empty state with add-field prompts when the file has no frontmatter
 - `SearchPanel.tsx` — Full-text search panel (replaces sidebar); queries run in Rust
 - `FileSwitcher.tsx` — `Cmd+P` command palette; wraps `cmdk`
 - Git UI: `GitSyncPopover.tsx`, `BranchSwitcher.tsx`, `NewBranchDialog.tsx`, `RenameBranchDialog.tsx`, `DeleteBranchDialog.tsx`, `CommitDialog.tsx` — surface the Tauri git commands; coordinated by `useGitUiController`

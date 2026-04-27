@@ -38,7 +38,7 @@ This roadmap is organized into deliberate phases — each phase must feel comple
 > Goal: a content creator should never need to leave the app to manage files.
 
 12. ✅ **New file** (`Cmd+N`) — create a new `.md` file; prompt for filename; auto-insert Amytis frontmatter template (`title`, `date`, `draft: true`); open immediately in editor
-13. ✅ **Rename file** (`F2` or double-click filename in sidebar) — inline rename; validates no duplicate names; updates open editor tab if renaming current file
+13. ✅ **Rename file** (`F2` or right-click → Rename in sidebar) — inline rename; validates no duplicate names; updates open editor tab if renaming current file
 14. ✅ **Delete file** — right-click context menu or keyboard shortcut; confirmation dialog; moves to system Trash (not permanent delete)
 15. ✅ **Editable properties panel** — click any field to edit inline; writes changes back to frontmatter on disk verbatim; tab between fields; `Esc` to cancel; support adding new fields
 16. ✅ **New folder** — create subdirectory from sidebar; useful for organizing Amytis content collections
