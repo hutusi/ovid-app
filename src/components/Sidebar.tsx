@@ -388,6 +388,9 @@ export function Sidebar({
               type="text"
               className="sidebar-filter-input"
               placeholder="Filter…"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
               onKeyDown={(e) => {
