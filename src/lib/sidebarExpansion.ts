@@ -12,25 +12,15 @@ export function shouldDefaultExpand(depth: number): boolean {
 
 export function parseExpandedPaths(stored: string | null): {
   expandedPaths: Record<string, boolean>;
-  hasStoredExpandedState: boolean;
 } {
-  if (!stored) {
-    return { expandedPaths: {}, hasStoredExpandedState: false };
-  }
+  if (!stored) return { expandedPaths: {} };
 
   try {
     const parsed = JSON.parse(stored);
-    if (typeof parsed !== "object" || !parsed) {
-      return { expandedPaths: {}, hasStoredExpandedState: false };
-    }
-
-    const expandedPaths = parsed as Record<string, boolean>;
-    return {
-      expandedPaths,
-      hasStoredExpandedState: Object.keys(expandedPaths).length > 0,
-    };
+    if (typeof parsed !== "object" || !parsed) return { expandedPaths: {} };
+    return { expandedPaths: parsed as Record<string, boolean> };
   } catch {
-    return { expandedPaths: {}, hasStoredExpandedState: false };
+    return { expandedPaths: {} };
   }
 }
 
@@ -54,26 +44,19 @@ export function findAncestorPaths(nodes: FileNode[], selectedPath: string | null
   return ancestors;
 }
 
-export function seedExpandedPaths(
+export function forceExpandAncestors(
   expandedPaths: Record<string, boolean>,
   ancestorPaths: Set<string>
 ): Record<string, boolean> {
   let changed = false;
   const next = { ...expandedPaths };
   for (const path of ancestorPaths) {
-    if (next[path] === undefined) {
+    if (next[path] !== true) {
       next[path] = true;
       changed = true;
     }
   }
   return changed ? next : expandedPaths;
-}
-
-export function shouldRevealSelectedAncestors(
-  expandedPaths: Record<string, boolean>,
-  hasStoredExpandedState: boolean
-): boolean {
-  return hasStoredExpandedState || Object.keys(expandedPaths).length > 0;
 }
 
 export function getNodeExpanded(

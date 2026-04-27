@@ -5,11 +5,10 @@ import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import {
   buildExpandedStorageKey,
   findAncestorPaths,
+  forceExpandAncestors,
   getNodeExpanded,
   parseExpandedPaths,
-  seedExpandedPaths,
   shouldDefaultExpand,
-  shouldRevealSelectedAncestors,
 } from "../lib/sidebarExpansion";
 import {
   filterTree,
@@ -228,7 +227,6 @@ export function Sidebar({
   const [filterQuery, setFilterQuery] = useState("");
   const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
-  const [hasStoredExpandedState, setHasStoredExpandedState] = useState(false);
   const [isExpandedStateLoaded, setIsExpandedStateLoaded] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -292,7 +290,6 @@ export function Sidebar({
     setIsExpandedStateLoaded(false);
     const stored = localStorage.getItem(expandedStorageKey);
     const next = parseExpandedPaths(stored);
-    setHasStoredExpandedState(next.hasStoredExpandedState);
     setExpandedPaths(next.expandedPaths);
     setIsExpandedStateLoaded(true);
   }, [expandedStorageKey]);
@@ -305,9 +302,8 @@ export function Sidebar({
   useEffect(() => {
     if (!isExpandedStateLoaded) return;
     if (selectedAncestorPaths.size === 0) return;
-    if (!shouldRevealSelectedAncestors(expandedPaths, hasStoredExpandedState)) return;
-    setExpandedPaths((current) => seedExpandedPaths(current, selectedAncestorPaths));
-  }, [selectedAncestorPaths, hasStoredExpandedState, expandedPaths, isExpandedStateLoaded]);
+    setExpandedPaths((current) => forceExpandAncestors(current, selectedAncestorPaths));
+  }, [selectedAncestorPaths, isExpandedStateLoaded]);
 
   function isNodeExpanded(node: FileNode, depth: number): boolean {
     return getNodeExpanded(node.path, depth, expandedPaths);
