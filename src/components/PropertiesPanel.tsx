@@ -704,6 +704,7 @@ export function PropertiesPanel({
     key,
     value: getFrontmatterFieldValue(frontmatter, key),
   })).filter((field): field is { key: string; value: FrontmatterValue } => field.value != null);
+  const isEmpty = Object.keys(frontmatter).length === 0;
   const addableKeys = getMissingAddableFrontmatterFields(frontmatter);
   const customKeys = Object.keys(frontmatter)
     .filter((k) => frontmatter[k] != null && !isKnownFrontmatterField(k))
@@ -800,6 +801,13 @@ export function PropertiesPanel({
           </section>
         )}
 
+        {isEmpty && (
+          <p className="prop-empty-notice">
+            No frontmatter in this file.
+            <br />
+            Add a field below to get started.
+          </p>
+        )}
         <AddFieldRow
           existingKeys={Object.keys(frontmatter).filter((k) => frontmatter[k] != null)}
           addableKeys={addableKeys}

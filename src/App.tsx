@@ -702,7 +702,6 @@ function App() {
     updatePrefs,
   ]);
 
-  const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;
   const coverImagePath =
     parsedFrontmatter.coverImage != null && parsedFrontmatter.coverImage !== ""
       ? String(parsedFrontmatter.coverImage)
@@ -827,7 +826,7 @@ function App() {
             />
           )}
         </div>
-        {selectedFile && hasFrontmatter && (
+        {selectedFile && (
           <PropertiesPanel
             frontmatter={parsedFrontmatter}
             visible={propertiesOpen}
