@@ -1,5 +1,5 @@
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
-import { Folder, FolderOpen } from "lucide-react";
+import { Folder, FolderOpen, Search, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import {
@@ -21,7 +21,6 @@ import {
 import type { FileNode, GitStatus } from "../lib/types";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./Sidebar.css";
-import { Input } from "./ui/input";
 
 interface SidebarProps {
   tree: FileNode[];
@@ -383,11 +382,12 @@ export function Sidebar({
 
       {tree.length > 0 && (
         <div className="sidebar-filter">
-          <div className="relative flex-1">
-            <Input
+          <div className="sidebar-filter-inner">
+            <Search size={12} className="sidebar-filter-icon" aria-hidden="true" />
+            <input
               type="text"
-              className="h-7 text-[12px] pr-6"
-              placeholder="Filter files…"
+              className="sidebar-filter-input"
+              placeholder="Filter…"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -397,11 +397,11 @@ export function Sidebar({
             {filterQuery && (
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-fg-subtle p-0.5 rounded leading-none hover:text-fg"
+                className="sidebar-filter-clear"
                 aria-label="Clear filter"
                 onClick={() => setFilterQuery("")}
               >
-                ✕
+                <X size={10} aria-hidden="true" />
               </button>
             )}
           </div>
