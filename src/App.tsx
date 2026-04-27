@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
+import { TabBar } from "./components/TabBar";
 import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
 import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch";
 import { getGitBranchTitle } from "./lib/gitUi";
@@ -23,6 +24,7 @@ import { useEditorPreferences } from "./lib/useEditorPreferences";
 import { useFileEditor } from "./lib/useFileEditor";
 import { useGit } from "./lib/useGit";
 import { useGitUiController } from "./lib/useGitUiController";
+import { useOpenTabs } from "./lib/useOpenTabs";
 import { useRecentFiles } from "./lib/useRecentFiles";
 import { useRecentWorkspaces } from "./lib/useRecentWorkspaces";
 import { useTheme } from "./lib/useTheme";
@@ -123,6 +125,10 @@ function App() {
   const editorViewStateRef = useRef<Record<string, EditorViewState>>({});
   const saveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousSaveStatusRef = useRef<"saved" | "unsaved">("saved");
+  const tabSyncRef = useRef<{
+    renameTab: (oldPath: string, newPath: string) => void;
+    removeTab: (path: string) => void;
+  }>({ renameTab: () => {}, removeTab: () => {} });
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -173,9 +179,37 @@ function App() {
     selectedPathRef,
     setSelectedFile,
     resetFileState,
+    onPathRenamed: (oldPath, newPath) => tabSyncRef.current.renameTab(oldPath, newPath),
+    onPathRemoved: (path) => tabSyncRef.current.removeTab(path),
   });
 
   const { recentFiles, pushRecent, resetRecent } = useRecentFiles(workspaceRoot);
+  const { tabs, openTab, closeTab, reorderTabs, renameTab, removeTab } =
+    useOpenTabs(workspaceRootPath);
+  useEffect(() => {
+    tabSyncRef.current = { renameTab, removeTab };
+  }, [renameTab, removeTab]);
+
+  const handleLoadDirectoryChildren = useCallback(
+    (dirPath: string) => {
+      void loadDirectoryChildren(dirPath);
+    },
+    [loadDirectoryChildren]
+  );
+
+  const closeActiveTabOrFile = useCallback(() => {
+    if (selectedFile && tabs.includes(selectedFile.path)) {
+      const { neighbor } = closeTab(selectedFile.path);
+      if (neighbor) {
+        const node = findNodeByPath(tree, neighbor) ?? makeFileNodeFromPath(neighbor);
+        void handleSelectFile(node);
+        pushRecent(node);
+        return;
+      }
+    }
+    void handleCloseFile();
+  }, [selectedFile, tabs, closeTab, tree, handleSelectFile, pushRecent, handleCloseFile]);
+
   const handleEditorViewStateChange = useCallback(
     (viewState: EditorViewState) => {
       if (!selectedFile) return;
@@ -312,7 +346,8 @@ function App() {
     if (!node || node.isDirectory) return;
     void handleSelectFile(node);
     pushRecent(node);
-  }, [tree, selectedFile, handleSelectFile, pushRecent]);
+    openTab(node.path);
+  }, [tree, selectedFile, handleSelectFile, pushRecent, openTab]);
 
   // Reset per-file UI state when switching files (selectedFile is the trigger, not used in body)
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectedFile is the intended trigger
@@ -420,7 +455,7 @@ function App() {
           break;
         case "w":
           e.preventDefault();
-          void handleCloseFile();
+          closeActiveTabOrFile();
           break;
       }
     }
@@ -428,7 +463,6 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     flushPendingSave,
-    handleCloseFile,
     handleOpenWorkspace,
     handleNewTodayFlow,
     workspaceRoot,
@@ -446,6 +480,7 @@ function App() {
     deleteBranchDialog,
     workspaceSwitcherOpen,
     updateDialogOpen,
+    closeActiveTabOrFile,
   ]);
 
   // Refresh git status after each save completes
@@ -555,7 +590,7 @@ function App() {
           void flushPendingSave();
           break;
         case "close-file":
-          void handleCloseFile();
+          closeActiveTabOrFile();
           break;
         case "toggle-sidebar":
           setSidebarVisible((v) => {
@@ -660,14 +695,13 @@ function App() {
     defaultCommitMessage,
     setNewBranchDialogOpen,
     flushPendingSave,
-    handleCloseFile,
+    closeActiveTabOrFile,
     handleOpenWorkspace,
     handleNewTodayFlow,
     prefs,
     updatePrefs,
   ]);
 
-  const hasFrontmatter = Object.keys(parsedFrontmatter).length > 0;
   const coverImagePath =
     parsedFrontmatter.coverImage != null && parsedFrontmatter.coverImage !== ""
       ? String(parsedFrontmatter.coverImage)
@@ -686,17 +720,25 @@ function App() {
   }
 
   function handleOpenByPath(path: string) {
-    const node =
-      tree
-        .flatMap(function flatten(n): typeof tree {
-          return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
-        })
-        .find((n) => n.path === path) ?? makeFileNodeFromPath(path);
-    if (node) {
-      void handleSelectFile(node);
-      pushRecent(node);
-      setSearchOpen(false);
-    }
+    const node = findNodeByPath(tree, path) ?? makeFileNodeFromPath(path);
+    void handleSelectFile(node);
+    pushRecent(node);
+    openTab(node.path);
+    setSearchOpen(false);
+  }
+
+  function handleSelectFromTab(path: string) {
+    const node = findNodeByPath(tree, path) ?? makeFileNodeFromPath(path);
+    void handleSelectFile(node);
+    pushRecent(node);
+  }
+
+  function handleCloseTab(path: string) {
+    const wasActive = selectedFile?.path === path;
+    const { neighbor } = closeTab(path);
+    if (!wasActive) return;
+    if (neighbor) handleSelectFromTab(neighbor);
+    else void handleCloseFile();
   }
 
   const sessionWordsAdded = sessionBaseline !== null ? Math.max(0, wordCount - sessionBaseline) : 0;
@@ -718,12 +760,15 @@ function App() {
             gitStatusMap={gitStatusMap}
             onSelect={(node) => {
               void handleSelectFile(node);
-              if (!node.isDirectory) pushRecent(node);
+              if (!node.isDirectory) {
+                pushRecent(node);
+                openTab(node.path);
+              }
             }}
             onOpenWorkspace={handleOpenWorkspace}
             onOpenSwitcher={() => setWorkspaceSwitcherOpen(true)}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
-            onLoadDirectoryChildren={(dirPath) => void loadDirectoryChildren(dirPath)}
+            onLoadDirectoryChildren={handleLoadDirectoryChildren}
             onRename={(node) => setModal({ type: "rename-path", node })}
             onDuplicate={(node) => setModal({ type: "duplicate-file", node })}
             onNewFromExisting={(node) => setModal({ type: "new-from-existing", node })}
@@ -731,6 +776,17 @@ function App() {
           />
         )}
         <div className="editor-column">
+          {tabs.length >= 2 && (
+            <TabBar
+              tabs={tabs}
+              tree={tree}
+              activePath={selectedFile?.path ?? null}
+              saveStatus={saveStatus}
+              onSelect={handleSelectFromTab}
+              onClose={handleCloseTab}
+              onReorder={reorderTabs}
+            />
+          )}
           {selectedFile && coverImageVisible && coverImagePath && (
             <div className="cover-image-banner">
               <img
@@ -770,7 +826,7 @@ function App() {
             />
           )}
         </div>
-        {selectedFile && hasFrontmatter && (
+        {selectedFile && (
           <PropertiesPanel
             frontmatter={parsedFrontmatter}
             visible={propertiesOpen}
@@ -874,6 +930,7 @@ function App() {
             onSelect={(node) => {
               void handleSelectFile(node);
               pushRecent(node);
+              openTab(node.path);
               setSwitcherOpen(false);
             }}
             onClose={() => setSwitcherOpen(false)}

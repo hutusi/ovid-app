@@ -46,7 +46,7 @@ Three-zone layout managed by `src/App.tsx`:
 └─────────────────────────────────────────────────┘
 ```
 
-**`src/App.tsx`** — Root component; composes top-level state from custom hooks (`useWorkspace`, `useFileEditor`, `useGit`, `useGitUiController`, `useTheme`, `useToast`, `useEditorPreferences`, `useWordCountGoal`, `useRecentFiles`, `useRecentWorkspaces`, `useContentTypes`) and owns local UI flags (sidebar/properties visibility, zen/typewriter mode, dialog open states).
+**`src/App.tsx`** — Root component; composes top-level state from custom hooks (`useWorkspace`, `useFileEditor`, `useGit`, `useGitUiController`, `useTheme`, `useToast`, `useEditorPreferences`, `useWordCountGoal`, `useRecentFiles`, `useRecentWorkspaces`, `useOpenTabs`, `useContentTypes`) and owns local UI flags (sidebar/properties visibility, zen/typewriter mode, dialog open states).
 
 **`src/components/`** — UI components (list is representative, not exhaustive)
 - `Editor.tsx` — Tiptap WYSIWYG editor; StarterKit + Markdown + Typography + Link + Table (+ TableCell/Header/Row) + Mathematics + Placeholder + CodeBlockLowlight + TaskList/TaskItem (from `@tiptap/extension-list`) + custom extensions in `src/lib/tiptap/`
@@ -54,8 +54,9 @@ Three-zone layout managed by `src/App.tsx`:
 - `FindReplaceBar.tsx` — Find & replace bar (`Cmd+H`); live match highlighting, navigate, replace one/all
 - `TableControls.tsx` — Floating table toolbar (add/delete rows and columns) shown when cursor is in a table
 - `Sidebar.tsx` — File tree; shows only `.md` / `.mdx` files
+- `TabBar.tsx` — Open-file tab strip above the editor; drag-to-reorder, middle-click or close button to close, hidden in zen mode and only rendered with 2+ tabs
 - `StatusBar.tsx` — Filename, word count, dark mode toggle, zen/typewriter toggles
-- `PropertiesPanel.tsx` — Collapsible bar above editor showing parsed frontmatter fields
+- `PropertiesPanel.tsx` — Collapsible bar above editor for frontmatter metadata; always shown for any open markdown file; displays an empty state with add-field prompts when the file has no frontmatter
 - `SearchPanel.tsx` — Full-text search panel (replaces sidebar); queries run in Rust
 - `FileSwitcher.tsx` — `Cmd+P` command palette; wraps `cmdk`
 - Git UI: `GitSyncPopover.tsx`, `BranchSwitcher.tsx`, `NewBranchDialog.tsx`, `RenameBranchDialog.tsx`, `DeleteBranchDialog.tsx`, `CommitDialog.tsx` — surface the Tauri git commands; coordinated by `useGitUiController`
@@ -83,6 +84,7 @@ State hooks (composed in `App.tsx`):
 - `useGitUiController.ts` — coordinates git dialogs (commit, branch CRUD, sync popover)
 - `useContentTypes.ts` — Amytis content type discovery (only when workspace is Amytis)
 - `useRecentFiles.ts` / `useRecentWorkspaces.ts` — per-workspace and global MRU lists
+- `useOpenTabs.ts` — per-workspace open-file tab list (cap 8) with localStorage persistence; `useWorkspace` keeps it in sync via `onPathRenamed`/`onPathRemoved` callbacks
 - `useEditorPreferences.ts`, `useWordCountGoal.ts` — user preferences in `localStorage`
 - `useToast.ts` — toast queue surfaced by `App.tsx`
 - `useTheme.ts` — system/manual dark mode; syncs to `localStorage`; applies `data-theme` on `<html>`
@@ -223,10 +225,6 @@ When compressing conversation history, preserve in priority order:
 4. **Verification status** — current `bun run validate` pass/fail state
 5. **Open TODOs and rollback notes**
 6. **Tool output** — can be dropped; keep pass/fail summary only
-
-## Commits
-
-Recent history follows Conventional Commit-style prefixes: `feat:`, `fix:`, `refine:`, `test:`, `docs:`. Subjects are imperative and scoped (e.g. `fix: preserve title when renaming flow files`).
 
 ## Reference Docs
 

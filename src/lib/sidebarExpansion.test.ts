@@ -2,11 +2,11 @@ import { describe, expect, it } from "bun:test";
 import {
   buildExpandedStorageKey,
   findAncestorPaths,
+  findExpandedUnloadedPaths,
+  forceExpandAncestors,
   getNodeExpanded,
   parseExpandedPaths,
-  seedExpandedPaths,
   shouldDefaultExpand,
-  shouldRevealSelectedAncestors,
 } from "./sidebarExpansion";
 import type { FileNode } from "./types";
 
@@ -27,6 +27,16 @@ function makeDir(path: string, children: FileNode[]): FileNode {
     path,
     isDirectory: true,
     children,
+  };
+}
+
+function makeUnloadedDir(path: string): FileNode {
+  const parts = path.split("/");
+  return {
+    name: parts[parts.length - 1] ?? path,
+    path,
+    isDirectory: true,
+    childrenLoaded: false,
   };
 }
 
@@ -54,26 +64,26 @@ describe("shouldDefaultExpand", () => {
 
 describe("parseExpandedPaths", () => {
   it("returns empty state when nothing has been saved", () => {
-    expect(parseExpandedPaths(null)).toEqual({
-      expandedPaths: {},
-      hasStoredExpandedState: false,
-    });
+    expect(parseExpandedPaths(null)).toEqual({ expandedPaths: {} });
   });
 
   it("returns empty state for malformed storage", () => {
-    expect(parseExpandedPaths("{not json")).toEqual({
-      expandedPaths: {},
-      hasStoredExpandedState: false,
-    });
+    expect(parseExpandedPaths("{not json")).toEqual({ expandedPaths: {} });
   });
 
-  it("restores saved expanded paths and marks the workspace as having stored state", () => {
-    expect(parseExpandedPaths('{"/workspace/posts":true,"/workspace/flows":false}')).toEqual({
+  it("rejects arrays and non-boolean values", () => {
+    expect(parseExpandedPaths("[]")).toEqual({ expandedPaths: {} });
+    expect(parseExpandedPaths('{"a":1,"b":"yes"}')).toEqual({ expandedPaths: {} });
+  });
+
+  it("restores saved expanded paths, filtering non-boolean values", () => {
+    expect(
+      parseExpandedPaths('{"/workspace/posts":true,"/workspace/flows":false,"bad":1}')
+    ).toEqual({
       expandedPaths: {
         "/workspace/posts": true,
         "/workspace/flows": false,
       },
-      hasStoredExpandedState: true,
     });
   });
 });
@@ -96,31 +106,27 @@ describe("findAncestorPaths", () => {
   });
 });
 
-describe("seedExpandedPaths", () => {
-  it("seeds unopened ancestors without overriding explicit collapse", () => {
+describe("forceExpandAncestors", () => {
+  it("expands missing ancestors and overrides previous manual collapses", () => {
     const current = {
       "/workspace/posts": false,
     };
     const ancestors = new Set(["/workspace/posts", "/workspace/posts/2024"]);
 
-    expect(seedExpandedPaths(current, ancestors)).toEqual({
-      "/workspace/posts": false,
+    expect(forceExpandAncestors(current, ancestors)).toEqual({
+      "/workspace/posts": true,
       "/workspace/posts/2024": true,
     });
   });
-});
 
-describe("shouldRevealSelectedAncestors", () => {
-  it("does not reveal ancestors for a fresh workspace with no saved state", () => {
-    expect(shouldRevealSelectedAncestors({}, false)).toBe(false);
-  });
+  it("returns the same reference when every ancestor is already expanded", () => {
+    const current = {
+      "/workspace/posts": true,
+      "/workspace/posts/2024": true,
+    };
+    const ancestors = new Set(["/workspace/posts", "/workspace/posts/2024"]);
 
-  it("reveals ancestors when the workspace has saved sidebar state", () => {
-    expect(shouldRevealSelectedAncestors({}, true)).toBe(true);
-  });
-
-  it("reveals ancestors after the user has made expansion choices in this session", () => {
-    expect(shouldRevealSelectedAncestors({ "/workspace/posts": false }, false)).toBe(true);
+    expect(forceExpandAncestors(current, ancestors)).toBe(current);
   });
 });
 
@@ -132,5 +138,38 @@ describe("getNodeExpanded", () => {
   it("falls back to default depth-based expansion", () => {
     expect(getNodeExpanded("/workspace/posts", 0, {})).toBe(true);
     expect(getNodeExpanded("/workspace/posts/2024", 1, {})).toBe(false);
+  });
+});
+
+describe("findExpandedUnloadedPaths", () => {
+  it("returns expanded directories whose children have not been fetched", () => {
+    const tree = [makeUnloadedDir("/workspace/posts"), makeUnloadedDir("/workspace/books")];
+    expect(
+      findExpandedUnloadedPaths(tree, {
+        "/workspace/posts": true,
+        "/workspace/books": false,
+      })
+    ).toEqual(["/workspace/posts"]);
+  });
+
+  it("includes top-level directories by default when no state is persisted", () => {
+    const tree = [makeUnloadedDir("/workspace/posts")];
+    expect(findExpandedUnloadedPaths(tree, {})).toEqual(["/workspace/posts"]);
+  });
+
+  it("descends into already-loaded directories to find nested unloaded ones", () => {
+    const nestedUnloaded = makeUnloadedDir("/workspace/posts/2024");
+    const posts = makeDir("/workspace/posts", [nestedUnloaded]);
+    expect(
+      findExpandedUnloadedPaths([posts], {
+        "/workspace/posts": true,
+        "/workspace/posts/2024": true,
+      })
+    ).toEqual(["/workspace/posts/2024"]);
+  });
+
+  it("skips collapsed directories even when their children are unloaded", () => {
+    const tree = [makeUnloadedDir("/workspace/posts")];
+    expect(findExpandedUnloadedPaths(tree, { "/workspace/posts": false })).toEqual([]);
   });
 });

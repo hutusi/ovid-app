@@ -302,6 +302,18 @@
   color: var(--color-fg-subtle);
 }
 
+/* ── Empty state notice ──────────────────────── */
+.prop-empty-notice {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-fg-subtle);
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: 10px;
+  text-align: center;
+}
+
 /* ── Add field row ───────────────────────────── */
 .prop-add-block,
 .prop-add-known {

@@ -12,25 +12,21 @@ export function shouldDefaultExpand(depth: number): boolean {
 
 export function parseExpandedPaths(stored: string | null): {
   expandedPaths: Record<string, boolean>;
-  hasStoredExpandedState: boolean;
 } {
-  if (!stored) {
-    return { expandedPaths: {}, hasStoredExpandedState: false };
-  }
+  if (!stored) return { expandedPaths: {} };
 
   try {
     const parsed = JSON.parse(stored);
-    if (typeof parsed !== "object" || !parsed) {
-      return { expandedPaths: {}, hasStoredExpandedState: false };
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { expandedPaths: {} };
     }
-
-    const expandedPaths = parsed as Record<string, boolean>;
-    return {
-      expandedPaths,
-      hasStoredExpandedState: Object.keys(expandedPaths).length > 0,
-    };
+    const expandedPaths: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "boolean") expandedPaths[k] = v;
+    }
+    return { expandedPaths };
   } catch {
-    return { expandedPaths: {}, hasStoredExpandedState: false };
+    return { expandedPaths: {} };
   }
 }
 
@@ -54,26 +50,19 @@ export function findAncestorPaths(nodes: FileNode[], selectedPath: string | null
   return ancestors;
 }
 
-export function seedExpandedPaths(
+export function forceExpandAncestors(
   expandedPaths: Record<string, boolean>,
   ancestorPaths: Set<string>
 ): Record<string, boolean> {
   let changed = false;
   const next = { ...expandedPaths };
   for (const path of ancestorPaths) {
-    if (next[path] === undefined) {
+    if (next[path] !== true) {
       next[path] = true;
       changed = true;
     }
   }
   return changed ? next : expandedPaths;
-}
-
-export function shouldRevealSelectedAncestors(
-  expandedPaths: Record<string, boolean>,
-  hasStoredExpandedState: boolean
-): boolean {
-  return hasStoredExpandedState || Object.keys(expandedPaths).length > 0;
 }
 
 export function getNodeExpanded(
@@ -84,4 +73,24 @@ export function getNodeExpanded(
   const persisted = expandedPaths[path];
   if (persisted !== undefined) return persisted;
   return shouldDefaultExpand(depth);
+}
+
+export function findExpandedUnloadedPaths(
+  nodes: FileNode[],
+  expandedPaths: Record<string, boolean>
+): string[] {
+  const paths: string[] = [];
+  function visit(items: FileNode[], depth: number) {
+    for (const node of items) {
+      if (!node.isDirectory) continue;
+      if (!getNodeExpanded(node.path, depth, expandedPaths)) continue;
+      if (node.childrenLoaded === false) {
+        paths.push(node.path);
+      } else if (node.children) {
+        visit(node.children, depth + 1);
+      }
+    }
+  }
+  visit(nodes, 0);
+  return paths;
 }

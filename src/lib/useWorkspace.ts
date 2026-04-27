@@ -31,6 +31,8 @@ interface UseWorkspaceOptions {
   selectedPathRef: MutableRefObject<string | null>;
   setSelectedFile: (node: FileNode | null) => void;
   resetFileState: () => void;
+  onPathRenamed?: (oldPath: string, newPath: string) => void;
+  onPathRemoved?: (path: string) => void;
 }
 
 function mergeDirectoryChildren(
@@ -73,6 +75,8 @@ export function useWorkspace({
   selectedPathRef,
   setSelectedFile,
   resetFileState,
+  onPathRenamed,
+  onPathRemoved,
 }: UseWorkspaceOptions) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
@@ -220,6 +224,7 @@ export function useWorkspace({
     try {
       await invoke("rename_file", { oldPath, newPath });
       if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
+      onPathRenamed?.(oldPath, newPath);
       const updated = await refreshTree();
       if (selectedFile?.path === node.path) {
         const selectedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
@@ -290,8 +295,10 @@ export function useWorkspace({
       await flushPendingSave();
     }
     try {
-      await invoke("trash_file", { path: node.containerDirPath ?? node.path });
-      if (workspaceRoot) syncRecentDelete(workspaceRoot, node.containerDirPath ?? node.path);
+      const targetPath = node.containerDirPath ?? node.path;
+      await invoke("trash_file", { path: targetPath });
+      if (workspaceRoot) syncRecentDelete(workspaceRoot, targetPath);
+      onPathRemoved?.(targetPath);
       if (selectedFile?.path === node.path) await handleCloseFile();
       await refreshTree();
     } catch (err) {

@@ -38,7 +38,7 @@ This roadmap is organized into deliberate phases — each phase must feel comple
 > Goal: a content creator should never need to leave the app to manage files.
 
 12. ✅ **New file** (`Cmd+N`) — create a new `.md` file; prompt for filename; auto-insert Amytis frontmatter template (`title`, `date`, `draft: true`); open immediately in editor
-13. ✅ **Rename file** (`F2` or double-click filename in sidebar) — inline rename; validates no duplicate names; updates open editor tab if renaming current file
+13. ✅ **Rename file** (`F2` or right-click → Rename in sidebar) — inline rename; validates no duplicate names; updates open editor tab if renaming current file
 14. ✅ **Delete file** — right-click context menu or keyboard shortcut; confirmation dialog; moves to system Trash (not permanent delete)
 15. ✅ **Editable properties panel** — click any field to edit inline; writes changes back to frontmatter on disk verbatim; tab between fields; `Esc` to cancel; support adding new fields
 16. ✅ **New folder** — create subdirectory from sidebar; useful for organizing Amytis content collections
@@ -200,3 +200,13 @@ Progress landed so far:
 73. **Automatic update check** — add a preference-controlled background check on launch or at a calm interval; notify users when an update is available without forcing immediate install
 74. **Update preferences and visibility** — expose updater settings, last-checked state, and release-channel/version messaging clearly enough that users trust what the app is doing
 75. **Updater resilience** — handle offline mode, partial downloads, invalid metadata, and platform-specific update failures without leaving the app in a confusing state
+
+---
+
+## Phase 13 — Editor Surface
+> Goal: make the writing surface itself feel as capable as the surrounding workflow. Each addition must justify the chrome it introduces and stay invisible in zen mode. 🖊 🧠
+
+76. ✅ **Open-file tab bar** — single-line tab strip above the editor showing currently open files (cap 8); click to switch, middle-click or `Cmd+W` to close and fall back to the neighbor tab, drag to reorder; persists across launches per workspace; only renders once 2+ files have been opened; hidden in zen mode; typography-only chrome
+77. **Image paste & drag-drop** — paste from clipboard or drag from Finder/browser into the editor; auto-save the asset under the workspace's configured asset directory using the existing `save_asset` Tauri command; insert a relative-path Markdown image at the cursor; surface failures via the toast system
+78. **Slash command menu** — type `/` at the start of a line (or after whitespace) to open a Notion-style block picker: heading, list, quote, code, table, image, math, divider; keyboard-navigable like the file switcher; coexists with the existing markdown auto-conversions (`# `, `> `, etc.) without double-firing
+79. **Document outline / TOC** — collapsible right-side panel listing the document's heading structure with click-to-jump; reuses the `TextFolding` extension's heading scan; toggle with a keyboard shortcut; hidden in zen mode; respects the editor's max-width by overlaying rather than pushing content
