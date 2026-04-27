@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { findNodeByPath } from "../lib/appRestore";
 import { getSidebarDisplayName } from "../lib/sidebarUtils";
 import type { FileNode, SaveStatus } from "../lib/types";
@@ -34,10 +34,9 @@ export function TabBar({
 }: TabBarProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const draggingPathRef = useRef<string | null>(null);
 
   return (
-    <div className="tab-bar" role="tablist" aria-label="Open files">
+    <div className="tab-bar" role="toolbar" aria-label="Open files">
       {tabs.map((path, index) => {
         const node = nodeForPath(tree, path);
         const label = getSidebarDisplayName(node);
@@ -46,12 +45,9 @@ export function TabBar({
         const isDropTarget = dropIndex === index && dragIndex !== null && dragIndex !== index;
         const showUnsaved = isActive && saveStatus === "unsaved";
         return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: drag wrapper; keyboard-accessible actions live on the inner buttons
           <div
             key={path}
-            role="tab"
-            tabIndex={isActive ? 0 : -1}
-            aria-selected={isActive}
-            aria-label={label}
             className={[
               "tab-bar-item",
               isActive ? "is-active" : "",
@@ -63,7 +59,6 @@ export function TabBar({
             draggable
             onDragStart={(e) => {
               setDragIndex(index);
-              draggingPathRef.current = path;
               e.dataTransfer.effectAllowed = "move";
               e.dataTransfer.setData("text/plain", path);
             }}
@@ -83,17 +78,16 @@ export function TabBar({
               }
               setDragIndex(null);
               setDropIndex(null);
-              draggingPathRef.current = null;
             }}
             onDragEnd={() => {
               setDragIndex(null);
               setDropIndex(null);
-              draggingPathRef.current = null;
             }}
           >
             <button
               type="button"
               className="tab-bar-label"
+              aria-current={isActive ? "page" : undefined}
               onClick={() => onSelect(path)}
               onAuxClick={(e) => {
                 if (e.button === 1) {

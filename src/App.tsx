@@ -189,6 +189,20 @@ function App() {
   useEffect(() => {
     tabSyncRef.current = { renameTab, removeTab };
   }, [renameTab, removeTab]);
+
+  const closeActiveTabOrFile = useCallback(() => {
+    if (selectedFile && tabs.includes(selectedFile.path)) {
+      const { neighbor } = closeTab(selectedFile.path);
+      if (neighbor) {
+        const node = findNodeByPath(tree, neighbor) ?? makeFileNodeFromPath(neighbor);
+        void handleSelectFile(node);
+        pushRecent(node);
+        return;
+      }
+    }
+    void handleCloseFile();
+  }, [selectedFile, tabs, closeTab, tree, handleSelectFile, pushRecent, handleCloseFile]);
+
   const handleEditorViewStateChange = useCallback(
     (viewState: EditorViewState) => {
       if (!selectedFile) return;
@@ -434,23 +448,7 @@ function App() {
           break;
         case "w":
           e.preventDefault();
-          if (selectedFile && tabs.includes(selectedFile.path)) {
-            const { neighbor } = closeTab(selectedFile.path);
-            if (neighbor) {
-              const node =
-                tree
-                  .flatMap(function flatten(n): typeof tree {
-                    return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
-                  })
-                  .find((n) => n.path === neighbor) ?? makeFileNodeFromPath(neighbor);
-              void handleSelectFile(node);
-              pushRecent(node);
-            } else {
-              void handleCloseFile();
-            }
-          } else {
-            void handleCloseFile();
-          }
+          closeActiveTabOrFile();
           break;
       }
     }
@@ -458,7 +456,6 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     flushPendingSave,
-    handleCloseFile,
     handleOpenWorkspace,
     handleNewTodayFlow,
     workspaceRoot,
@@ -476,11 +473,7 @@ function App() {
     deleteBranchDialog,
     workspaceSwitcherOpen,
     updateDialogOpen,
-    selectedFile,
-    tabs,
-    closeTab,
-    pushRecent,
-    handleSelectFile,
+    closeActiveTabOrFile,
   ]);
 
   // Refresh git status after each save completes
@@ -590,7 +583,7 @@ function App() {
           void flushPendingSave();
           break;
         case "close-file":
-          void handleCloseFile();
+          closeActiveTabOrFile();
           break;
         case "toggle-sidebar":
           setSidebarVisible((v) => {
@@ -695,7 +688,7 @@ function App() {
     defaultCommitMessage,
     setNewBranchDialogOpen,
     flushPendingSave,
-    handleCloseFile,
+    closeActiveTabOrFile,
     handleOpenWorkspace,
     handleNewTodayFlow,
     prefs,
@@ -721,27 +714,15 @@ function App() {
   }
 
   function handleOpenByPath(path: string) {
-    const node =
-      tree
-        .flatMap(function flatten(n): typeof tree {
-          return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
-        })
-        .find((n) => n.path === path) ?? makeFileNodeFromPath(path);
-    if (node) {
-      void handleSelectFile(node);
-      pushRecent(node);
-      openTab(node.path);
-      setSearchOpen(false);
-    }
+    const node = findNodeByPath(tree, path) ?? makeFileNodeFromPath(path);
+    void handleSelectFile(node);
+    pushRecent(node);
+    openTab(node.path);
+    setSearchOpen(false);
   }
 
   function handleSelectFromTab(path: string) {
-    const node =
-      tree
-        .flatMap(function flatten(n): typeof tree {
-          return n.isDirectory ? (n.children ?? []).flatMap(flatten) : [n];
-        })
-        .find((n) => n.path === path) ?? makeFileNodeFromPath(path);
+    const node = findNodeByPath(tree, path) ?? makeFileNodeFromPath(path);
     void handleSelectFile(node);
     pushRecent(node);
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const MAX_OPEN_TABS = 8;
 export const STORAGE_KEY = "ovid:openTabs";
@@ -69,9 +69,16 @@ function saveTabs(workspaceRoot: string, tabs: string[]): void {
 
 export function useOpenTabs(workspaceRoot: string | null) {
   const [tabs, setTabs] = useState<string[]>(() => (workspaceRoot ? loadTabs(workspaceRoot) : []));
+  const tabsRef = useRef<string[]>(tabs);
 
   useEffect(() => {
-    setTabs(workspaceRoot ? loadTabs(workspaceRoot) : []);
+    tabsRef.current = tabs;
+  }, [tabs]);
+
+  useEffect(() => {
+    const loaded = workspaceRoot ? loadTabs(workspaceRoot) : [];
+    tabsRef.current = loaded;
+    setTabs(loaded);
   }, [workspaceRoot]);
 
   const persist = useCallback(
@@ -91,13 +98,12 @@ export function useOpenTabs(workspaceRoot: string | null) {
 
   const closeTab = useCallback(
     (path: string): { neighbor: string | null } => {
-      let neighbor: string | null = null;
-      setTabs((prev) => {
-        const result = removeTabPath(prev, path);
-        neighbor = result.neighbor;
-        return result.tabs === prev ? prev : persist(result.tabs);
-      });
-      return { neighbor };
+      const result = removeTabPath(tabsRef.current, path);
+      if (result.tabs !== tabsRef.current) {
+        tabsRef.current = result.tabs;
+        setTabs(persist(result.tabs));
+      }
+      return { neighbor: result.neighbor };
     },
     [persist]
   );
