@@ -109,12 +109,7 @@ function FileItem({
             type="button"
             className="sidebar-dir"
             aria-expanded={expanded}
-            onClick={() => {
-              if (!expanded && node.childrenLoaded === false) {
-                onLoadDirectoryChildren(node.path);
-              }
-              onToggleExpand(node.path, depth);
-            }}
+            onClick={() => onToggleExpand(node.path, depth)}
           >
             <DirIcon size={13} className="sidebar-file-icon sidebar-dir-icon" />
             {node.name}
@@ -305,12 +300,13 @@ export function Sidebar({
     localStorage.setItem(expandedStorageKeyRef.current, JSON.stringify(expandedPaths));
   }, [expandedPaths, isExpandedStateLoaded]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedPath is intentionally included so sibling-file navigation (same ancestorKey, different path) re-triggers ancestor expansion
   useEffect(() => {
     if (!isExpandedStateLoaded) return;
     if (!selectedAncestorKey) return;
     const ancestors = new Set(selectedAncestorKey.split("\0"));
     setExpandedPaths((current) => forceExpandAncestors(current, ancestors));
-  }, [selectedAncestorKey, isExpandedStateLoaded]);
+  }, [selectedPath, selectedAncestorKey, isExpandedStateLoaded]);
 
   useEffect(() => {
     if (!isExpandedStateLoaded) return;
