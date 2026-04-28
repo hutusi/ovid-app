@@ -34,6 +34,17 @@ export function buildPostTargetPath(
   ext: string;
   entryFileName: string;
 } {
+  if (node.isDirectory) {
+    const dir = getNodeParentPath(node.path);
+    return {
+      oldPath: node.path,
+      newPath: `${dir}/${newName}`,
+      folderBacked: false,
+      ext: "",
+      entryFileName: getPathBaseName(node.path),
+    };
+  }
+
   const oldPath = getPostEntrySourcePath(node);
   const ext = node.extension ?? ".md";
   const folderBacked = isFolderBackedPostNode(node);
@@ -77,6 +88,14 @@ export function getRenamePathDialogState(node: FileNode): {
   currentName: string;
   suffix: string;
 } {
+  if (node.isDirectory) {
+    return {
+      currentPath: node.name,
+      currentName: node.name,
+      suffix: "",
+    };
+  }
+
   const ext = node.extension ?? ".md";
   if (!isFolderBackedPostNode(node)) {
     return {
