@@ -806,7 +806,9 @@ function App() {
                   cdnBase={cdnBase}
                   typewriterMode={typewriterMode}
                   spellCheck={prefs.spellCheck}
-                  showH1Warning
+                  showH1Warning={
+                    parsedFrontmatter.title != null && String(parsedFrontmatter.title).trim() !== ""
+                  }
                   title={parsedFrontmatter.title != null ? String(parsedFrontmatter.title) : ""}
                   onTitleChange={(value) => void handlePublishAwareFieldChange("title", value)}
                   onWordCount={setWordCount}
