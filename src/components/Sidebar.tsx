@@ -387,6 +387,7 @@ export function Sidebar({
             <input
               type="text"
               className="sidebar-filter-input"
+              aria-label="Filter files"
               placeholder="Filter…"
               autoCapitalize="none"
               autoCorrect="off"
