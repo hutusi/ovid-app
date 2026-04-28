@@ -53,11 +53,64 @@
 }
 
 .sidebar-filter {
-  position: relative;
+  padding: 6px 8px 4px;
+}
+
+.sidebar-filter-inner {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 5px;
+  background: color-mix(in srgb, var(--color-fg) 5%, transparent);
+  border-radius: 7px;
+  padding: 4px 8px;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.sidebar-filter-inner:focus-within {
+  background: color-mix(in srgb, var(--color-fg) 8%, transparent);
+  box-shadow: 0 0 0 1.5px var(--color-accent);
+}
+
+.sidebar-filter-icon {
+  color: var(--color-fg-subtle);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.sidebar-filter-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-fg);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.sidebar-filter-input::placeholder {
+  color: var(--color-fg-subtle);
+}
+
+.sidebar-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-fg-subtle);
+  border-radius: 3px;
+  padding: 1px;
+  opacity: 0.6;
+  transition:
+    opacity 0.1s,
+    color 0.1s;
+}
+
+.sidebar-filter-clear:hover {
+  opacity: 1;
+  color: var(--color-fg);
 }
 
 .sidebar-header {
