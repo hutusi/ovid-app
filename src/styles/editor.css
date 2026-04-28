@@ -35,7 +35,7 @@
 .ProseMirror {
   max-width: 680px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 24px 24px 0;
   font-family: var(--font-editor);
   font-size: var(--font-editor-size, 17px);
   line-height: 1.75;
