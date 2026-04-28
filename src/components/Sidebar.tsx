@@ -377,6 +377,7 @@ export function Sidebar({
             className="sidebar-open-btn"
             onClick={onOpenWorkspace}
             title={t("sidebar.open_workspace")}
+            aria-label={t("sidebar.open_workspace")}
           >
             ⊕
           </button>

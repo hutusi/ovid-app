@@ -85,7 +85,10 @@
     "file_name_placeholder": "File name",
     "type_label": "Type",
     "cancel": "Cancel",
-    "create": "Create"
+    "create": "Create",
+    "copy": "Copy",
+    "title_make_copy": "Make a Copy",
+    "title_new_from_existing": "New from Existing"
   },
   "rename_path_dialog": {
     "title": "Rename path",

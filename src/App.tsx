@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PropertiesPanel } from "./components/PropertiesPanel";
@@ -104,6 +105,7 @@ function makeFileNodeFromPath(path: string): FileNode {
 }
 
 function App() {
+  const { t } = useTranslation();
   const { resolvedTheme, setPreference } = useTheme();
   const [sidebarVisible, setSidebarVisible] = useState(
     () => localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "false"
@@ -960,8 +962,8 @@ function App() {
           <NewFileDialog
             contentTypes={[]}
             initialFilename={getDuplicateNameSuggestion(modal.node)}
-            title="Make a Copy"
-            confirmLabel="Copy"
+            title={t("new_file_dialog.title_make_copy")}
+            confirmLabel={t("new_file_dialog.copy")}
             showTypeSelector={false}
             onConfirm={(name) => {
               void handleDuplicate(modal.node, name);
@@ -976,8 +978,8 @@ function App() {
           <NewFileDialog
             contentTypes={[]}
             initialFilename={getNewFromExistingNameSuggestion(modal.node)}
-            title="New from Existing"
-            confirmLabel="Create"
+            title={t("new_file_dialog.title_new_from_existing")}
+            confirmLabel={t("new_file_dialog.create")}
             showTypeSelector={false}
             onConfirm={(name) => {
               void handleNewFromExisting(modal.node, name);

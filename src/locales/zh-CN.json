@@ -85,7 +85,10 @@
     "file_name_placeholder": "文件名",
     "type_label": "类型",
     "cancel": "取消",
-    "create": "创建"
+    "create": "创建",
+    "copy": "复制",
+    "title_make_copy": "复制文件",
+    "title_new_from_existing": "从现有文件新建"
   },
   "rename_path_dialog": {
     "title": "重命名路径",
