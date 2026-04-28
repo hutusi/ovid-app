@@ -27,7 +27,12 @@ export function NewBranchDialog({ currentBranch, onConfirm, onCancel }: NewBranc
 
   return (
     <div className="modal-overlay" role="presentation">
-      <button type="button" className="modal-backdrop" aria-label="Close" onClick={onCancel} />
+      <button
+        type="button"
+        className="modal-backdrop"
+        aria-label={t("common.close")}
+        onClick={onCancel}
+      />
       <div
         ref={dialogRef}
         role="dialog"

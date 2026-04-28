@@ -1,4 +1,7 @@
 {
+  "common": {
+    "close": "关闭"
+  },
   "empty_state": {
     "select_file": "选择文件，开始写作",
     "recent": "最近",
@@ -146,8 +149,7 @@
   },
   "delete_branch_dialog": {
     "title": "删除分支",
-    "confirm_before": "删除 ",
-    "confirm_after": "？此操作仅删除本地分支，远端分支不受影响，使用 Git 安全删除模式。",
+    "confirm": "删除 {{branch}}？此操作仅删除本地分支，远端分支不受影响，使用 Git 安全删除模式。",
     "cancel": "取消",
     "delete": "删除"
   },

@@ -1,4 +1,7 @@
 {
+  "common": {
+    "close": "Close"
+  },
   "empty_state": {
     "select_file": "Select a file to start writing",
     "recent": "Recent",
@@ -146,8 +149,7 @@
   },
   "delete_branch_dialog": {
     "title": "Delete branch",
-    "confirm_before": "Delete ",
-    "confirm_after": "? This keeps the remote branch untouched and uses Git's safe local delete.",
+    "confirm": "Delete {{branch}}? This keeps the remote branch untouched and uses Git's safe local delete.",
     "cancel": "Cancel",
     "delete": "Delete"
   },

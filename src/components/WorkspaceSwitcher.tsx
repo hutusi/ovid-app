@@ -31,7 +31,12 @@ export function WorkspaceSwitcher({
 
   return (
     <div className="modal-overlay" role="presentation">
-      <button type="button" className="modal-backdrop" aria-label="Close" onClick={onClose} />
+      <button
+        type="button"
+        className="modal-backdrop"
+        aria-label={t("common.close")}
+        onClick={onClose}
+      />
       <div
         ref={dialogRef}
         role="dialog"

@@ -199,7 +199,7 @@ export function UpdateDialog({ onBeforeRestart, onClose }: UpdateDialogProps) {
       <button
         type="button"
         className="modal-backdrop"
-        aria-label="Close"
+        aria-label={t("common.close")}
         disabled={state.kind === "installing"}
         onClick={() => {
           if (state.kind === "installing") return;

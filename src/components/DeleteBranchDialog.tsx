@@ -21,7 +21,12 @@ export function DeleteBranchDialog({ branch, onConfirm, onCancel }: DeleteBranch
 
   return (
     <div className="modal-overlay" role="presentation">
-      <button type="button" className="modal-backdrop" aria-label="Close" onClick={onCancel} />
+      <button
+        type="button"
+        className="modal-backdrop"
+        aria-label={t("common.close")}
+        onClick={onCancel}
+      />
       <div
         ref={dialogRef}
         role="dialog"
@@ -32,11 +37,7 @@ export function DeleteBranchDialog({ branch, onConfirm, onCancel }: DeleteBranch
         onKeyDown={handleKeyDown}
       >
         <p className="modal-title">{t("delete_branch_dialog.title")}</p>
-        <p className="modal-copy">
-          {t("delete_branch_dialog.confirm_before")}
-          <code className="modal-badge">{branch}</code>
-          {t("delete_branch_dialog.confirm_after")}
-        </p>
+        <p className="modal-copy">{t("delete_branch_dialog.confirm", { branch })}</p>
 
         <div className="modal-actions">
           <div className="modal-spacer" />

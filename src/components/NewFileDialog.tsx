@@ -71,7 +71,12 @@ export function NewFileDialog({
 
   return (
     <div className="nfd-overlay" role="presentation">
-      <button type="button" className="nfd-backdrop" aria-label="Close" onClick={onCancel} />
+      <button
+        type="button"
+        className="nfd-backdrop"
+        aria-label={t("common.close")}
+        onClick={onCancel}
+      />
       <div role="dialog" aria-modal="true" aria-label={dialogTitle} className="nfd-panel">
         <p className="nfd-title">{dialogTitle}</p>
 
