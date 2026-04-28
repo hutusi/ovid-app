@@ -2174,9 +2174,14 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // ── Ovid (app menu) ───────────────────────────────────────────────
+            #[cfg(target_os = "macos")]
+            let about_item = PredefinedMenuItem::about(app, None, None)?;
+            #[cfg(not(target_os = "macos"))]
+            let about_item = MenuItemBuilder::with_id("about", "About Ovid").build(app)?;
+
             let ovid_menu = SubmenuBuilder::new(app, "Ovid")
                 .items(&[
-                    &PredefinedMenuItem::about(app, None, None)?,
+                    &about_item,
                     &PredefinedMenuItem::separator(app)?,
                     &PredefinedMenuItem::hide(app, None)?,
                     &PredefinedMenuItem::hide_others(app, None)?,
@@ -2367,6 +2372,16 @@ pub fn run() {
             // the frontend as a "menu-action" event.
             let handle = app.handle().clone();
             app.on_menu_event(move |_app, event| match event.id().as_ref() {
+                "about" => {
+                    let version = handle.package_info().version.to_string();
+                    let _ = handle
+                        .dialog()
+                        .message(format!(
+                            "Ovid {version}\n\nA minimalist desktop Markdown editor\nfor Amytis workspaces."
+                        ))
+                        .title("About Ovid")
+                        .blocking_show();
+                }
                 "help-docs" => {
                     let _ = handle
                         .opener()
