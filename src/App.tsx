@@ -7,7 +7,6 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
-import { TitleInput } from "./components/TitleInput";
 import { findNodeByPath, loadLastRecentFilePath } from "./lib/appRestore";
 import { AUTO_FETCH_COOLDOWN_MS, runAutoFetchOnFocus } from "./lib/gitAutoFetch";
 import { getGitBranchTitle } from "./lib/gitUi";
@@ -798,11 +797,6 @@ function App() {
           )}
           {selectedFile ? (
             <ErrorBoundary key={selectedFile.path}>
-              <TitleInput
-                key={`title-${selectedFile.path}`}
-                title={parsedFrontmatter.title != null ? String(parsedFrontmatter.title) : ""}
-                onChange={(value) => void handlePublishAwareFieldChange("title", value)}
-              />
               <Suspense fallback={<div className="editor-loading">Loading editor…</div>}>
                 <Editor
                   key={selectedFile.path}
@@ -813,6 +807,8 @@ function App() {
                   typewriterMode={typewriterMode}
                   spellCheck={prefs.spellCheck}
                   showH1Warning
+                  title={parsedFrontmatter.title != null ? String(parsedFrontmatter.title) : ""}
+                  onTitleChange={(value) => void handlePublishAwareFieldChange("title", value)}
                   onWordCount={setWordCount}
                   onDirty={handleEditorDirty}
                   onChange={handleEditorChange}
