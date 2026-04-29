@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { FrontmatterValue, ParsedFrontmatter } from "../lib/frontmatter";
 import {
   type CustomFrontmatterValueType,
@@ -52,6 +53,7 @@ function formatDate(value: string): string {
 }
 
 function DateField({ value, onSave }: { value: string; onSave: (v: string | null) => void }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +66,7 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string | null
       <input
         ref={inputRef}
         type="date"
-        aria-label="Date"
+        aria-label={t("properties.date")}
         className="prop-input prop-input--date"
         value={value}
         onChange={(e) => {
@@ -80,7 +82,7 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string | null
       type="button"
       className="prop-editable-area"
       onClick={() => setEditing(true)}
-      title="Click to edit"
+      title={t("properties.click_to_edit")}
     >
       <span className="prop-value">{formatDate(value)}</span>
     </button>
@@ -92,6 +94,7 @@ function DateField({ value, onSave }: { value: string; onSave: (v: string | null
 // ---------------------------------------------------------------------------
 
 function TagInput({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) => void }) {
+  const { t } = useTranslation();
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -115,7 +118,7 @@ function TagInput({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) =
           <button
             type="button"
             className="prop-tag-remove"
-            aria-label={`Remove tag ${tag}`}
+            aria-label={t("properties.remove_tag", { tag })}
             onClick={(e) => {
               e.stopPropagation();
               removeTag(tag);
@@ -127,11 +130,11 @@ function TagInput({ tags, onSave }: { tags: string[]; onSave: (tags: string[]) =
       ))}
       <input
         ref={inputRef}
-        aria-label="Add tag"
+        aria-label={t("properties.add_tag")}
         className="tag-input"
         {...METADATA_TEXT_INPUT_PROPS}
         value={input}
-        placeholder={tags.length === 0 ? "add tag…" : ""}
+        placeholder={tags.length === 0 ? t("properties.add_tag_placeholder") : ""}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === ",") {
@@ -162,6 +165,7 @@ function EditableValue({
   label?: string;
   onSave: (v: FrontmatterValue) => void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(String(value ?? ""));
@@ -224,7 +228,7 @@ function EditableValue({
       className="prop-editable-area"
       aria-label={buttonLabel}
       onClick={startEdit}
-      title="Click to edit"
+      title={t("properties.click_to_edit")}
     >
       <span className="prop-value">{displayValue}</span>
     </button>
@@ -232,12 +236,13 @@ function EditableValue({
 }
 
 function RemoveFieldButton({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       className="prop-remove-btn"
-      aria-label={`Remove ${label} metadata`}
-      title={`Remove ${label}`}
+      aria-label={t("properties.remove_field", { label })}
+      title={t("properties.remove_field", { label })}
       onClick={(event) => {
         onRemove();
         event.currentTarget.blur();
@@ -261,6 +266,7 @@ function CustomMetadataDialog({
   onConfirm: (key: string, value: FrontmatterValue) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const dialogRef = useFocusTrap<HTMLDivElement>();
   const [key, setKey] = useState("");
   const [valueType, setValueType] = useState<CustomFrontmatterValueType>("text");
@@ -272,23 +278,23 @@ function CustomMetadataDialog({
     const k = key.trim();
     const normalizedKey = normalizeFrontmatterKey(k);
     if (!k) {
-      setError("Key is required.");
+      setError(t("properties.error_key_required"));
       return;
     }
     if (
       existingKeys.some((existingKey) => normalizeFrontmatterKey(existingKey) === normalizedKey)
     ) {
-      setError("This field already exists.");
+      setError(t("properties.error_field_exists"));
       return;
     }
     if (resolveKnownFrontmatterFieldKey(k)) {
-      setError("Use the dedicated editor for this field.");
+      setError(t("properties.error_use_dedicated"));
       return;
     }
 
     const value = coerceCustomFrontmatterValue(valueType, rawValue, booleanValue);
     if (value === null) {
-      setError("Value is required for this metadata type.");
+      setError(t("properties.error_value_required"));
       return;
     }
 
@@ -307,26 +313,31 @@ function CustomMetadataDialog({
 
   return (
     <div className="modal-overlay" role="presentation">
-      <button type="button" className="modal-backdrop" aria-label="Close" onClick={onCancel} />
+      <button
+        type="button"
+        className="modal-backdrop"
+        aria-label={t("common.close")}
+        onClick={onCancel}
+      />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Add custom metadata"
+        aria-label={t("properties.add_custom")}
         className="modal-panel prop-dialog"
         onKeyDown={handleKeyDown}
       >
-        <p className="modal-title">Add Custom Metadata</p>
-        <p className="modal-copy">Add a custom frontmatter field with an explicit value type.</p>
+        <p className="modal-title">{t("properties.add_custom")}</p>
+        <p className="modal-copy">{t("properties.add_custom_desc")}</p>
 
         <div className="prop-dialog-grid">
           <label className="prop-dialog-field">
-            <span className="prop-label">Key</span>
+            <span className="prop-label">{t("properties.key")}</span>
             <input
-              aria-label="Metadata key"
+              aria-label={t("properties.key_label")}
               className="modal-input"
               {...METADATA_TEXT_INPUT_PROPS}
-              placeholder="readingTime"
+              placeholder={t("properties.key_placeholder")}
               value={key}
               onChange={(e) => {
                 setKey(e.target.value);
@@ -336,9 +347,9 @@ function CustomMetadataDialog({
           </label>
 
           <label className="prop-dialog-field">
-            <span className="prop-label">Type</span>
+            <span className="prop-label">{t("properties.type")}</span>
             <select
-              aria-label="Metadata type"
+              aria-label={t("properties.type_label")}
               className="modal-input prop-dialog-select"
               value={valueType}
               onChange={(e) => {
@@ -357,7 +368,7 @@ function CustomMetadataDialog({
 
         {valueType === "boolean" ? (
           <div className="prop-dialog-field">
-            <span className="prop-label">Value</span>
+            <span className="prop-label">{t("properties.value")}</span>
             <div className="prop-dialog-toggle-row">
               <button
                 type="button"
@@ -365,7 +376,7 @@ function CustomMetadataDialog({
                 aria-pressed={booleanValue}
                 onClick={() => setBooleanValue(true)}
               >
-                True
+                {t("properties.bool_true")}
               </button>
               <button
                 type="button"
@@ -373,19 +384,23 @@ function CustomMetadataDialog({
                 aria-pressed={!booleanValue}
                 onClick={() => setBooleanValue(false)}
               >
-                False
+                {t("properties.bool_false")}
               </button>
             </div>
           </div>
         ) : (
           <label className="prop-dialog-field">
-            <span className="prop-label">Value</span>
+            <span className="prop-label">{t("properties.value")}</span>
             <input
-              aria-label="Metadata value"
+              aria-label={t("properties.value_label")}
               type={valueType === "number" ? "number" : valueType === "date" ? "date" : "text"}
               className="modal-input"
               {...(valueType === "text" || valueType === "tags" ? METADATA_TEXT_INPUT_PROPS : {})}
-              placeholder={valueType === "tags" ? "tag-one, tag-two" : "Value"}
+              placeholder={
+                valueType === "tags"
+                  ? t("properties.tags_placeholder")
+                  : t("properties.value_placeholder")
+              }
               value={rawValue}
               onChange={(e) => {
                 setRawValue(e.target.value);
@@ -400,10 +415,10 @@ function CustomMetadataDialog({
         <div className="modal-actions">
           <div className="modal-spacer" />
           <button type="button" className="modal-btn modal-btn-cancel" onClick={onCancel}>
-            Cancel
+            {t("properties.cancel")}
           </button>
           <button type="button" className="modal-btn modal-btn-primary" onClick={submit}>
-            Add metadata
+            {t("properties.add_button")}
           </button>
         </div>
       </div>
@@ -424,6 +439,7 @@ function CustomMetadataField({
   onRemove: () => void;
   onError?: (message: string) => void;
 }) {
+  const { t } = useTranslation();
   const inferredType = inferCustomFrontmatterValueType(value);
   const removeButton = <RemoveFieldButton label={fieldKey} onRemove={onRemove} />;
 
@@ -462,7 +478,7 @@ function CustomMetadataField({
           if (Number.isFinite(parsed)) {
             onSave(parsed);
           } else {
-            onError?.(`"${fieldKey}" must be a number.`);
+            onError?.(t("properties.error_must_be_number", { key: fieldKey }));
           }
         }}
       />
@@ -495,12 +511,13 @@ function AddFieldRow({
   onAdd: (key: string, value: FrontmatterValue) => void;
   existingKeys: string[];
 }) {
+  const { t } = useTranslation();
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
 
   return (
     <div className="prop-add-block">
       <div className="prop-add-known">
-        <span className="prop-section-title">Add Metadata</span>
+        <span className="prop-section-title">{t("properties.add_metadata")}</span>
         {addableKeys.length > 0 && (
           <div className="prop-add-known-list">
             {addableKeys.map((fieldKey) => (
@@ -521,7 +538,7 @@ function AddFieldRow({
           className="prop-add-field-btn"
           onClick={() => setCustomDialogOpen(true)}
         >
-          + Custom metadata
+          + {t("properties.custom_metadata")}
         </button>
       </div>
 
@@ -552,19 +569,20 @@ function BooleanField({
   onSave: (v: boolean) => void;
   action?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="prop-boolean-row">
       <div className="prop-boolean-copy">
         <span className="prop-boolean-label">{label}</span>
         <span className="prop-boolean-state">
-          {stateLabel ?? (checked ? "Enabled" : "Disabled")}
+          {stateLabel ?? (checked ? t("properties.enabled") : t("properties.disabled"))}
         </span>
       </div>
       <div className="prop-boolean-actions">
         <button
           type="button"
           className={`prop-boolean-toggle${checked ? " is-on" : ""}`}
-          aria-label={`${label}: ${checked ? "enabled" : "disabled"}`}
+          aria-label={`${label}: ${checked ? t("properties.enabled") : t("properties.disabled")}`}
           aria-pressed={checked}
           onClick={() => onSave(!checked)}
         >
@@ -587,12 +605,19 @@ function PublishingBooleanField({
   onSave: (fieldKey: string, value: boolean) => void;
   onRemove?: () => void;
 }) {
+  const { t } = useTranslation();
   const checked = readBooleanFrontmatterValue(value);
   return (
     <BooleanField
       label={getFrontmatterFieldLabel(fieldKey)}
       checked={checked}
-      stateLabel={fieldKey === "draft" ? (checked ? "Draft" : "Published") : undefined}
+      stateLabel={
+        fieldKey === "draft"
+          ? checked
+            ? t("properties.draft")
+            : t("properties.published")
+          : undefined
+      }
       onSave={(nextValue) => onSave(fieldKey, nextValue)}
       action={
         onRemove ? (
@@ -657,24 +682,25 @@ function CoverImageField({
   onSave: (v: FrontmatterValue) => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="prop-field">
       <div className="prop-field-head">
-        <span className="prop-label">Cover Image</span>
+        <span className="prop-label">{t("properties.cover_image")}</span>
         <div className="prop-field-actions">
           <button
             type="button"
             className="prop-cover-eye-btn"
-            aria-label={previewVisible ? "Hide cover image preview" : "Show cover image preview"}
+            aria-label={previewVisible ? t("properties.cover_hide") : t("properties.cover_show")}
             aria-pressed={previewVisible}
             onClick={onTogglePreview}
           >
             <EyeIcon open={previewVisible} />
           </button>
-          <RemoveFieldButton label="cover image" onRemove={onRemove} />
+          <RemoveFieldButton label={t("properties.cover_image")} onRemove={onRemove} />
         </div>
       </div>
-      <EditableValue label="Cover image path" value={value} onSave={onSave} />
+      <EditableValue label={t("properties.cover_path")} value={value} onSave={onSave} />
     </div>
   );
 }
@@ -692,6 +718,7 @@ export function PropertiesPanel({
   onToggleCoverImage,
   onError,
 }: PropertiesPanelProps) {
+  const { t } = useTranslation();
   const titleValue = getFrontmatterFieldValue(frontmatter, "title");
   const dateValue = getFrontmatterFieldValue(frontmatter, "date");
   const tagsValue = getFrontmatterFieldValue(frontmatter, "tags");
@@ -715,19 +742,19 @@ export function PropertiesPanel({
       {/* ── Header ─────────────────────────────────── */}
       <div className="prop-header">
         <div className="prop-header-main">
-          <span className="prop-panel-kicker">Metadata</span>
-          <span className="prop-panel-title">Frontmatter</span>
+          <span className="prop-panel-kicker">{t("properties.metadata")}</span>
+          <span className="prop-panel-title">{t("properties.frontmatter")}</span>
         </div>
       </div>
 
       {/* ── Body: standard fields ──────────────────── */}
       <div className="properties-body">
-        <section className="prop-section" aria-label="Document metadata">
+        <section className="prop-section" aria-label={t("properties.document_metadata")}>
           {title !== undefined && (
             <div className="prop-field">
-              <span className="prop-label">Title</span>
+              <span className="prop-label">{t("properties.title")}</span>
               <EditableValue
-                label="Title"
+                label={t("properties.title")}
                 value={title}
                 onSave={(v) => onFieldChange?.("title", v)}
               />
@@ -736,29 +763,29 @@ export function PropertiesPanel({
 
           {slug && (
             <div className="prop-field">
-              <span className="prop-label">Slug</span>
+              <span className="prop-label">{t("properties.slug")}</span>
               <span className="prop-slug">{slug}</span>
             </div>
           )}
 
           {date !== undefined && (
             <div className="prop-field">
-              <span className="prop-label">Date</span>
+              <span className="prop-label">{t("properties.date")}</span>
               <DateField value={date} onSave={(v) => onFieldChange?.("date", v)} />
             </div>
           )}
 
           {tags !== undefined && (
             <div className="prop-field">
-              <span className="prop-label">Tags</span>
+              <span className="prop-label">{t("properties.tags")}</span>
               <TagInput tags={tags} onSave={(v) => onFieldChange?.("tags", v)} />
             </div>
           )}
         </section>
 
         {publishingFields.length > 0 && (
-          <section className="prop-section" aria-label="Publishing metadata">
-            <span className="prop-section-title">Publishing</span>
+          <section className="prop-section" aria-label={t("properties.publishing_metadata")}>
+            <span className="prop-section-title">{t("properties.publishing")}</span>
             {publishingFields.map(({ key, value }) => (
               <PublishingBooleanField
                 key={key}
@@ -772,7 +799,7 @@ export function PropertiesPanel({
         )}
 
         {coverImage !== undefined && (
-          <section className="prop-section" aria-label="Cover image metadata">
+          <section className="prop-section" aria-label={t("properties.cover_image_metadata")}>
             <CoverImageField
               value={coverImage}
               previewVisible={coverImageVisible}
@@ -785,8 +812,8 @@ export function PropertiesPanel({
 
         {/* ── Custom fields ─────────────────────────── */}
         {customKeys.length > 0 && (
-          <section className="prop-section" aria-label="Custom metadata">
-            <span className="prop-section-title">Custom</span>
+          <section className="prop-section" aria-label={t("properties.custom_metadata")}>
+            <span className="prop-section-title">{t("properties.custom")}</span>
             {customKeys.map((key) => (
               <div key={key}>
                 <CustomMetadataField
@@ -803,9 +830,9 @@ export function PropertiesPanel({
 
         {isEmpty && (
           <p className="prop-empty-notice">
-            No frontmatter in this file.
+            {t("properties.no_frontmatter")}
             <br />
-            Add a field below to get started.
+            {t("properties.add_field_hint")}
           </p>
         )}
         <AddFieldRow

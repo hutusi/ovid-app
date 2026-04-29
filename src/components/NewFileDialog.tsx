@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ContentType } from "../lib/types";
 import "./NewFileDialog.css";
 
@@ -18,11 +19,12 @@ export function NewFileDialog({
   preselectedType,
   initialFilename = "",
   title,
-  confirmLabel = "Create",
+  confirmLabel,
   showTypeSelector = true,
   onConfirm,
   onCancel,
 }: NewFileDialogProps) {
+  const { t } = useTranslation();
   const [filename, setFilename] = useState(initialFilename);
   const [selectedType, setSelectedType] = useState<string>(contentTypes[0]?.name ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,28 +64,35 @@ export function NewFileDialog({
   const dialogTitle =
     title ??
     (preselectedType
-      ? `New ${preselectedType.charAt(0).toUpperCase()}${preselectedType.slice(1)}`
-      : "New file");
+      ? t("new_file_dialog.title_new_type", {
+          type: preselectedType.charAt(0).toUpperCase() + preselectedType.slice(1),
+        })
+      : t("new_file_dialog.title_new_file"));
 
   return (
     <div className="nfd-overlay" role="presentation">
-      <button type="button" className="nfd-backdrop" aria-label="Close" onClick={onCancel} />
+      <button
+        type="button"
+        className="nfd-backdrop"
+        aria-label={t("common.close")}
+        onClick={onCancel}
+      />
       <div role="dialog" aria-modal="true" aria-label={dialogTitle} className="nfd-panel">
         <p className="nfd-title">{dialogTitle}</p>
 
         <input
           ref={inputRef}
           className="nfd-input"
-          aria-label="File name"
+          aria-label={t("new_file_dialog.file_name_label")}
           value={filename}
-          placeholder="File name"
+          placeholder={t("new_file_dialog.file_name_placeholder")}
           onChange={(e) => setFilename(e.target.value)}
           onKeyDown={handleKeyDown}
         />
 
         {showTypeSelector && !preselectedType && contentTypes.length > 0 && (
           <div className="nfd-type-section">
-            <span className="nfd-type-label">Type</span>
+            <span className="nfd-type-label">{t("new_file_dialog.type_label")}</span>
             <div className="nfd-type-chips">
               {contentTypes.map((ct) => (
                 <button
@@ -102,7 +111,7 @@ export function NewFileDialog({
 
         <div className="nfd-actions">
           <button type="button" className="nfd-btn nfd-cancel" onClick={onCancel}>
-            Cancel
+            {t("new_file_dialog.cancel")}
           </button>
           <button
             type="button"
@@ -110,7 +119,7 @@ export function NewFileDialog({
             disabled={!filename.trim()}
             onClick={handleConfirm}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("new_file_dialog.create")}
           </button>
         </div>
       </div>
