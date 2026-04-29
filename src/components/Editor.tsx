@@ -18,6 +18,7 @@ import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "tiptap-markdown";
+import { mimeTypeToImageExtension } from "../lib/imageUtils";
 import { normalizeMarkdownSpacing } from "../lib/markdown";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import { ActiveHeadingIndicator } from "../lib/tiptap/ActiveHeadingIndicator";
@@ -262,8 +263,7 @@ export function Editor({
           const pasteFrom = view.state.selection.from;
           Promise.allSettled(
             imageFiles.map((file) => {
-              const mimeSubtype = file.type.split("/")[1] ?? "png";
-              const ext = mimeSubtype === "svg+xml" ? "svg" : mimeSubtype.replace("jpeg", "jpg");
+              const ext = mimeTypeToImageExtension(file.type);
               return file.arrayBuffer().then((buf) => {
                 const bytes = Array.from(new Uint8Array(buf));
                 return invoke<string>("save_asset_from_bytes", {
@@ -336,8 +336,7 @@ export function Editor({
         const dropY = event.clientY;
         Promise.allSettled(
           imageFiles.map((file) => {
-            const mimeSubtype = file.type.split("/")[1] ?? "png";
-            const mimeExt = mimeSubtype === "svg+xml" ? "svg" : mimeSubtype.replace("jpeg", "jpg");
+            const mimeExt = mimeTypeToImageExtension(file.type);
             const ext = file.name.split(".").pop()?.toLowerCase() ?? mimeExt;
             return file.arrayBuffer().then((buf) => {
               const bytes = Array.from(new Uint8Array(buf));
