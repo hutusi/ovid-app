@@ -43,6 +43,7 @@ import "../styles/editor.css";
 const lowlight = createLowlight(common);
 
 const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
+const ALLOWED_IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"]);
 const MARKDOWN_SERIALIZE_DELAY_MS = 150;
 
 async function pickAndInsertImage(
@@ -274,27 +275,23 @@ export function Editor({
               });
             })
           ).then((results) => {
-            const editor = latestEditorRef.current;
-            if (!editor) return;
             const saved = results.flatMap((r) => {
               if (r.status === "fulfilled") return [r.value];
               const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
-              const msg = t("editor.paste_image_error", { reason });
-              if (onError) onError(msg);
-              else console.error(msg);
+              onError?.(t("editor.paste_image_error", { reason }));
               return [];
             });
             if (saved.length === 0) return;
-            editor.view.focus();
-            const tr = editor.state.tr;
-            const insertFrom = Math.min(pasteFrom, editor.state.doc.content.size);
+            view.focus();
+            const tr = view.state.tr;
+            const insertFrom = Math.min(pasteFrom, view.state.doc.content.size);
             let offset = 0;
             for (const { name, relPath } of saved) {
-              const node = editor.state.schema.nodes.image.create({ src: relPath, alt: name });
+              const node = view.state.schema.nodes.image.create({ src: relPath, alt: name });
               tr.insert(insertFrom + offset, node);
               offset += node.nodeSize;
             }
-            editor.view.dispatch(tr);
+            view.dispatch(tr);
           });
           return true;
         }
@@ -337,7 +334,8 @@ export function Editor({
         Promise.allSettled(
           imageFiles.map((file) => {
             const mimeExt = mimeTypeToImageExtension(file.type);
-            const ext = file.name.split(".").pop()?.toLowerCase() ?? mimeExt;
+            const candidateExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+            const ext = ALLOWED_IMAGE_EXTS.has(candidateExt) ? candidateExt : mimeExt;
             return file.arrayBuffer().then((buf) => {
               const bytes = Array.from(new Uint8Array(buf));
               return invoke<string>("save_asset_from_bytes", {
@@ -354,9 +352,7 @@ export function Editor({
           const saved = results.flatMap((r) => {
             if (r.status === "fulfilled") return [r.value];
             const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
-            const msg = t("editor.drop_image_error", { reason });
-            if (onError) onError(msg);
-            else console.error(msg);
+            onError?.(t("editor.drop_image_error", { reason }));
             return [];
           });
           if (saved.length === 0) return;
