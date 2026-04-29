@@ -31,18 +31,23 @@ describe("locale key parity", () => {
 });
 
 describe("MENU_KEYS locale coverage", () => {
-  const menuSection = (en as Record<string, unknown>).menu as Record<string, unknown>;
+  const locales = [
+    { name: "en", menu: (en as Record<string, unknown>).menu as Record<string, unknown> },
+    { name: "zh-CN", menu: (zhCN as Record<string, unknown>).menu as Record<string, unknown> },
+  ];
 
-  it("every MENU_KEY has a corresponding entry in the en locale", () => {
-    const missing = MENU_KEYS.filter((key) => !(key in menuSection));
-    expect(missing).toEqual([]);
-  });
-
-  it("every MENU_KEY resolves to a non-empty string in en", () => {
-    const empty = MENU_KEYS.filter((key) => {
-      const val = menuSection[key];
-      return typeof val !== "string" || val.trim() === "";
+  for (const { name, menu } of locales) {
+    it(`every MENU_KEY has a corresponding entry in the ${name} locale`, () => {
+      const missing = MENU_KEYS.filter((key) => !(key in menu));
+      expect(missing).toEqual([]);
     });
-    expect(empty).toEqual([]);
-  });
+
+    it(`every MENU_KEY resolves to a non-empty string in ${name}`, () => {
+      const empty = MENU_KEYS.filter((key) => {
+        const val = menu[key];
+        return typeof val !== "string" || val.trim() === "";
+      });
+      expect(empty).toEqual([]);
+    });
+  }
 });
