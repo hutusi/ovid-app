@@ -11,6 +11,7 @@ import {
   SunMedium,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { getGitSyncDisplayLabel } from "../lib/gitUi";
 import { buildMenuLabels } from "../lib/menuLabels";
 import type { SaveStatus } from "../lib/types";
 import type { FontFamily, FontSize } from "../lib/useEditorPreferences";
@@ -162,12 +163,12 @@ export function StatusBar({
                 type="button"
                 className="statusbar-git-sync"
                 onClick={onOpenGitSync}
-                title={gitSyncTitle ?? gitSyncLabel}
+                title={gitSyncTitle ?? getGitSyncDisplayLabel(gitSyncLabel, t)}
                 aria-haspopup="dialog"
                 aria-expanded={gitSyncPopoverOpen}
               >
                 <GitSyncStatusIcon label={gitSyncLabel} />
-                {gitSyncLabel}
+                {getGitSyncDisplayLabel(gitSyncLabel, t)}
               </button>
             )}
           </div>

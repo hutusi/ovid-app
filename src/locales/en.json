@@ -170,7 +170,39 @@
     "sync_status": "Sync status",
     "state": "State",
     "tracking": "Tracking",
-    "close": "Close"
+    "close": "Close",
+    "label_ahead": "ahead",
+    "label_behind": "behind",
+    "label_diverged": "diverged",
+    "label_no_upstream": "no upstream",
+    "label_choose_remote": "choose remote",
+    "desc_ahead": "Your branch is ahead of {{upstream}}.",
+    "desc_behind": "Your branch is behind {{upstream}}.",
+    "desc_diverged": "Your branch and {{upstream}} both have new commits.",
+    "desc_no_upstream": "This branch is not tracking a remote branch yet. Push once to start tracking {{remote}}.",
+    "desc_choose_remote": "Multiple remotes are configured and no push target is selected yet.",
+    "desc_synced": "Branch is in sync with its configured tracking branch.",
+    "action_push": "Push",
+    "action_pull": "Pull",
+    "action_push_track": "Push + Track",
+    "remotes_configured": "{{count}} remotes configured",
+    "no_upstream_summary": "No upstream",
+    "push_success": "Pushed to remote",
+    "push_success_upstream": "Pushed and set upstream"
+  },
+  "git_branch": {
+    "current": "Current branch: {{branch}}",
+    "upstream": "Upstream: {{upstream}}",
+    "no_upstream": "No upstream configured",
+    "push_remote": "Push remote: {{remote}}",
+    "remotes": "Remotes: {{remotes}}",
+    "tracking": "Tracking: {{tracking}}"
+  },
+  "git_changes": {
+    "label_one": "{{count}} change",
+    "label_other": "{{count}} changes",
+    "staged": "{{count}} staged",
+    "unstaged": "{{count}} unstaged"
   },
   "workspace_switcher": {
     "title": "Workspaces",

@@ -170,7 +170,39 @@
     "sync_status": "同步状态",
     "state": "状态",
     "tracking": "跟踪",
-    "close": "关闭"
+    "close": "关闭",
+    "label_ahead": "领先",
+    "label_behind": "落后",
+    "label_diverged": "分叉",
+    "label_no_upstream": "无上游",
+    "label_choose_remote": "选择远端",
+    "desc_ahead": "本地分支领先于 {{upstream}}。",
+    "desc_behind": "{{upstream}} 有新的提交可拉取。",
+    "desc_diverged": "本地分支与 {{upstream}} 均有新提交。",
+    "desc_no_upstream": "此分支尚未跟踪远端分支。推送一次以开始跟踪 {{remote}}。",
+    "desc_choose_remote": "已配置多个远端，尚未选择推送目标。",
+    "desc_synced": "分支与配置的跟踪分支保持同步。",
+    "action_push": "推送",
+    "action_pull": "拉取",
+    "action_push_track": "推送并跟踪",
+    "remotes_configured": "已配置 {{count}} 个远端",
+    "no_upstream_summary": "无上游",
+    "push_success": "已推送到远端",
+    "push_success_upstream": "已推送并设置上游"
+  },
+  "git_branch": {
+    "current": "当前分支：{{branch}}",
+    "upstream": "上游：{{upstream}}",
+    "no_upstream": "未配置上游",
+    "push_remote": "推送远端：{{remote}}",
+    "remotes": "远端：{{remotes}}",
+    "tracking": "跟踪：{{tracking}}"
+  },
+  "git_changes": {
+    "label_one": "{{count}} 个更改",
+    "label_other": "{{count}} 个更改",
+    "staged": "{{count}} 已暂存",
+    "unstaged": "{{count}} 未暂存"
   },
   "workspace_switcher": {
     "title": "工作区",
