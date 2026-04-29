@@ -308,13 +308,30 @@ export function Editor({
         view.dispatch(view.state.tr.addMark(from, to, linkMark));
         return true;
       },
+      handleDOMEvents: {
+        dragover(_view, event) {
+          if (
+            Array.from(event.dataTransfer?.items ?? []).some((item) => IMAGE_MIME.test(item.type))
+          ) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
+      },
       handleDrop(view, event) {
-        const imageFiles = Array.from(event.dataTransfer?.files ?? [])
-          .filter((f) => IMAGE_MIME.test(f.type))
+        // Check MIME type first — before filtering by path — so we can call
+        // preventDefault() immediately and prevent WebKit from navigating to the file.
+        const allImageFiles = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+          IMAGE_MIME.test(f.type)
+        );
+        if (allImageFiles.length === 0) return false;
+        event.preventDefault();
+        // Only files that Tauri exposes a filesystem path for can be copied via save_asset.
+        const imageFiles = allImageFiles
           .map((f) => ({ name: f.name, srcPath: (f as { path?: string }).path }))
           .filter((f): f is { name: string; srcPath: string } => f.srcPath !== undefined);
-        if (imageFiles.length === 0) return false;
-        event.preventDefault();
+        if (imageFiles.length === 0) return true;
         // Capture coords now; recompute position after async uploads settle
         // to avoid using a stale absolute offset if the document changes.
         const dropX = event.clientX;
@@ -329,7 +346,8 @@ export function Editor({
         ).then((results) => {
           const saved = results.flatMap((r) => {
             if (r.status === "fulfilled") return [r.value];
-            const msg = `Failed to drop image: ${r.reason}`;
+            const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+            const msg = t("editor.drop_image_error", { reason });
             if (onError) onError(msg);
             else console.error(msg);
             return [];
