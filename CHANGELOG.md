@@ -5,6 +5,23 @@ All notable changes to Ovid will be documented in this file.
 The format is based on Keep a Changelog, adapted to match the project's
 release cadence and Conventional Commit history.
 
+## 0.12.0 - 2026-04-30
+
+### Added
+- Internationalization (i18n): full English and Simplified Chinese (简体中文) support across all
+  UI surfaces — editor, sidebar, dialogs, properties panel, status bar, Git flows, and the native
+  menu. Language preference persists in `localStorage` and the native menu is seeded from the OS
+  system locale on first launch.
+- Image paste from clipboard: paste an image directly into the editor; it is saved to the active
+  file's sibling `images/` directory and inserted as a relative-path Markdown image at the cursor.
+- Image drag-and-drop into the editor from Finder or a browser; same save and insert behavior
+  as clipboard paste. Failures surface via the toast system.
+
+### Changed
+- Image assets (drag-and-drop and file-picker) now save to the active file's sibling `images/`
+  directory instead of a workspace-root `assets/` directory; falls back to
+  `<workspace_root>/images/` when no file is active.
+
 ## 0.11.0 - 2026-04-28
 
 ### Added
