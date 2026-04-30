@@ -33,6 +33,14 @@ describe("mimeTypeToImageExtension", () => {
   it("falls back to png when subtype is absent (no slash)", () => {
     expect(mimeTypeToImageExtension("image")).toBe("png");
   });
+
+  it("strips parameters from parameterized MIME type", () => {
+    expect(mimeTypeToImageExtension("image/png; charset=utf-8")).toBe("png");
+  });
+
+  it("handles empty subtype after slash", () => {
+    expect(mimeTypeToImageExtension("image/")).toBe("png");
+  });
 });
 
 // Stub convertFileSrc: just prefix with "file://" so we can assert on the resolved path
