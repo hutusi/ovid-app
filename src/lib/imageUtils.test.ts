@@ -1,5 +1,47 @@
 import { describe, expect, it } from "bun:test";
-import { resolveImageSrc, resolveRelativePath } from "./imageUtils";
+import { mimeTypeToImageExtension, resolveImageSrc, resolveRelativePath } from "./imageUtils";
+
+// ---------------------------------------------------------------------------
+// mimeTypeToImageExtension
+// ---------------------------------------------------------------------------
+
+describe("mimeTypeToImageExtension", () => {
+  it("converts image/png → png", () => {
+    expect(mimeTypeToImageExtension("image/png")).toBe("png");
+  });
+
+  it("converts image/jpeg → jpg", () => {
+    expect(mimeTypeToImageExtension("image/jpeg")).toBe("jpg");
+  });
+
+  it("converts image/gif → gif", () => {
+    expect(mimeTypeToImageExtension("image/gif")).toBe("gif");
+  });
+
+  it("converts image/webp → webp", () => {
+    expect(mimeTypeToImageExtension("image/webp")).toBe("webp");
+  });
+
+  it("converts image/avif → avif", () => {
+    expect(mimeTypeToImageExtension("image/avif")).toBe("avif");
+  });
+
+  it("converts image/svg+xml → svg (not svg+xml)", () => {
+    expect(mimeTypeToImageExtension("image/svg+xml")).toBe("svg");
+  });
+
+  it("falls back to png when subtype is absent (no slash)", () => {
+    expect(mimeTypeToImageExtension("image")).toBe("png");
+  });
+
+  it("strips parameters from parameterized MIME type", () => {
+    expect(mimeTypeToImageExtension("image/png; charset=utf-8")).toBe("png");
+  });
+
+  it("handles empty subtype after slash", () => {
+    expect(mimeTypeToImageExtension("image/")).toBe("png");
+  });
+});
 
 // Stub convertFileSrc: just prefix with "file://" so we can assert on the resolved path
 const toFileUrl = (p: string) => `file://${p}`;

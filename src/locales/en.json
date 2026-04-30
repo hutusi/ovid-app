@@ -350,6 +350,8 @@
     "placeholder": "Untitled"
   },
   "editor": {
-    "h1_warning": "⚠ This document already has a title. Consider changing this heading to ##."
+    "h1_warning": "⚠ This document already has a title. Consider changing this heading to ##.",
+    "paste_image_error": "Failed to paste image: {{reason}}",
+    "drop_image_error": "Failed to drop image: {{reason}}"
   }
 }

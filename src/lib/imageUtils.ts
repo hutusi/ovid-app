@@ -1,5 +1,20 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
+/**
+ * Convert an image MIME type to a lowercase file extension.
+ * Handles parameterized types (e.g. "image/png; charset=utf-8"),
+ * `image/svg+xml` → `svg`, and `image/jpeg` → `jpg`.
+ */
+export function mimeTypeToImageExtension(mimeType: string): string {
+  if (!mimeType.includes("/")) return "png";
+  const rawSubtype = mimeType.split("/")[1] ?? "";
+  const subtype = rawSubtype.split(";")[0].trim();
+  if (!subtype) return "png";
+  if (subtype === "svg+xml") return "svg";
+  if (subtype === "jpeg") return "jpg";
+  return subtype;
+}
+
 export function resolveRelativePath(baseDir: string, relative: string): string {
   const parts = baseDir.split("/");
   for (const seg of relative.split("/")) {

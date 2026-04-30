@@ -16,7 +16,9 @@ import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Markdown } from "tiptap-markdown";
+import { mimeTypeToImageExtension } from "../lib/imageUtils";
 import { normalizeMarkdownSpacing } from "../lib/markdown";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import { ActiveHeadingIndicator } from "../lib/tiptap/ActiveHeadingIndicator";
@@ -41,6 +43,7 @@ import "../styles/editor.css";
 const lowlight = createLowlight(common);
 
 const IMAGE_MIME = /^image\/(png|jpe?g|gif|webp|avif|svg\+xml)$/;
+const ALLOWED_IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"]);
 const MARKDOWN_SERIALIZE_DELAY_MS = 150;
 
 async function pickAndInsertImage(
@@ -102,6 +105,7 @@ export function Editor({
   onViewStateChange,
   registerPendingFlush,
 }: EditorProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const typewriterRef = useRef(typewriterMode);
   const updateStartedAtRef = useRef(0);
@@ -250,6 +254,47 @@ export function Editor({
     editorProps: {
       attributes: { spellcheck: spellCheck ? "true" : "false" },
       handlePaste(view, event) {
+        const imageFiles = Array.from(event.clipboardData?.files ?? []).filter((f) =>
+          IMAGE_MIME.test(f.type)
+        );
+        if (imageFiles.length > 0) {
+          event.preventDefault();
+          // Capture insertion point now — editor.state.selection will be stale
+          // by the time the async saves complete.
+          const pasteFrom = view.state.selection.from;
+          Promise.allSettled(
+            imageFiles.map((file) => {
+              const ext = mimeTypeToImageExtension(file.type);
+              return file.arrayBuffer().then((buf) => {
+                const bytes = Array.from(new Uint8Array(buf));
+                return invoke<string>("save_asset_from_bytes", {
+                  bytes,
+                  extension: ext,
+                  activeFilePath: filePath,
+                }).then((relPath) => ({ name: file.name || "pasted-image", relPath }));
+              });
+            })
+          ).then((results) => {
+            const saved = results.flatMap((r) => {
+              if (r.status === "fulfilled") return [r.value];
+              const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+              onError?.(t("editor.paste_image_error", { reason }));
+              return [];
+            });
+            if (saved.length === 0) return;
+            view.focus();
+            const tr = view.state.tr;
+            const insertFrom = Math.min(pasteFrom, view.state.doc.content.size);
+            let offset = 0;
+            for (const { name, relPath } of saved) {
+              const node = view.state.schema.nodes.image.create({ src: relPath, alt: name });
+              tr.insert(insertFrom + offset, node);
+              offset += node.nodeSize;
+            }
+            view.dispatch(tr);
+          });
+          return true;
+        }
         const text = (event.clipboardData?.getData("text/plain") ?? "").trim();
         if (!/^https?:\/\/\S+$/.test(text)) return false;
         if (view.state.selection.empty) return false;
@@ -264,37 +309,56 @@ export function Editor({
         view.dispatch(view.state.tr.addMark(from, to, linkMark));
         return true;
       },
+      handleDOMEvents: {
+        dragover(_view, event) {
+          if (
+            Array.from(event.dataTransfer?.items ?? []).some((item) => IMAGE_MIME.test(item.type))
+          ) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
+      },
       handleDrop(view, event) {
-        const imageFiles = Array.from(event.dataTransfer?.files ?? [])
-          .filter((f) => IMAGE_MIME.test(f.type))
-          .map((f) => ({ name: f.name, srcPath: (f as { path?: string }).path }))
-          .filter((f): f is { name: string; srcPath: string } => f.srcPath !== undefined);
+        // dragDropEnabled is false in tauri.conf.json, so File.path is not
+        // populated by Tauri. Read bytes from the File object directly and
+        // use save_asset_from_bytes — consistent with clipboard paste.
+        const imageFiles = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+          IMAGE_MIME.test(f.type)
+        );
         if (imageFiles.length === 0) return false;
         event.preventDefault();
-        // Capture coords now; recompute position after async uploads settle
-        // to avoid using a stale absolute offset if the document changes.
         const dropX = event.clientX;
         const dropY = event.clientY;
         Promise.allSettled(
-          imageFiles.map(({ name, srcPath }) =>
-            invoke<string>("save_asset", { srcPath, activeFilePath: filePath }).then((relPath) => ({
-              name,
-              relPath,
-            }))
-          )
+          imageFiles.map((file) => {
+            const mimeExt = mimeTypeToImageExtension(file.type);
+            const candidateExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+            const ext = ALLOWED_IMAGE_EXTS.has(candidateExt) ? candidateExt : mimeExt;
+            return file.arrayBuffer().then((buf) => {
+              const bytes = Array.from(new Uint8Array(buf));
+              return invoke<string>("save_asset_from_bytes", {
+                bytes,
+                extension: ext,
+                activeFilePath: filePath,
+              }).then((relPath) => ({
+                name: file.name.replace(/\.[^.]+$/, ""),
+                relPath,
+              }));
+            });
+          })
         ).then((results) => {
           const saved = results.flatMap((r) => {
             if (r.status === "fulfilled") return [r.value];
-            const msg = `Failed to drop image: ${r.reason}`;
-            if (onError) onError(msg);
-            else console.error(msg);
+            const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+            onError?.(t("editor.drop_image_error", { reason }));
             return [];
           });
           if (saved.length === 0) return;
           const dropPos = view.posAtCoords({ left: dropX, top: dropY })?.pos;
           if (dropPos === undefined) return;
           view.focus();
-          // Apply all insertions in one transaction to avoid stale positions
           const tr = view.state.tr;
           let offset = 0;
           for (const { name, relPath } of saved) {
