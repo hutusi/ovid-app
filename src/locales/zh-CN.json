@@ -258,6 +258,8 @@
     "slug": "URL 标识",
     "date": "日期",
     "tags": "标签",
+    "editable_value_label": "可编辑值",
+    "editable_field_label": "可编辑字段",
     "custom_type_text": "文本",
     "custom_type_boolean": "布尔",
     "custom_type_number": "数字",

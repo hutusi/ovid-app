@@ -258,6 +258,8 @@
     "slug": "Slug",
     "date": "Date",
     "tags": "Tags",
+    "editable_value_label": "Editable value",
+    "editable_field_label": "Editable field",
     "custom_type_text": "Text",
     "custom_type_boolean": "Boolean",
     "custom_type_number": "Number",

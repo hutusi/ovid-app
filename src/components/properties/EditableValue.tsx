@@ -37,7 +37,7 @@ export function EditableValue({
     return (
       <input
         ref={inputRef}
-        aria-label={label ?? "Editable value"}
+        aria-label={label ?? t("properties.editable_value_label")}
         className="prop-input"
         {...METADATA_TEXT_INPUT_PROPS}
         value={draft}
@@ -67,7 +67,7 @@ export function EditableValue({
   const displayValue = String(value ?? "");
   const buttonLabel = label
     ? `${label}${displayValue ? `: ${displayValue}` : ""}`
-    : displayValue || "Editable field";
+    : displayValue || t("properties.editable_field_label");
 
   return (
     <button
