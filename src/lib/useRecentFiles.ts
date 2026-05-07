@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileNode, RecentFile } from "./types";
 
 export type { RecentFile };
@@ -23,7 +23,11 @@ function saveRecent(workspaceRoot: string, files: RecentFile[]): void {
   }
 }
 
-function rewriteRecentPaths(files: RecentFile[], oldPath: string, newPath: string): RecentFile[] {
+export function rewriteRecentPaths(
+  files: RecentFile[],
+  oldPath: string,
+  newPath: string
+): RecentFile[] {
   const newName = newPath.split("/").pop();
   return files.map((file) => {
     if (file.path === oldPath) {
@@ -36,25 +40,33 @@ function rewriteRecentPaths(files: RecentFile[], oldPath: string, newPath: strin
   });
 }
 
-function filterRemovedRecentPaths(files: RecentFile[], removedPath: string): RecentFile[] {
+export function filterRemovedRecentPaths(files: RecentFile[], removedPath: string): RecentFile[] {
   return files.filter(
     (file) => file.path !== removedPath && !file.path.startsWith(`${removedPath}/`)
   );
 }
 
-export function syncRecentRename(workspaceRoot: string, oldPath: string, newPath: string): void {
-  const next = rewriteRecentPaths(loadRecent(workspaceRoot), oldPath, newPath);
-  saveRecent(workspaceRoot, next);
-}
-
-export function syncRecentDelete(workspaceRoot: string, removedPath: string): void {
-  const next = filterRemovedRecentPaths(loadRecent(workspaceRoot), removedPath);
-  saveRecent(workspaceRoot, next);
-}
-
 export function useRecentFiles(workspaceRoot: string | null) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(() =>
     workspaceRoot ? loadRecent(workspaceRoot) : []
+  );
+  const recentFilesRef = useRef<RecentFile[]>(recentFiles);
+  recentFilesRef.current = recentFiles;
+
+  // Reload from storage whenever the workspace changes so the in-memory list
+  // matches what's persisted under the new key.
+  useEffect(() => {
+    const next = workspaceRoot ? loadRecent(workspaceRoot) : [];
+    recentFilesRef.current = next;
+    setRecentFiles(next);
+  }, [workspaceRoot]);
+
+  const persist = useCallback(
+    (next: RecentFile[]) => {
+      if (workspaceRoot) saveRecent(workspaceRoot, next);
+      return next;
+    },
+    [workspaceRoot]
   );
 
   const pushRecent = useCallback(
@@ -63,12 +75,36 @@ export function useRecentFiles(workspaceRoot: string | null) {
       setRecentFiles((prev) => {
         const entry: RecentFile = { path: node.path, name: node.name, title: node.title };
         const filtered = prev.filter((f) => f.path !== node.path);
-        const next = [entry, ...filtered].slice(0, MAX_RECENT);
-        saveRecent(workspaceRoot, next);
-        return next;
+        return persist([entry, ...filtered].slice(0, MAX_RECENT));
       });
     },
-    [workspaceRoot]
+    [workspaceRoot, persist]
+  );
+
+  const renameRecent = useCallback(
+    (oldPath: string, newPath: string) => {
+      if (!workspaceRoot) return;
+      setRecentFiles((prev) => {
+        if (!prev.some((f) => f.path === oldPath || f.path.startsWith(`${oldPath}/`))) {
+          return prev;
+        }
+        return persist(rewriteRecentPaths(prev, oldPath, newPath));
+      });
+    },
+    [workspaceRoot, persist]
+  );
+
+  const removeRecent = useCallback(
+    (removedPath: string) => {
+      if (!workspaceRoot) return;
+      setRecentFiles((prev) => {
+        if (!prev.some((f) => f.path === removedPath || f.path.startsWith(`${removedPath}/`))) {
+          return prev;
+        }
+        return persist(filterRemovedRecentPaths(prev, removedPath));
+      });
+    },
+    [workspaceRoot, persist]
   );
 
   const clearRecent = useCallback(() => {
@@ -81,10 +117,5 @@ export function useRecentFiles(workspaceRoot: string | null) {
     }
   }, [workspaceRoot]);
 
-  const resetRecent = useCallback((root: string) => {
-    const loaded = loadRecent(root);
-    setRecentFiles(loaded);
-  }, []);
-
-  return { recentFiles, pushRecent, clearRecent, resetRecent };
+  return { recentFiles, pushRecent, renameRecent, removeRecent, clearRecent };
 }
