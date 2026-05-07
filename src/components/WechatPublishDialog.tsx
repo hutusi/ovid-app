@@ -97,7 +97,7 @@ export function WechatPublishDialog({
       setCredError("");
       setPhase("ready");
     } catch (err) {
-      setCredError(String(err));
+      setCredError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -126,7 +126,7 @@ export function WechatPublishDialog({
       setPhase("success");
     } catch (err) {
       if (dismissedRef.current) return;
-      setErrorMsg(String(err));
+      setErrorMsg(err instanceof Error ? err.message : String(err));
       setPhase("error");
     }
   }
@@ -141,7 +141,7 @@ export function WechatPublishDialog({
       setPhase("credentials");
       setTimeout(() => appIdRef.current?.focus(), 0);
     } catch (err) {
-      setCredError(String(err));
+      setCredError(err instanceof Error ? err.message : String(err));
     }
   }
 
