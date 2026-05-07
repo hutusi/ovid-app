@@ -57,6 +57,11 @@ function isAbsoluteHttpUrl(url: string): boolean {
   return url.startsWith("http://") || url.startsWith("https://");
 }
 
+function mergeCellStyle(base: string, align: string | null): string {
+  if (!align) return base;
+  return `${base}${base.endsWith(";") ? " " : "; "}${align}`;
+}
+
 function buildMarkdownRenderer(): MarkdownIt {
   const md = new MarkdownIt({
     html: false,
@@ -75,13 +80,26 @@ function buildMarkdownRenderer(): MarkdownIt {
   };
   md.renderer.rules.paragraph_open = () => `<p style="${TAG_STYLES.p}">`;
   md.renderer.rules.bullet_list_open = () => `<ul style="${TAG_STYLES.ul}">`;
-  md.renderer.rules.ordered_list_open = () => `<ol style="${TAG_STYLES.ol}">`;
+  md.renderer.rules.ordered_list_open = (tokens, idx) => {
+    // markdown-it sets `start` on the token when the source is e.g. `5.` —
+    // dropping the attr would silently renumber the list from 1 in WeChat.
+    // attrGet returns the raw value (number when set by the parser), so
+    // String-coerce before escaping.
+    const start = tokens[idx].attrGet("start");
+    const startAttr = start != null ? ` start="${escapeHtml(String(start))}"` : "";
+    return `<ol${startAttr} style="${TAG_STYLES.ol}">`;
+  };
   md.renderer.rules.list_item_open = () => `<li style="${TAG_STYLES.li}">`;
   md.renderer.rules.blockquote_open = () => `<blockquote style="${TAG_STYLES.blockquote}">`;
   md.renderer.rules.hr = () => `<hr style="${TAG_STYLES.hr}">`;
   md.renderer.rules.table_open = () => `<table style="${TAG_STYLES.table}">`;
-  md.renderer.rules.th_open = () => `<th style="${TAG_STYLES.th}">`;
-  md.renderer.rules.td_open = () => `<td style="${TAG_STYLES.td}">`;
+  // Table cells: markdown-it encodes column alignment as an inline `style`
+  // attr on the token (e.g. `text-align:right`). Append it to the cell's
+  // base style so alignment markers in the source survive the round-trip.
+  md.renderer.rules.th_open = (tokens, idx) =>
+    `<th style="${mergeCellStyle(TAG_STYLES.th, tokens[idx].attrGet("style"))}">`;
+  md.renderer.rules.td_open = (tokens, idx) =>
+    `<td style="${mergeCellStyle(TAG_STYLES.td, tokens[idx].attrGet("style"))}">`;
   md.renderer.rules.em_open = () => `<em style="${TAG_STYLES.em}">`;
   md.renderer.rules.strong_open = () => `<strong style="${TAG_STYLES.strong}">`;
   md.renderer.rules.s_open = () => `<s style="${TAG_STYLES.s}">`;

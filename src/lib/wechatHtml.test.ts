@@ -247,6 +247,11 @@ describe("markdownToWechatHtml — block elements", () => {
     expect(html).not.toContain("<ul ");
   });
 
+  test("ordered list preserves a non-1 start value", () => {
+    const { html } = markdownToWechatHtml("5. fifth\n6. sixth");
+    expect(html).toMatch(/<ol\s+start="5"/);
+  });
+
   test("table renders headers and cells with their own styles", () => {
     const md = ["| Col A | Col B |", "| --- | --- |", "| a1 | b1 |"].join("\n");
     const { html } = markdownToWechatHtml(md);
@@ -257,6 +262,17 @@ describe("markdownToWechatHtml — block elements", () => {
     expect(html).toContain("<td ");
     expect(html).toContain("Col A");
     expect(html).toContain("a1");
+  });
+
+  test("table preserves per-column alignment (right / center)", () => {
+    const md = ["| Left | Center | Right |", "| --- | :---: | ---: |", "| a | b | c |"].join("\n");
+    const { html } = markdownToWechatHtml(md);
+    // Both header and body cells in the centered column carry text-align:center,
+    // and likewise text-align:right for the right-aligned column.
+    expect(html).toMatch(/<th[^>]*text-align:center[^>]*>Center<\/th>/);
+    expect(html).toMatch(/<th[^>]*text-align:right[^>]*>Right<\/th>/);
+    expect(html).toMatch(/<td[^>]*text-align:center[^>]*>b<\/td>/);
+    expect(html).toMatch(/<td[^>]*text-align:right[^>]*>c<\/td>/);
   });
 });
 

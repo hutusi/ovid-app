@@ -479,11 +479,10 @@ function App() {
   // load. fileContent is only updated when the editor mounts a new file, so
   // after an auto-save fires it goes stale; lastSavedContentRef tracks every
   // successful write and is the right fallback once any save has happened.
+  // Nullish (not truthy) check so an empty saved file is honoured rather
+  // than falling through to fileContent.
   const wechatBody =
-    pendingMarkdownRef.current ??
-    (lastSavedContentRef.current
-      ? parseFrontmatter(lastSavedContentRef.current).body
-      : parseFrontmatter(fileContent).body);
+    pendingMarkdownRef.current ?? parseFrontmatter(lastSavedContentRef.current ?? fileContent).body;
   const wechatDigest = (() => {
     if (parsedFrontmatter.excerpt != null && String(parsedFrontmatter.excerpt).trim())
       return String(parsedFrontmatter.excerpt).trim();
