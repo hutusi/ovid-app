@@ -1,5 +1,4 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { invoke } from "@tauri-apps/api/core";
 import {
   check,
   type DownloadEvent,
@@ -7,6 +6,7 @@ import {
 } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { commands } from "../lib/commands";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import "./Modal.css";
 import "./UpdateDialog.css";
@@ -172,8 +172,16 @@ export function UpdateDialog({ onBeforeRestart, onClose }: UpdateDialogProps) {
   async function handleRestart() {
     if (state.kind !== "installed" || state.restartPending) return;
     setState({ ...state, restartPending: true });
-    await onBeforeRestart?.();
-    await invoke("restart_app");
+    try {
+      await onBeforeRestart?.();
+      await commands.app.restart();
+    } catch (error) {
+      setState({
+        kind: "error",
+        currentVersion: state.currentVersion,
+        message: getErrorMessage(error),
+      });
+    }
   }
 
   function handleRetry() {

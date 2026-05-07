@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import type React from "react";
 import { useEffect, useRef } from "react";
+import { commands } from "./commands";
 import type { FileNode } from "./types";
 import { getExternalWorkspaceChangeAction } from "./workspaceRefresh";
 
@@ -52,7 +52,7 @@ export function useWorkspaceRevisionPoll({
       workspaceRefreshInFlightRef.current = true;
 
       try {
-        const revision = await invoke<string>("get_workspace_revision");
+        const revision = await commands.workspace.getRevision();
         if (!mounted) return;
 
         if (workspaceRevisionRef.current === null) {
@@ -88,7 +88,7 @@ export function useWorkspaceRevisionPoll({
           const activePath = selectedFileRef.current?.path;
           if (activePath && lastSavedContentRef.current !== null) {
             try {
-              const diskContent = await invoke<string>("read_file", { path: activePath });
+              const diskContent = await commands.files.read({ path: activePath });
               if (diskContent === lastSavedContentRef.current) {
                 workspaceRefreshFailureToastRef.current = null;
                 workspaceRevisionRef.current = revision;
