@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use ts_rs::TS;
 
 use crate::content_types::parse_cdn_base;
 
@@ -10,8 +11,9 @@ mod tree;
 
 pub(crate) use cache::load_search_file_cached;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct FileNode {
     pub(crate) name: String,
     pub(crate) path: String,
@@ -24,8 +26,9 @@ pub(crate) struct FileNode {
     pub(crate) content_type: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct WorkspaceResult {
     pub(crate) name: String,
     pub(crate) root_path: String,

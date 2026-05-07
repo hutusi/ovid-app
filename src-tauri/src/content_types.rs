@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::path::Path;
+use ts_rs::TS;
 
 use tauri::State;
 
@@ -7,8 +8,9 @@ use crate::state::WorkspaceState;
 
 // ── Content types ──────────────────────────────────────────────────────────
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct ContentType {
     pub(crate) name: String,
 }

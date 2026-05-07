@@ -14,7 +14,7 @@
     "lint:fix": "biome check --write src",
     "format": "biome format --write src",
     "test": "bun test",
-    "validate": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit && biome check src && bun test && bun run build && cargo test --manifest-path src-tauri/Cargo.toml"
+    "validate": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit && biome check src && bun test && bun run build && cargo test --manifest-path src-tauri/Cargo.toml && git diff --exit-code src/lib/commands/generated"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

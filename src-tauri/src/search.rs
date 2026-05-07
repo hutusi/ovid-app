@@ -2,6 +2,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use ts_rs::TS;
 
 use tauri::State;
 
@@ -10,15 +11,17 @@ use crate::perf::log_perf;
 use crate::state::{CachedFrontmatter, CachedSearchFile, WorkspaceState};
 use crate::workspace::load_search_file_cached;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct SearchMatch {
     pub(crate) line_number: usize,
     pub(crate) line_content: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct SearchResult {
     pub(crate) path: String,
     pub(crate) title: Option<String>,
