@@ -475,7 +475,15 @@ function App() {
     parsedFrontmatter.author != null ? String(parsedFrontmatter.author).trim() : "";
   const wechatAuthor = frontmatterAuthor || (defaultAuthor ?? "");
   // Digest: frontmatter excerpt/description → auto-extract from body
-  const wechatBody = pendingMarkdownRef.current ?? parseFrontmatter(fileContent).body;
+  // Source priority: in-flight edit → most recent on-disk content → initial
+  // load. fileContent is only updated when the editor mounts a new file, so
+  // after an auto-save fires it goes stale; lastSavedContentRef tracks every
+  // successful write and is the right fallback once any save has happened.
+  const wechatBody =
+    pendingMarkdownRef.current ??
+    (lastSavedContentRef.current
+      ? parseFrontmatter(lastSavedContentRef.current).body
+      : parseFrontmatter(fileContent).body);
   const wechatDigest = (() => {
     if (parsedFrontmatter.excerpt != null && String(parsedFrontmatter.excerpt).trim())
       return String(parsedFrontmatter.excerpt).trim();
