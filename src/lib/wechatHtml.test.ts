@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { countLocalImages, extractExcerpt, hasMathBlocks } from "./wechatHtml";
+import {
+  countLocalImages,
+  extractExcerpt,
+  hasMathBlocks,
+  markdownToWechatHtml,
+} from "./wechatHtml";
 
 describe("extractExcerpt", () => {
   test("returns first non-empty line of plain text", () => {
@@ -187,5 +192,233 @@ describe("countLocalImages", () => {
 
   test("ignores title text inside image syntax", () => {
     expect(countLocalImages('![alt](images/photo.png "My title")')).toBe(1);
+  });
+});
+
+// markdownToWechatHtml — the actual pipeline. Tests assert against the
+// post-render HTML string directly. Since renderer rules emit pre-styled
+// HTML, tests are pure (no DOM) and run in Bun.
+
+describe("markdownToWechatHtml — block elements", () => {
+  test("paragraphs get inline color/spacing styles", () => {
+    const { html } = markdownToWechatHtml("Hello world");
+    expect(html).toContain('<p style="margin: 0 0 1.2em;');
+    expect(html).toContain("color: #333333");
+    expect(html).toContain("Hello world");
+  });
+
+  test("each heading level gets its own style", () => {
+    for (let level = 1; level <= 6; level++) {
+      const { html } = markdownToWechatHtml(`${"#".repeat(level)} Heading ${level}`);
+      expect(html).toContain(`<h${level} style=`);
+      expect(html).toContain(`Heading ${level}`);
+      expect(html).toContain(`</h${level}>`);
+    }
+  });
+
+  test("h2 specifically carries the side-border accent", () => {
+    const { html } = markdownToWechatHtml("## Section");
+    expect(html).toContain("border-left: 4px solid #576b95");
+  });
+
+  test("blockquote renders with accent border + tinted background", () => {
+    const { html } = markdownToWechatHtml("> Quoted text");
+    expect(html).toContain("<blockquote");
+    expect(html).toContain("border-left: 4px solid #d1d5db");
+    expect(html).toContain("Quoted text");
+  });
+
+  test("horizontal rule renders as styled <hr>", () => {
+    const { html } = markdownToWechatHtml("---");
+    expect(html).toContain('<hr style="border: none; border-top: 1px solid #e5e7eb');
+  });
+
+  test("unordered list emits <ul><li> with both styled", () => {
+    const { html } = markdownToWechatHtml("- alpha\n- beta");
+    expect(html).toContain('<ul style="padding-left: 1.8em');
+    expect(html).toContain("<li ");
+    expect(html).toContain("alpha");
+    expect(html).toContain("beta");
+  });
+
+  test("ordered list emits <ol> rather than <ul>", () => {
+    const { html } = markdownToWechatHtml("1. first\n2. second");
+    expect(html).toContain("<ol ");
+    expect(html).not.toContain("<ul ");
+  });
+
+  test("table renders headers and cells with their own styles", () => {
+    const md = ["| Col A | Col B |", "| --- | --- |", "| a1 | b1 |"].join("\n");
+    const { html } = markdownToWechatHtml(md);
+    expect(html).toContain("<table ");
+    expect(html).toContain("border-collapse: collapse");
+    expect(html).toContain("<th ");
+    expect(html).toContain("background: #f3f4f6");
+    expect(html).toContain("<td ");
+    expect(html).toContain("Col A");
+    expect(html).toContain("a1");
+  });
+});
+
+describe("markdownToWechatHtml — inline marks", () => {
+  test("strong, em, strikethrough each get their inline style", () => {
+    const { html } = markdownToWechatHtml("**bold** and *italic* and ~~struck~~");
+    expect(html).toContain('<strong style="font-weight: bold;">bold</strong>');
+    expect(html).toContain('<em style="font-style: italic;">italic</em>');
+    expect(html).toContain('<s style="text-decoration: line-through;">struck</s>');
+  });
+
+  test("inline code is the pink-on-grey badge", () => {
+    const { html } = markdownToWechatHtml("Run `npm install` first");
+    expect(html).toContain("<code ");
+    expect(html).toContain("background: #f6f8fa");
+    expect(html).toContain("color: #e83e8c");
+    expect(html).toContain("npm install");
+  });
+
+  test("inline code escapes HTML special characters", () => {
+    const { html } = markdownToWechatHtml("Use `<div>` here");
+    expect(html).toContain("&lt;div&gt;");
+    expect(html).not.toContain("<code><div>");
+  });
+});
+
+describe("markdownToWechatHtml — code blocks", () => {
+  test("fenced code block emits dark <pre> with transparent <code>", () => {
+    const { html } = markdownToWechatHtml("```\nconst x = 1;\n```");
+    expect(html).toContain('<pre style="background: #1e1e1e');
+    expect(html).toContain("font-size: 14px; background: transparent");
+    expect(html).toContain("const x = 1;");
+  });
+
+  test("fenced code block replaces every newline with <br>", () => {
+    const { html } = markdownToWechatHtml("```\nline 1\nline 2\nline 3\n```");
+    // Three input lines + trailing newline → at least 3 <br>s separating them.
+    const brCount = (html.match(/<br>/g) ?? []).length;
+    expect(brCount).toBeGreaterThanOrEqual(3);
+    expect(html).toContain("line 1");
+    expect(html).toContain("line 2");
+    expect(html).toContain("line 3");
+  });
+
+  test("fenced code block escapes HTML inside the body", () => {
+    const { html } = markdownToWechatHtml("```\n<script>alert(1)</script>\n```");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>alert(1)</script>");
+  });
+
+  test("indented (4-space) code block uses the same styling as fenced", () => {
+    const { html } = markdownToWechatHtml("    indented code");
+    expect(html).toContain('<pre style="background: #1e1e1e');
+    expect(html).toContain("indented code");
+  });
+});
+
+describe("markdownToWechatHtml — links and images", () => {
+  test("absolute http(s) link keeps href and gets the brand-color style", () => {
+    const { html } = markdownToWechatHtml("[example](https://example.com)");
+    expect(html).toContain('<a href="https://example.com"');
+    expect(html).toContain("color: #576b95");
+    expect(html).toContain("example</a>");
+  });
+
+  test("relative href is dropped because WeChat rejects it (errcode 45166)", () => {
+    const { html } = markdownToWechatHtml("[guide](./docs/guide.md)");
+    expect(html).not.toContain("href=");
+    expect(html).toContain("<a ");
+    expect(html).toContain("guide</a>");
+  });
+
+  test("root-relative href is also dropped", () => {
+    const { html } = markdownToWechatHtml("[home](/index)");
+    expect(html).not.toContain("href=");
+  });
+
+  test("image keeps src and alt and gains the responsive style", () => {
+    const { html } = markdownToWechatHtml("![cover](images/cover.png)");
+    expect(html).toContain('<img src="images/cover.png"');
+    expect(html).toContain('alt="cover"');
+    expect(html).toContain("max-width: 100%");
+  });
+
+  test("image src with quotes/brackets is sanitised (no raw script tag survives)", () => {
+    // markdown-it URL-encodes dangerous chars in src attributes (e.g. `"` → %22).
+    // The exact escape form (HTML entity vs URL escape) doesn't matter — the
+    // contract is that no executable HTML survives the round-trip.
+    const { html } = markdownToWechatHtml('![evil]("><script>x</script>)');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).toContain("%3Cscript"); // URL-encoded form is fine
+  });
+});
+
+describe("markdownToWechatHtml — task lists", () => {
+  test("unchecked task becomes ☐", () => {
+    const { html } = markdownToWechatHtml("- [ ] todo");
+    expect(html).toContain("☐");
+    expect(html).toContain("todo");
+    expect(html).not.toContain("<input");
+  });
+
+  test("checked task becomes ☑", () => {
+    const { html } = markdownToWechatHtml("- [x] done");
+    expect(html).toContain("☑");
+    expect(html).toContain("done");
+    expect(html).not.toContain("<input");
+  });
+
+  test("mixed list yields the right glyph per item", () => {
+    const { html } = markdownToWechatHtml("- [x] done\n- [ ] todo");
+    expect(html).toContain("☑");
+    expect(html).toContain("☐");
+    expect(html.indexOf("☑")).toBeLessThan(html.indexOf("☐"));
+  });
+});
+
+describe("markdownToWechatHtml — math", () => {
+  test("inline math is stripped and hasMath=true", () => {
+    const { html, hasMath } = markdownToWechatHtml("Inline $x = 1$ math");
+    expect(hasMath).toBe(true);
+    expect(html).not.toContain("$");
+  });
+
+  test("block math is stripped and hasMath=true", () => {
+    const { html, hasMath } = markdownToWechatHtml("Before\n\n$$E=mc^2$$\n\nAfter");
+    expect(hasMath).toBe(true);
+    expect(html).not.toContain("E=mc^2");
+    expect(html).toContain("Before");
+    expect(html).toContain("After");
+  });
+
+  test("no math → hasMath=false and content unchanged in spirit", () => {
+    const { html, hasMath } = markdownToWechatHtml("Just prose");
+    expect(hasMath).toBe(false);
+    expect(html).toContain("Just prose");
+  });
+});
+
+describe("markdownToWechatHtml — composition", () => {
+  test("multi-block document keeps each block's styling", () => {
+    const md = [
+      "# Title",
+      "",
+      "Paragraph with **bold** text.",
+      "",
+      "- list item 1",
+      "- list item 2",
+      "",
+      "> quote",
+    ].join("\n");
+    const { html } = markdownToWechatHtml(md);
+    expect(html).toContain("<h1 ");
+    expect(html).toContain("<p ");
+    expect(html).toContain("<strong ");
+    expect(html).toContain("<ul ");
+    expect(html).toContain("<blockquote ");
+  });
+
+  test("disallows raw HTML in source (markdown-it html: false)", () => {
+    const { html } = markdownToWechatHtml("Hello <script>alert(1)</script>");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });

@@ -1,11 +1,12 @@
-import { Editor } from "@tiptap/core";
-import { TaskItem, TaskList } from "@tiptap/extension-list";
-import StarterKit from "@tiptap/starter-kit";
-import { Markdown } from "tiptap-markdown";
+import MarkdownIt from "markdown-it";
+// markdown-it-task-lists ships without bundled .d.ts; the runtime API is just
+// `(md: MarkdownIt) => void`, which is all we need.
+// @ts-expect-error -- no types published; treat as plain plugin function
+import taskLists from "markdown-it-task-lists";
 
 // Inline styles applied to each HTML tag for WeChat compatibility.
 // WeChat Official Account articles must use inline styles; external CSS is stripped.
-const TAG_STYLES: Partial<Record<string, string>> = {
+const TAG_STYLES = {
   p: "margin: 0 0 1.2em; padding: 0; line-height: 1.75; font-size: 16px; color: #333333;",
   h1: "font-size: 1.6em; font-weight: bold; line-height: 1.4; color: #1a1a1a; margin: 1.4em 0 0.6em; padding: 0;",
   h2: "font-size: 1.4em; font-weight: bold; line-height: 1.4; color: #1a1a1a; margin: 1.2em 0 0.5em; padding-left: 10px; border-left: 4px solid #576b95;",
@@ -29,125 +30,113 @@ const TAG_STYLES: Partial<Record<string, string>> = {
   em: "font-style: italic;",
   s: "text-decoration: line-through;",
   code: "font-family: 'Courier New', Courier, monospace; font-size: 0.875em; background: #f6f8fa; padding: 2px 5px; border-radius: 3px; color: #e83e8c;",
-};
+} as const;
 
-// Inline style for <code> inside <pre> (overrides the default code style)
+// Inline style for <code> inside <pre> — overrides the inline-code style so
+// fenced code blocks render against the dark <pre> background instead of the
+// pink-on-grey treatment used for inline `code`.
 const PRE_CODE_STYLE =
   "font-family: 'Courier New', Courier, monospace; font-size: 14px; background: transparent; padding: 0; border-radius: 0; color: inherit; white-space: inherit;";
 
-function replaceNewlinesWithBr(el: Element): void {
-  const doc = el.ownerDocument;
-  const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  let node = walker.nextNode();
-  while (node) {
-    if ((node as Text).nodeValue?.includes("\n")) textNodes.push(node as Text);
-    node = walker.nextNode();
-  }
-  for (const textNode of textNodes) {
-    const lines = (textNode.nodeValue ?? "").split(/\r?\n/);
-    const frag = doc.createDocumentFragment();
-    for (let i = 0; i < lines.length; i++) {
-      frag.appendChild(doc.createTextNode(lines[i]));
-      if (i < lines.length - 1) frag.appendChild(doc.createElement("br"));
-    }
-    textNode.parentNode?.replaceChild(frag, textNode);
-  }
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-function applyStyles(el: Element, insidePre = false): void {
-  const tag = el.tagName.toLowerCase();
-
-  if (tag === "pre") {
-    el.setAttribute("style", TAG_STYLES.pre ?? "");
-    const codeChild = el.querySelector("code");
-    if (codeChild) {
-      codeChild.setAttribute("style", PRE_CODE_STYLE);
-      // WeChat strips white-space from inline styles, so \n in text nodes renders
-      // as a space. Replace every newline with a <br> so line breaks are preserved.
-      replaceNewlinesWithBr(codeChild);
-    }
-    return; // don't recurse — the code child is already handled above
-  }
-
-  if (tag === "code" && insidePre) {
-    el.setAttribute("style", PRE_CODE_STYLE);
-  } else {
-    const style = TAG_STYLES[tag];
-    if (style) el.setAttribute("style", style);
-  }
-
-  const isNowInsidePre = insidePre || tag === "pre";
-  for (const child of Array.from(el.children)) {
-    applyStyles(child, isNowInsidePre);
-  }
+/** WeChat strips `white-space` from inline styles, so a literal `\n` inside
+ *  `<pre><code>` collapses to a single space. Replace each newline with a
+ *  `<br>` so line breaks survive the round-trip through the WeChat editor. */
+function newlinesToBr(escapedCode: string): string {
+  return escapedCode.replace(/\r?\n/g, "<br>");
 }
 
-function applyWechatStyles(html: string): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  applyStyles(doc.body);
-  return doc.body.innerHTML;
+function isAbsoluteHttpUrl(url: string): boolean {
+  return url.startsWith("http://") || url.startsWith("https://");
 }
 
-/**
- * Strip attributes and elements that WeChat rejects.
- *
- * - Non-absolute <a href> values stripped (WeChat only allows http/https links;
- *   relative/root-relative hrefs trigger error 45166)
- * - data-*, aria-*, id attributes removed (WeChat content whitelist forbids them)
- * - <input type="checkbox"> replaced with Unicode checkbox characters
- * - <label> wrappers unwrapped (children kept, tag discarded)
- */
-function sanitizeForWechat(html: string): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-
-  // Replace checkboxes with Unicode before unwrapping their labels
-  for (const input of Array.from(doc.querySelectorAll('input[type="checkbox"]'))) {
-    const checked = (input as HTMLInputElement).checked;
-    const symbol = checked ? "☑ " : "☐ ";
-    input.replaceWith(doc.createTextNode(symbol));
-  }
-
-  // Unwrap <label> elements — keep their children, discard the tag
-  for (const label of Array.from(doc.querySelectorAll("label"))) {
-    label.replaceWith(...Array.from(label.childNodes));
-  }
-
-  // Strip href from links that aren't absolute http/https URLs.
-  // WeChat rejects relative, root-relative, and protocol-less hrefs (error 45166).
-  for (const a of Array.from(doc.querySelectorAll("a[href]"))) {
-    const href = a.getAttribute("href") ?? "";
-    if (!href.startsWith("http://") && !href.startsWith("https://")) {
-      a.removeAttribute("href");
-    }
-  }
-
-  // Strip data-*, aria-*, and id attributes from all remaining elements
-  for (const el of Array.from(doc.querySelectorAll("*"))) {
-    const toRemove: string[] = [];
-    for (const { name } of Array.from(el.attributes)) {
-      if (name.startsWith("data-") || name.startsWith("aria-") || name === "id") {
-        toRemove.push(name);
-      }
-    }
-    for (const name of toRemove) el.removeAttribute(name);
-  }
-
-  return doc.body.innerHTML;
-}
-
-function parseMarkdown(markdown: string): string {
-  const el = document.createElement("div");
-  const editor = new Editor({
-    element: el,
-    extensions: [StarterKit, TaskList, TaskItem, Markdown],
-    content: markdown,
+function buildMarkdownRenderer(): MarkdownIt {
+  const md = new MarkdownIt({
+    html: false,
+    linkify: false,
+    breaks: false,
+    typographer: false,
   });
-  const html = editor.getHTML();
-  editor.destroy();
-  return html;
+  md.use(taskLists, { enabled: true, label: false, lineNumber: false });
+
+  // Pre-styled block elements — every renderer rule below ignores any classes
+  // or attrs that plugins or input may have attached, since WeChat strips
+  // class= and id= regardless. This guarantees a clean attribute surface.
+  md.renderer.rules.heading_open = (tokens, idx) => {
+    const tag = tokens[idx].tag as keyof typeof TAG_STYLES;
+    return `<${tag} style="${TAG_STYLES[tag]}">`;
+  };
+  md.renderer.rules.paragraph_open = () => `<p style="${TAG_STYLES.p}">`;
+  md.renderer.rules.bullet_list_open = () => `<ul style="${TAG_STYLES.ul}">`;
+  md.renderer.rules.ordered_list_open = () => `<ol style="${TAG_STYLES.ol}">`;
+  md.renderer.rules.list_item_open = () => `<li style="${TAG_STYLES.li}">`;
+  md.renderer.rules.blockquote_open = () => `<blockquote style="${TAG_STYLES.blockquote}">`;
+  md.renderer.rules.hr = () => `<hr style="${TAG_STYLES.hr}">`;
+  md.renderer.rules.table_open = () => `<table style="${TAG_STYLES.table}">`;
+  md.renderer.rules.th_open = () => `<th style="${TAG_STYLES.th}">`;
+  md.renderer.rules.td_open = () => `<td style="${TAG_STYLES.td}">`;
+  md.renderer.rules.em_open = () => `<em style="${TAG_STYLES.em}">`;
+  md.renderer.rules.strong_open = () => `<strong style="${TAG_STYLES.strong}">`;
+  md.renderer.rules.s_open = () => `<s style="${TAG_STYLES.s}">`;
+
+  // Inline code: pink-on-grey badge.
+  md.renderer.rules.code_inline = (tokens, idx) =>
+    `<code style="${TAG_STYLES.code}">${escapeHtml(tokens[idx].content)}</code>`;
+
+  // Fenced and indented code blocks share the same dark <pre> + transparent
+  // <code> styling. Both must replace literal \n with <br> for WeChat.
+  const renderCodeBlock = (content: string) =>
+    `<pre style="${TAG_STYLES.pre}"><code style="${PRE_CODE_STYLE}">${newlinesToBr(escapeHtml(content))}</code></pre>`;
+  md.renderer.rules.fence = (tokens, idx) => renderCodeBlock(tokens[idx].content);
+  md.renderer.rules.code_block = (tokens, idx) => renderCodeBlock(tokens[idx].content);
+
+  // Links: drop href entirely when not absolute http(s) — WeChat returns
+  // error 45166 for relative or root-relative hrefs. The link tag stays
+  // around so the visible label survives.
+  md.renderer.rules.link_open = (tokens, idx) => {
+    const hrefAttr = tokens[idx].attrGet("href") ?? "";
+    if (!isAbsoluteHttpUrl(hrefAttr)) return `<a style="${TAG_STYLES.a}">`;
+    return `<a href="${escapeHtml(hrefAttr)}" style="${TAG_STYLES.a}">`;
+  };
+
+  // Images: forward src/alt verbatim and add the responsive style. The
+  // publish backend rewrites src to the WeChat CDN URL after upload.
+  md.renderer.rules.image = (tokens, idx) => {
+    const token = tokens[idx];
+    const src = token.attrGet("src") ?? "";
+    const alt = token.content || token.attrGet("alt") || "";
+    return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" style="${TAG_STYLES.img}">`;
+  };
+
+  return md;
+}
+
+const markdownRenderer = buildMarkdownRenderer();
+
+/** Replace markdown-it-task-lists' `<input type="checkbox">` output with
+ *  Unicode check glyphs. WeChat strips `<input>` entirely, which would leave
+ *  task lists without their checkboxes. Done as a post-render pass because
+ *  the plugin emits the checkbox via `html_inline` tokens (i.e. it bypasses
+ *  the renderer-rule path); a regex sweep is the simplest stable hook.
+ *
+ *  Single-pass replacement so attribute order doesn't matter (`checked` may
+ *  appear before or after `type="checkbox"` depending on the plugin version). */
+function convertTaskCheckboxes(html: string): string {
+  return html.replace(/<input([^>]*)>\s*/g, (match, attrs: string) => {
+    // Don't anchor with a trailing \b — markdown-it-task-lists writes attrs
+    // without separating whitespace (e.g. `checked=""type="checkbox"`), so the
+    // boundary after the closing quote can fall between two non-word chars
+    // and fail to match.
+    if (!/type="checkbox"/.test(attrs)) return match;
+    return /\bchecked\b/.test(attrs) ? "☑ " : "☐ ";
+  });
 }
 
 /**
@@ -208,6 +197,10 @@ export function countLocalImages(markdown: string): number {
 /**
  * Converts a markdown string to WeChat-compatible inline-styled HTML.
  * Math blocks ($$...$$) are stripped with a warning since WeChat cannot render LaTeX.
+ *
+ * Pure string transform — no DOM, no Tiptap, safe to call anywhere. The
+ * markdown-it renderer is configured with custom rules that emit pre-styled
+ * HTML directly, so there is no separate styling pass to drift from.
  */
 export function markdownToWechatHtml(markdown: string): {
   html: string;
@@ -219,8 +212,7 @@ export function markdownToWechatHtml(markdown: string): {
     ? markdown.replace(/\$\$[\s\S]*?\$\$/g, "").replace(/\$(?!\d)[^$\n]+\$/g, "")
     : markdown;
 
-  const rawHtml = parseMarkdown(cleaned);
-  const styledHtml = applyWechatStyles(rawHtml);
-  const html = sanitizeForWechat(styledHtml);
+  const rendered = markdownRenderer.render(cleaned);
+  const html = convertTaskCheckboxes(rendered);
   return { html, hasMath };
 }
