@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { commands } from "./commands";
 import { measureAsync } from "./perf";
 import type {
   GitBranch,
@@ -8,11 +8,6 @@ import type {
   GitRemoteInfo,
   GitStatus,
 } from "./types";
-
-interface GitFileStatus {
-  path: string;
-  status: string;
-}
 
 export function useGit(workspaceRoot: string | null) {
   const [gitStatusMap, setGitStatusMap] = useState<Map<string, GitStatus>>(new Map());
@@ -74,16 +69,16 @@ export function useGit(workspaceRoot: string | null) {
       }
       try {
         await measureAsync("git.refreshStatus", async () => {
-          // get_git_branch returns "" for non-git workspaces (graceful degradation)
-          detectedBranch = await invoke<string>("get_git_branch");
+          // commands.git.branch() returns "" for non-git workspaces (graceful degradation)
+          detectedBranch = await commands.git.branch();
           if (refreshGeneration !== refreshGenerationRef.current) return;
           detectedInRepo = detectedBranch.length > 0;
           setIsGitRepo(detectedInRepo);
           setCurrentBranch(detectedBranch);
           if (detectedInRepo) {
             const [statuses, remote] = await Promise.all([
-              invoke<GitFileStatus[]>("get_git_status"),
-              invoke<GitRemoteInfo>("get_git_remote_info"),
+              commands.git.status(),
+              commands.git.remoteInfo(),
             ]);
             if (refreshGeneration !== refreshGenerationRef.current) return;
             setGitStatusMap(new Map(statuses.map((s) => [s.path, s.status as GitStatus])));
@@ -128,28 +123,28 @@ export function useGit(workspaceRoot: string | null) {
   }, [workspaceRoot, refreshGitStatus, resetGitState]);
 
   async function getCommitChanges(): Promise<GitCommitChange[]> {
-    return invoke<GitCommitChange[]>("get_git_commit_changes");
+    return (await commands.git.commitChanges()) as GitCommitChange[];
   }
 
   async function getBranch(): Promise<string> {
-    return invoke<string>("get_git_branch");
+    return commands.git.branch();
   }
 
   async function getBranches(): Promise<GitBranch[]> {
-    return invoke<GitBranch[]>("get_git_branches");
+    return commands.git.branches();
   }
 
   async function getRemoteBranches(): Promise<GitRemoteBranch[]> {
-    return invoke<GitRemoteBranch[]>("get_git_remote_branches");
+    return commands.git.remoteBranches();
   }
 
   async function getRemoteInfo(): Promise<GitRemoteInfo> {
-    return invoke<GitRemoteInfo>("get_git_remote_info");
+    return commands.git.remoteInfo();
   }
 
   async function handlePush(remoteName?: string): Promise<void> {
     try {
-      await invoke("git_push", remoteName ? { remoteName } : undefined);
+      await commands.git.push({ remoteName });
     } finally {
       void refreshGitStatus();
     }
@@ -157,7 +152,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handlePull(): Promise<void> {
     try {
-      await invoke("git_pull");
+      await commands.git.pull();
     } finally {
       void refreshGitStatus();
     }
@@ -165,7 +160,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleFetch(): Promise<void> {
     try {
-      await invoke("git_fetch");
+      await commands.git.fetch();
     } finally {
       void refreshGitStatus();
     }
@@ -173,7 +168,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleSwitchBranch(branch: string): Promise<void> {
     try {
-      await invoke("git_switch_branch", { branch });
+      await commands.git.switchBranch({ branch });
     } finally {
       void refreshGitStatus();
     }
@@ -181,7 +176,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleCreateBranch(branch: string): Promise<void> {
     try {
-      await invoke("git_create_branch", { branch });
+      await commands.git.createBranch({ branch });
     } finally {
       void refreshGitStatus();
     }
@@ -189,7 +184,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleCheckoutRemoteBranch(remoteRef: string): Promise<void> {
     try {
-      await invoke("git_checkout_remote_branch", { remoteRef });
+      await commands.git.checkoutRemoteBranch({ remoteRef });
     } finally {
       void refreshGitStatus();
     }
@@ -197,7 +192,7 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleRenameBranch(oldBranch: string, newBranch: string): Promise<void> {
     try {
-      await invoke("git_rename_branch", { oldBranch, newBranch });
+      await commands.git.renameBranch({ oldBranch, newBranch });
     } finally {
       void refreshGitStatus();
     }
@@ -205,19 +200,19 @@ export function useGit(workspaceRoot: string | null) {
 
   async function handleDeleteBranch(branch: string): Promise<void> {
     try {
-      await invoke("git_delete_branch", { branch });
+      await commands.git.deleteBranch({ branch });
     } finally {
       void refreshGitStatus();
     }
   }
 
   async function handleOpenRemote(remoteName?: string): Promise<void> {
-    await invoke("open_git_remote", remoteName ? { remoteName } : undefined);
+    await commands.git.openRemote({ remoteName });
   }
 
   async function handleCommit(message: string, paths: string[], push: boolean): Promise<void> {
     try {
-      await invoke("git_commit", { message, push, paths });
+      await commands.git.commit({ message, push, paths });
     } finally {
       void refreshGitStatus();
     }
