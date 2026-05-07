@@ -6,21 +6,16 @@ import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import {
   buildExpandedStorageKey,
   findAncestorPaths,
-  findExpandedUnloadedPaths,
   forceExpandAncestors,
   getNodeExpanded,
   parseExpandedPaths,
   shouldDefaultExpand,
 } from "../lib/sidebarExpansion";
 import {
-  collapseIndexNodes,
-  filterNoiseDirs,
   filterTree,
   getSidebarDisplayName,
   needsPageDivider,
   rollupGitStatus,
-  sortTree,
-  sortTreeAlpha,
 } from "../lib/sidebarUtils";
 import type { FileNode, GitStatus } from "../lib/types";
 import { ContentTypeIcon } from "./ContentTypeIcon";
@@ -43,7 +38,6 @@ interface SidebarProps {
   onOpenWorkspace: () => void;
   onOpenSwitcher: () => void;
   onNewFile: (dirPath: string) => void;
-  onLoadDirectoryChildren: (dirPath: string) => void;
   onRename: (node: FileNode) => void;
   onDuplicate: (node: FileNode) => void;
   onNewFromExisting: (node: FileNode) => void;
@@ -61,7 +55,6 @@ interface FileItemProps {
   filesMode: boolean;
   onSelect: (node: FileNode) => void;
   onNewFile: (dirPath: string) => void;
-  onLoadDirectoryChildren: (dirPath: string) => void;
   onRename: (node: FileNode) => void;
   onDuplicate: (node: FileNode) => void;
   onNewFromExisting: (node: FileNode) => void;
@@ -79,7 +72,6 @@ function FileItem({
   filesMode,
   onSelect,
   onNewFile,
-  onLoadDirectoryChildren,
   onRename,
   onDuplicate,
   onNewFromExisting,
@@ -153,7 +145,6 @@ function FileItem({
                 filesMode={filesMode}
                 onSelect={onSelect}
                 onNewFile={onNewFile}
-                onLoadDirectoryChildren={onLoadDirectoryChildren}
                 onRename={onRename}
                 onDuplicate={onDuplicate}
                 onNewFromExisting={onNewFromExisting}
@@ -254,7 +245,6 @@ export function Sidebar({
   onOpenWorkspace,
   onOpenSwitcher,
   onNewFile,
-  onLoadDirectoryChildren,
   onRename,
   onDuplicate,
   onNewFromExisting,
@@ -310,21 +300,20 @@ export function Sidebar({
     [selectedAncestorPaths]
   );
 
+  // The tree prop arrives already projected (forContentMode / forFilesMode
+  // applied at the App level), so this layer only needs to apply the search-
+  // box query filter. filterTree preserves caller-provided ordering.
   const renderedNodes = useMemo(
     () =>
       measureSync(
         "sidebar.renderedNodes",
-        () => {
-          const base = filesMode ? filterNoiseDirs(tree) : collapseIndexNodes(tree);
-          const filtered = filterQuery ? filterTree(base, filterQuery) : base;
-          return filesMode ? sortTreeAlpha(filtered) : sortTree(filtered);
-        },
+        () => (filterQuery ? filterTree(tree, filterQuery) : tree),
         {
           treeNodes: tree.length,
           filterLength: filterQuery.length,
         }
       ),
-    [filterQuery, tree, filesMode]
+    [filterQuery, tree]
   );
 
   useEffect(() => {
@@ -356,12 +345,6 @@ export function Sidebar({
     const ancestors = new Set(selectedAncestorKey.split("\0"));
     setExpandedPaths((current) => forceExpandAncestors(current, ancestors));
   }, [selectedPath, selectedAncestorKey, isExpandedStateLoaded]);
-
-  useEffect(() => {
-    if (!isExpandedStateLoaded) return;
-    const toLoad = findExpandedUnloadedPaths(tree, expandedPaths);
-    for (const path of toLoad) onLoadDirectoryChildren(path);
-  }, [tree, expandedPaths, isExpandedStateLoaded, onLoadDirectoryChildren]);
 
   function isNodeExpanded(node: FileNode, depth: number): boolean {
     return getNodeExpanded(node.path, depth, expandedPaths);
@@ -510,7 +493,6 @@ export function Sidebar({
                 filesMode={filesMode}
                 onSelect={onSelect}
                 onNewFile={onNewFile}
-                onLoadDirectoryChildren={onLoadDirectoryChildren}
                 onRename={onRename}
                 onDuplicate={onDuplicate}
                 onNewFromExisting={onNewFromExisting}

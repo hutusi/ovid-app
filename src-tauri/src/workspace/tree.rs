@@ -7,103 +7,40 @@ use crate::state::CachedFrontmatter;
 use super::FileNode;
 use super::cache::read_frontmatter_meta_cached;
 
-pub(crate) fn walk_dir(path: &Path, cache: &mut HashMap<PathBuf, CachedFrontmatter>) -> Vec<FileNode> {
-    let Ok(entries) = std::fs::read_dir(path) else {
-        return Vec::new();
-    };
+/// Directories that are universally noise across the developer ecosystem and
+/// should never be walked or surfaced in the workspace tree. Mirrors the TS
+/// `NOISE_DIRS` list previously applied client-side in `sidebarUtils.ts`.
+const NOISE_DIRS: &[&str] = &[
+    ".git",
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".svelte-kit",
+    "vendor",
+    ".cache",
+    "__pycache__",
+    ".tox",
+    ".venv",
+    "venv",
+    "out",
+    ".turbo",
+    ".vercel",
+    ".parcel-cache",
+];
 
-    let mut entries: Vec<_> = entries.flatten().collect();
-    entries.sort_by_key(|e| e.file_name());
-
-    let mut nodes = Vec::new();
-
-    for entry in entries {
-        let entry_path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-
-        if name.starts_with('.') {
-            continue;
-        }
-
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-
-        if file_type.is_symlink() {
-            continue;
-        }
-
-        if file_type.is_dir() {
-            let children = walk_dir(&entry_path, cache);
-            if !children.is_empty() {
-                nodes.push(FileNode {
-                    name,
-                    path: to_slash(&entry_path),
-                    is_directory: true,
-                    children: Some(children),
-                    children_loaded: Some(true),
-                    extension: None,
-                    title: None,
-                    draft: None,
-                    content_type: None,
-                });
-            }
-        } else {
-            let ext = entry_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
-            if ext == "md" || ext == "mdx" {
-                let (title, draft, content_type) = read_frontmatter_meta_cached(&entry_path, cache);
-                nodes.push(FileNode {
-                    name,
-                    path: to_slash(&entry_path),
-                    is_directory: false,
-                    children: None,
-                    children_loaded: None,
-                    extension: Some(format!(".{}", ext)),
-                    title,
-                    draft,
-                    content_type,
-                });
-            }
-        }
-    }
-
-    nodes
+fn is_noise_dir(name: &str) -> bool {
+    NOISE_DIRS.iter().any(|n| *n == name)
 }
 
-pub(crate) fn has_markdown_descendant(path: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(path) else {
-        return false;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
-        let Ok(ft) = entry.file_type() else { continue };
-        if ft.is_symlink() {
-            continue;
-        }
-        let p = entry.path();
-        if ft.is_dir() {
-            if has_markdown_descendant(&p) {
-                return true;
-            }
-        } else if ft.is_file() {
-            let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if ext == "md" || ext == "mdx" {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-pub(crate) fn list_dir_shallow(
+/// Recursive walk producing the canonical workspace tree: every file, every
+/// directory, dotfiles included. Noise directories (`.git`, `node_modules`,
+/// build artefacts) are dropped at this layer so callers don't have to. Mode
+/// filtering (markdown-only for content mode, etc.) lives in TS selectors.
+pub(crate) fn walk_tree(
     path: &Path,
-    all_files: bool,
     cache: &mut HashMap<PathBuf, CachedFrontmatter>,
 ) -> Vec<FileNode> {
     let Ok(entries) = std::fs::read_dir(path) else {
@@ -119,7 +56,7 @@ pub(crate) fn list_dir_shallow(
         let entry_path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
 
-        if !all_files && name.starts_with('.') {
+        if is_noise_dir(&name) {
             continue;
         }
 
@@ -132,29 +69,24 @@ pub(crate) fn list_dir_shallow(
         }
 
         if file_type.is_dir() {
-            if !all_files && !has_markdown_descendant(&entry_path) {
-                continue;
-            }
+            let children = walk_tree(&entry_path, cache);
             nodes.push(FileNode {
                 name,
                 path: to_slash(&entry_path),
                 is_directory: true,
-                children: None,
-                children_loaded: Some(false),
+                children: Some(children),
+                children_loaded: Some(true),
                 extension: None,
                 title: None,
                 draft: None,
                 content_type: None,
             });
-            continue;
-        }
-
-        let ext = entry_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
-        let is_markdown = ext == "md" || ext == "mdx";
-        if is_markdown || all_files {
+        } else {
+            let ext = entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            let is_markdown = ext == "md" || ext == "mdx";
             let (title, draft, content_type) = if is_markdown {
                 read_frontmatter_meta_cached(&entry_path, cache)
             } else {
@@ -223,23 +155,23 @@ mod tests {
 
     #[test]
     #[ignore = "profiling helper for large synthetic workspaces"]
-    fn perf_walk_dir_large_workspace_fixture() {
+    fn perf_walk_tree_large_workspace_fixture() {
         let dir = create_large_workspace_fixture(40, 80, 7);
         let mut cache = HashMap::new();
 
         let first_started = Instant::now();
-        let first_tree = walk_dir(&dir.path().join("content"), &mut cache);
+        let first_tree = walk_tree(&dir.path().join("content"), &mut cache);
         let first_elapsed = first_started.elapsed();
 
         let second_started = Instant::now();
-        let second_tree = walk_dir(&dir.path().join("content"), &mut cache);
+        let second_tree = walk_tree(&dir.path().join("content"), &mut cache);
         let second_elapsed = second_started.elapsed();
 
         let top_level_dirs = first_tree.iter().filter(|node| node.is_directory).count();
         assert_eq!(top_level_dirs, 40);
         assert_eq!(second_tree.len(), first_tree.len());
         eprintln!(
-            "[perf-test] walk_dir fixture dirs=40 files_per_dir=80 top_level={} first={}ms second={}ms",
+            "[perf-test] walk_tree fixture dirs=40 files_per_dir=80 top_level={} first={}ms second={}ms",
             top_level_dirs,
             first_elapsed.as_millis(),
             second_elapsed.as_millis()
@@ -247,105 +179,75 @@ mod tests {
     }
 
     #[test]
-    fn list_dir_shallow_marks_directories_unloaded_and_keeps_file_metadata() {
-        let dir = TempDir::new().unwrap();
-        let content_root = dir.path().join("content");
-        fs::create_dir_all(content_root.join("posts")).unwrap();
-        write_markdown_file(&content_root.join("readme.md"), "Readme", "body");
-        // posts/ must have a markdown descendant or it will be filtered out in content mode
-        write_markdown_file(&content_root.join("posts/first.md"), "First", "body");
-
-        let mut cache = HashMap::new();
-        let results = list_dir_shallow(&content_root, false, &mut cache);
-
-        assert_eq!(results.len(), 2);
-        let dir_node = results.iter().find(|node| node.is_directory).unwrap();
-        assert_eq!(dir_node.name, "posts");
-        assert_eq!(dir_node.children_loaded, Some(false));
-        assert!(dir_node.children.is_none());
-
-        let file_node = results.iter().find(|node| !node.is_directory).unwrap();
-        assert_eq!(file_node.name, "readme.md");
-        assert_eq!(file_node.title.as_deref(), Some("Readme"));
-        assert_eq!(file_node.children_loaded, None);
-    }
-
-    #[test]
-    fn list_dir_shallow_all_files_includes_non_markdown_and_empty_dirs() {
+    fn walk_tree_includes_non_markdown_files_and_dotfiles() {
         let dir = TempDir::new().unwrap();
         let root = dir.path();
         fs::write(root.join("config.ts"), "export default {}").unwrap();
-        fs::create_dir_all(root.join("src")).unwrap();
-        fs::write(root.join("src/index.ts"), "").unwrap();
-        write_markdown_file(&root.join("readme.md"), "Readme", "body");
-
-        let mut cache = HashMap::new();
-        let results = list_dir_shallow(root, true, &mut cache);
-
-        let names: Vec<&str> = results.iter().map(|n| n.name.as_str()).collect();
-        assert!(names.contains(&"config.ts"), "should include config.ts");
-        assert!(names.contains(&"readme.md"), "should include readme.md");
-        assert!(names.contains(&"src"), "should include src dir");
-    }
-
-    #[test]
-    fn list_dir_shallow_content_mode_excludes_non_markdown_files() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path();
-        fs::write(root.join("config.ts"), "export default {}").unwrap();
-        write_markdown_file(&root.join("readme.md"), "Readme", "body");
-
-        let mut cache = HashMap::new();
-        let results = list_dir_shallow(root, false, &mut cache);
-
-        let names: Vec<&str> = results.iter().map(|n| n.name.as_str()).collect();
-        assert!(!names.contains(&"config.ts"), "should exclude config.ts");
-        assert!(names.contains(&"readme.md"), "should include readme.md");
-    }
-
-    #[test]
-    fn list_dir_shallow_all_files_includes_dotfiles() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path();
-        fs::write(root.join(".env"), "SECRET=1").unwrap();
         fs::write(root.join(".gitignore"), "dist/").unwrap();
-        fs::write(root.join("readme.md"), "# hi").unwrap();
-
-        let mut cache = HashMap::new();
-        let results = list_dir_shallow(root, true, &mut cache);
-
-        let names: Vec<&str> = results.iter().map(|n| n.name.as_str()).collect();
-        assert!(names.contains(&".env"), "should include .env");
-        assert!(names.contains(&".gitignore"), "should include .gitignore");
-    }
-
-    #[test]
-    fn list_dir_shallow_content_mode_excludes_dotfiles() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path();
-        fs::write(root.join(".env"), "SECRET=1").unwrap();
         write_markdown_file(&root.join("readme.md"), "Readme", "body");
 
         let mut cache = HashMap::new();
-        let results = list_dir_shallow(root, false, &mut cache);
+        let nodes = walk_tree(root, &mut cache);
 
-        let names: Vec<&str> = results.iter().map(|n| n.name.as_str()).collect();
-        assert!(!names.contains(&".env"), "should exclude .env");
-        assert!(names.contains(&"readme.md"), "should include readme.md");
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert!(names.contains(&"config.ts"), "should include non-markdown files");
+        assert!(names.contains(&".gitignore"), "should include dotfiles");
+        assert!(names.contains(&"readme.md"), "should include markdown");
     }
 
     #[test]
-    fn has_markdown_descendant_ignores_dotfile_directories() {
+    fn walk_tree_loads_markdown_frontmatter_metadata_only() {
         let dir = TempDir::new().unwrap();
         let root = dir.path();
-        // Place a markdown file only inside a hidden directory — should not count
-        let hidden = root.join(".hidden");
-        fs::create_dir_all(&hidden).unwrap();
-        write_markdown_file(&hidden.join("post.md"), "Hidden", "body");
+        fs::write(root.join("notes.txt"), "plain text").unwrap();
+        write_markdown_file(&root.join("readme.md"), "Readme", "body");
 
-        assert!(
-            !has_markdown_descendant(root),
-            "dotfile dirs should not make a directory appear in content mode"
-        );
+        let mut cache = HashMap::new();
+        let nodes = walk_tree(root, &mut cache);
+
+        let txt = nodes.iter().find(|n| n.name == "notes.txt").unwrap();
+        let md = nodes.iter().find(|n| n.name == "readme.md").unwrap();
+        assert!(txt.title.is_none(), "non-markdown should not load frontmatter");
+        assert_eq!(md.title.as_deref(), Some("Readme"));
+    }
+
+    #[test]
+    fn walk_tree_skips_noise_directories() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path();
+        // node_modules and .git must be skipped entirely; .github is not a noise
+        // dir and should be included.
+        fs::create_dir_all(root.join("node_modules").join("react")).unwrap();
+        fs::write(root.join("node_modules").join("react").join("index.js"), "").unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join(".git").join("HEAD"), "ref: x").unwrap();
+        fs::create_dir_all(root.join(".github")).unwrap();
+        fs::write(root.join(".github").join("workflows.yml"), "").unwrap();
+        write_markdown_file(&root.join("readme.md"), "Readme", "body");
+
+        let mut cache = HashMap::new();
+        let nodes = walk_tree(root, &mut cache);
+
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert!(!names.contains(&"node_modules"), "node_modules must be filtered");
+        assert!(!names.contains(&".git"), ".git must be filtered");
+        assert!(names.contains(&".github"), ".github must be kept (not a noise dir)");
+        assert!(names.contains(&"readme.md"));
+    }
+
+    #[test]
+    fn walk_tree_keeps_empty_directories() {
+        // Files mode wants empty dirs visible; content mode prunes them via
+        // the TS selector. The Rust walk preserves them.
+        let dir = TempDir::new().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("empty")).unwrap();
+
+        let mut cache = HashMap::new();
+        let nodes = walk_tree(root, &mut cache);
+
+        let empty = nodes.iter().find(|n| n.name == "empty").unwrap();
+        assert!(empty.is_directory);
+        assert_eq!(empty.children.as_ref().map(|c| c.len()), Some(0));
     }
 }

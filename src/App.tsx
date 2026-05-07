@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppDialogs } from "./components/AppDialogs";
 import type { EditorViewState } from "./components/EditorPane";
@@ -11,6 +11,7 @@ import { makeFileNodeFromPath } from "./lib/fileNode";
 import { parseFrontmatter } from "./lib/frontmatter";
 import { getGitBranchTitle } from "./lib/gitUi";
 import { getPathDisplayLabel } from "./lib/postPath";
+import { forContentMode, forFilesMode } from "./lib/sidebarUtils";
 import type { FileNode, ModalState } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
@@ -117,7 +118,6 @@ function App() {
     handleNewFromExisting,
     handleDelete,
     refreshTree,
-    loadDirectoryChildren,
   } = useWorkspace({
     showToast,
     flushPendingSave,
@@ -138,21 +138,22 @@ function App() {
     tabSyncRef.current = { renameTab, removeTab };
   }, [renameTab, removeTab]);
 
-  const {
-    sidebarMode,
-    fileViewerNode,
-    setFileViewerNode,
-    filesTree,
-    handleToggleSidebarMode,
-    handleLoadDirectoryChildrenFiles,
-  } = useFilesMode({ workspaceRootPath, showToast, t });
+  const { sidebarMode, fileViewerNode, setFileViewerNode, handleToggleSidebarMode } = useFilesMode({
+    workspaceRootPath,
+  });
 
-  const handleLoadDirectoryChildren = useCallback(
-    (dirPath: string) => {
-      void loadDirectoryChildren(dirPath);
-    },
-    [loadDirectoryChildren]
-  );
+  // Project the canonical workspace tree into the shape the active sidebar
+  // mode wants. Both modes derive from the single tree owned by useWorkspace
+  // — selectors live in sidebarUtils so they're testable in isolation and
+  // keep Sidebar.tsx unaware of the projection rules.
+  const sidebarTree = useMemo(() => {
+    if (sidebarMode === "files") return forFilesMode(tree);
+    if (!workspaceRoot || !workspaceRootPath) return [];
+    return forContentMode(tree, {
+      workspaceRoot: workspaceRootPath,
+      treeRoot: workspaceRoot,
+    });
+  }, [sidebarMode, tree, workspaceRoot, workspaceRootPath]);
 
   // Canonical open-by-path: looks up the full FileNode from the complete flat index
   // (never from the hierarchical tree, which can become incomplete after sidebar interactions),
@@ -537,7 +538,7 @@ function App() {
           </Suspense>
         ) : (
           <Sidebar
-            tree={sidebarMode === "files" ? filesTree : tree}
+            tree={sidebarTree}
             workspaceKey={workspaceRootPath}
             selectedPath={fileViewerNode?.path ?? selectedFile?.path ?? null}
             visible={sidebarVisible}
@@ -549,11 +550,6 @@ function App() {
             onOpenWorkspace={handleOpenWorkspace}
             onOpenSwitcher={() => setWorkspaceSwitcherOpen(true)}
             onNewFile={(dirPath) => setModal({ type: "new-file", dirPath })}
-            onLoadDirectoryChildren={
-              sidebarMode === "files"
-                ? (dirPath) => void handleLoadDirectoryChildrenFiles(dirPath)
-                : handleLoadDirectoryChildren
-            }
             onRename={(node) => setModal({ type: "rename-path", node })}
             onDuplicate={(node) => setModal({ type: "duplicate-file", node })}
             onNewFromExisting={(node) => setModal({ type: "new-from-existing", node })}

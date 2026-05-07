@@ -1,6 +1,6 @@
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { MutableRefObject } from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { commands } from "./commands";
 import { type FlatFile, flattenTree } from "./fileSearch";
 import {
@@ -11,6 +11,7 @@ import {
 import { measureAsync } from "./perf";
 import { buildPostTargetPath } from "./postPath";
 import { createPostFromExistingContent } from "./postTemplate";
+import { forContentMode } from "./sidebarUtils";
 import type { FileNode } from "./types";
 import { syncRecentDelete, syncRecentRename } from "./useRecentFiles";
 
@@ -38,27 +39,6 @@ interface UseWorkspaceOptions {
   onPathRemoved?: (path: string) => void;
 }
 
-function mergeDirectoryChildren(
-  nodes: FileNode[],
-  dirPath: string,
-  children: FileNode[]
-): FileNode[] {
-  return nodes.map((node) => {
-    if (node.path === dirPath && node.isDirectory) {
-      return {
-        ...node,
-        children,
-        childrenLoaded: true,
-      };
-    }
-    if (!node.children) return node;
-    return {
-      ...node,
-      children: mergeDirectoryChildren(node.children, dirPath, children),
-    };
-  });
-}
-
 function findNode(nodes: FileNode[], path: string): FileNode | undefined {
   for (const n of nodes) {
     if (n.path === path) return n;
@@ -82,7 +62,6 @@ export function useWorkspace({
   onPathRemoved,
 }: UseWorkspaceOptions) {
   const [tree, setTree] = useState<FileNode[]>([]);
-  const [flatFiles, setFlatFiles] = useState<FlatFile[]>([]);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [workspaceRootPath, setWorkspaceRootPath] = useState<string | null>(null);
@@ -90,18 +69,26 @@ export function useWorkspace({
   const [assetRoot, setAssetRoot] = useState<string | undefined>(undefined);
   const [cdnBase, setCdnBase] = useState<string | undefined>(undefined);
   const [defaultAuthor, setDefaultAuthor] = useState<string | undefined>(undefined);
-  const loadingDirectoryRequestsRef = useState(() => new Map<string, Promise<FileNode[]>>())[0];
   const refreshIdRef = useRef(0);
+
+  // Cmd+P / openFileByPath operate on the markdown-only projection of the
+  // canonical tree. Derived rather than mirrored so it stays in lockstep with
+  // tree mutations without explicit setFlatFiles calls.
+  const flatFiles: FlatFile[] = useMemo(() => {
+    if (!workspaceRoot || !workspaceRootPath) return [];
+    return flattenTree(
+      forContentMode(tree, { workspaceRoot: workspaceRootPath, treeRoot: workspaceRoot })
+    );
+  }, [tree, workspaceRoot, workspaceRootPath]);
 
   const refreshTree = useCallback(async (): Promise<FileNode[]> => {
     const requestId = ++refreshIdRef.current;
     try {
-      const updated = (await measureAsync("list_workspace.invoke", () =>
-        commands.workspace.list()
+      const updated = (await measureAsync("list_workspace_tree.invoke", () =>
+        commands.workspace.tree()
       )) as FileNode[];
       if (requestId !== refreshIdRef.current) return updated;
       setTree(updated);
-      setFlatFiles(flattenTree(updated));
       return updated;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -111,40 +98,9 @@ export function useWorkspace({
     }
   }, [showToast]);
 
-  const loadDirectoryChildren = useCallback(
-    async (dirPath: string): Promise<FileNode[]> => {
-      const inFlight = loadingDirectoryRequestsRef.get(dirPath);
-      if (inFlight) return inFlight;
-
-      const request = (async () => {
-        try {
-          const children = (await measureAsync("list_workspace_children.invoke", () =>
-            commands.workspace.listChildren({ path: dirPath })
-          )) as FileNode[];
-          setTree((current) => mergeDirectoryChildren(current, dirPath, children));
-          return children;
-        } catch (err) {
-          console.error("Failed to load directory children:", err);
-          showToast(
-            `Failed to load directory children: ${err instanceof Error ? err.message : String(err)}`
-          );
-          return [];
-        } finally {
-          loadingDirectoryRequestsRef.delete(dirPath);
-        }
-      })();
-
-      loadingDirectoryRequestsRef.set(dirPath, request);
-
-      return request;
-    },
-    [loadingDirectoryRequestsRef, showToast]
-  );
-
   const applyWorkspaceResult = useCallback(
     (result: WorkspaceResult) => {
       setTree(result.tree);
-      setFlatFiles(flattenTree(result.tree));
       setWorkspaceName(result.name);
       setWorkspaceRoot(result.treeRoot);
       setWorkspaceRootPath(result.rootPath);
@@ -171,16 +127,13 @@ export function useWorkspace({
         )) as WorkspaceResult | null;
         if (result) {
           applyWorkspaceResult(result);
-          // applyWorkspaceResult uses the shallow snapshot for fast initial render;
-          // follow up with a full walk so flatFiles has the complete index.
-          void refreshTree();
         } else showToast("Could not open workspace — path may no longer be valid.");
       } catch (err) {
         console.error("Failed to open workspace:", err);
         showToast(`Failed to open workspace: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [flushPendingSave, showToast, applyWorkspaceResult, refreshTree]
+    [flushPendingSave, showToast, applyWorkspaceResult]
   );
 
   const handleOpenWorkspace = useCallback(async () => {
@@ -191,13 +144,12 @@ export function useWorkspace({
       )) as WorkspaceResult | null;
       if (result) {
         applyWorkspaceResult(result);
-        void refreshTree();
       }
     } catch (err) {
       console.error("Failed to open workspace:", err);
       showToast(`Failed to open workspace: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }, [flushPendingSave, showToast, applyWorkspaceResult, refreshTree]);
+  }, [flushPendingSave, showToast, applyWorkspaceResult]);
 
   const handleNewTodayFlow = useCallback(async () => {
     if (!workspaceRoot) return;
@@ -360,6 +312,5 @@ export function useWorkspace({
     handleNewFromExisting,
     handleDelete,
     refreshTree,
-    loadDirectoryChildren,
   };
 }

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
   collapseIndexNodes,
-  filterNoiseDirs,
   filterTree,
+  forContentMode,
+  forFilesMode,
   getSidebarDisplayName,
   needsPageDivider,
   rollupGitStatus,
@@ -438,46 +439,86 @@ describe("getSidebarDisplayName", () => {
 });
 
 // ---------------------------------------------------------------------------
-// filterNoiseDirs
+// forContentMode / forFilesMode
 // ---------------------------------------------------------------------------
 
-describe("filterNoiseDirs", () => {
-  it("returns empty array for empty input", () => {
-    expect(filterNoiseDirs([])).toEqual([]);
+describe("forContentMode", () => {
+  it("scopes into the content/ subtree for Amytis workspaces", () => {
+    const post = makeFile("post.md", { path: "/ws/content/post.md" });
+    const config = makeFile("site.config.ts", { path: "/ws/site.config.ts" });
+    const contentDir: FileNode = {
+      name: "content",
+      path: "/ws/content",
+      isDirectory: true,
+      children: [post],
+    };
+    const tree = [contentDir, config];
+    const result = forContentMode(tree, { workspaceRoot: "/ws", treeRoot: "/ws/content" });
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("post.md");
   });
 
-  it("removes well-known noise directories", () => {
-    const noise = ["node_modules", ".git", "dist", "build", "target", "out", ".next"];
-    for (const name of noise) {
-      const dir: FileNode = { name, path: `/ws/${name}`, isDirectory: true };
-      expect(filterNoiseDirs([dir])).toEqual([]);
-    }
+  it("uses the canonical tree directly when treeRoot equals workspaceRoot", () => {
+    const post = makeFile("post.md", { path: "/ws/post.md" });
+    const result = forContentMode([post], { workspaceRoot: "/ws", treeRoot: "/ws" });
+    expect(result).toEqual([post]);
   });
 
-  it("keeps regular directories", () => {
-    const src: FileNode = { name: "src", path: "/ws/src", isDirectory: true, children: [] };
-    expect(filterNoiseDirs([src])).toEqual([src]);
+  it("filters out non-markdown files and dotfiles", () => {
+    const config = makeFile("site.config.ts", { path: "/ws/site.config.ts" });
+    const env = makeFile(".env", { path: "/ws/.env" });
+    const post = makeFile("post.md", { path: "/ws/post.md" });
+    const result = forContentMode([config, env, post], {
+      workspaceRoot: "/ws",
+      treeRoot: "/ws",
+    });
+    expect(result.map((n) => n.name)).toEqual(["post.md"]);
   });
 
-  it("keeps plain files regardless of name", () => {
-    const file = makeFile("package.json");
-    expect(filterNoiseDirs([file])).toEqual([file]);
+  it("drops directories that have no markdown descendants", () => {
+    const png = makeFile("photo.png", { path: "/ws/images/photo.png" });
+    const imagesDir: FileNode = {
+      name: "images",
+      path: "/ws/images",
+      isDirectory: true,
+      children: [png],
+    };
+    const post = makeFile("post.md", { path: "/ws/post.md" });
+    const result = forContentMode([imagesDir, post], {
+      workspaceRoot: "/ws",
+      treeRoot: "/ws",
+    });
+    expect(result.map((n) => n.name)).toEqual(["post.md"]);
   });
 
-  it("removes noise dirs nested inside kept dirs", () => {
-    const nm: FileNode = { name: "node_modules", path: "/ws/pkg/node_modules", isDirectory: true };
-    const pkg: FileNode = { name: "pkg", path: "/ws/pkg", isDirectory: true, children: [nm] };
-    const [result] = filterNoiseDirs([pkg]);
-    expect(result.children).toEqual([]);
+  it("returns empty when treeRoot points to a non-existent subtree", () => {
+    const post = makeFile("post.md", { path: "/ws/post.md" });
+    const result = forContentMode([post], {
+      workspaceRoot: "/ws",
+      treeRoot: "/ws/missing",
+    });
+    expect(result).toEqual([]);
+  });
+});
+
+describe("forFilesMode", () => {
+  it("returns the tree sorted with directories first", () => {
+    const file = makeFile("readme.md", { path: "/ws/readme.md" });
+    const dir: FileNode = {
+      name: "src",
+      path: "/ws/src",
+      isDirectory: true,
+      children: [],
+    };
+    const result = forFilesMode([file, dir]);
+    expect(result.map((n) => n.name)).toEqual(["src", "readme.md"]);
   });
 
-  it("preserves non-noise siblings when removing noise", () => {
-    const nm: FileNode = { name: "node_modules", path: "/ws/node_modules", isDirectory: true };
-    const src: FileNode = { name: "src", path: "/ws/src", isDirectory: true, children: [] };
-    const file = makeFile("package.json");
-    const result = filterNoiseDirs([nm, src, file]);
-    expect(result).toHaveLength(2);
-    expect(result.map((n) => n.name)).toEqual(["src", "package.json"]);
+  it("preserves non-markdown files and dotfiles (Rust handled noise dirs)", () => {
+    const config = makeFile("site.config.ts", { path: "/ws/site.config.ts" });
+    const env = makeFile(".env", { path: "/ws/.env" });
+    const result = forFilesMode([config, env]);
+    expect(result.map((n) => n.name).sort()).toEqual([".env", "site.config.ts"]);
   });
 });
 

@@ -98,34 +98,57 @@ export function sortTree(nodes: FileNode[]): FileNode[] {
   });
 }
 
-const NOISE_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "target",
-  "dist",
-  "build",
-  ".next",
-  ".nuxt",
-  ".svelte-kit",
-  "vendor",
-  ".cache",
-  "__pycache__",
-  ".tox",
-  ".venv",
-  "venv",
-  "out",
-  ".turbo",
-  ".vercel",
-  ".parcel-cache",
-]);
-
-/** Remove well-known build/tooling directories from the tree for Files mode. */
-export function filterNoiseDirs(nodes: FileNode[]): FileNode[] {
+/** Drop dotfiles, non-markdown files, and directories that have no markdown
+ *  descendants after the filter. Used by content mode, which has stricter
+ *  visibility rules than files mode. */
+function filterContentNodes(nodes: FileNode[]): FileNode[] {
   return nodes.flatMap((node) => {
-    if (node.isDirectory && NOISE_DIRS.has(node.name)) return [];
-    if (!node.isDirectory) return [node];
-    return [{ ...node, children: filterNoiseDirs(node.children ?? []) }];
+    if (node.name.startsWith(".")) return [];
+    if (node.isDirectory) {
+      const children = filterContentNodes(node.children ?? []);
+      if (children.length === 0) return [];
+      return [{ ...node, children }];
+    }
+    return /\.mdx?$/i.test(node.name) ? [node] : [];
   });
+}
+
+/** Find a directory node by absolute path within a tree and return its
+ *  children (or `undefined` when not found). Used to scope the canonical
+ *  workspace tree into the `content/` subtree for Amytis workspaces. */
+function findChildrenByPath(nodes: FileNode[], path: string): FileNode[] | undefined {
+  for (const node of nodes) {
+    if (node.path === path) return node.isDirectory ? (node.children ?? []) : undefined;
+    if (node.children) {
+      const found = findChildrenByPath(node.children, path);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Project the canonical workspace tree into the shape Content mode renders.
+ *  For Amytis workspaces (`workspaceRoot !== treeRoot`) the tree is first
+ *  scoped into the `content/` subtree; for plain workspaces the canonical tree
+ *  is used directly. The result is filtered to markdown only, then collapsed
+ *  (folder-backed posts → single node) and sorted by content-type priority. */
+export function forContentMode(
+  tree: FileNode[],
+  options: { workspaceRoot: string; treeRoot: string }
+): FileNode[] {
+  const scoped =
+    options.workspaceRoot === options.treeRoot
+      ? tree
+      : (findChildrenByPath(tree, options.treeRoot) ?? []);
+  return sortTree(collapseIndexNodes(filterContentNodes(scoped)));
+}
+
+/** Project the canonical workspace tree into the shape Files mode renders.
+ *  Noise directories (`node_modules`, `.git`, etc.) are already filtered at
+ *  the Rust walk layer, so this selector only needs to apply the Files-mode
+ *  sort: directories first (alphabetical), then files (alphabetical). */
+export function forFilesMode(tree: FileNode[]): FileNode[] {
+  return sortTreeAlpha(tree);
 }
 
 /** Sort tree alphabetically: directories first, then all files by name. */
