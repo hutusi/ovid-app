@@ -172,8 +172,16 @@ export function UpdateDialog({ onBeforeRestart, onClose }: UpdateDialogProps) {
   async function handleRestart() {
     if (state.kind !== "installed" || state.restartPending) return;
     setState({ ...state, restartPending: true });
-    await onBeforeRestart?.();
-    await commands.app.restart();
+    try {
+      await onBeforeRestart?.();
+      await commands.app.restart();
+    } catch (error) {
+      setState({
+        kind: "error",
+        currentVersion: state.currentVersion,
+        message: getErrorMessage(error),
+      });
+    }
   }
 
   function handleRetry() {

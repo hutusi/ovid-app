@@ -104,10 +104,12 @@ export function useWorkspace({
       setFlatFiles(flattenTree(updated));
       return updated;
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("Failed to refresh tree:", err);
+      showToast(`Failed to refresh workspace: ${message}`);
       return [];
     }
-  }, []);
+  }, [showToast]);
 
   const loadDirectoryChildren = useCallback(
     async (dirPath: string): Promise<FileNode[]> => {
@@ -123,7 +125,9 @@ export function useWorkspace({
           return children;
         } catch (err) {
           console.error("Failed to load directory children:", err);
-          showToast(`Failed to load directory children: ${err}`);
+          showToast(
+            `Failed to load directory children: ${err instanceof Error ? err.message : String(err)}`
+          );
           return [];
         } finally {
           loadingDirectoryRequestsRef.delete(dirPath);
@@ -173,7 +177,7 @@ export function useWorkspace({
         } else showToast("Could not open workspace — path may no longer be valid.");
       } catch (err) {
         console.error("Failed to open workspace:", err);
-        showToast(`Failed to open workspace: ${err}`);
+        showToast(`Failed to open workspace: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
     [flushPendingSave, showToast, applyWorkspaceResult, refreshTree]
@@ -191,7 +195,7 @@ export function useWorkspace({
       }
     } catch (err) {
       console.error("Failed to open workspace:", err);
-      showToast(`Failed to open workspace: ${err}`);
+      showToast(`Failed to open workspace: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [flushPendingSave, showToast, applyWorkspaceResult, refreshTree]);
 
@@ -215,7 +219,7 @@ export function useWorkspace({
       if (node) await handleSelectFile(node);
     } catch (err) {
       console.error("Failed to open today's flow:", err);
-      showToast(`Failed to open today's flow: ${err}`);
+      showToast(`Failed to open today's flow: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [workspaceRoot, refreshTree, handleSelectFile, showToast]);
 
@@ -232,7 +236,7 @@ export function useWorkspace({
       if (newNode) await handleSelectFile(newNode);
     } catch (err) {
       console.error("Failed to create file:", err);
-      showToast(`Failed to create file: ${err}`);
+      showToast(`Failed to create file: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -261,7 +265,7 @@ export function useWorkspace({
       }
     } catch (err) {
       console.error("Failed to rename file:", err);
-      showToast(`Failed to rename: ${err}`);
+      showToast(`Failed to rename: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -279,7 +283,7 @@ export function useWorkspace({
       }
     } catch (err) {
       console.error("Failed to duplicate file:", err);
-      showToast(`Failed to duplicate: ${err}`);
+      showToast(`Failed to duplicate: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -309,7 +313,9 @@ export function useWorkspace({
       }
     } catch (err) {
       console.error("Failed to create post from existing:", err);
-      showToast(`Failed to create post from existing: ${err}`);
+      showToast(
+        `Failed to create post from existing: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
@@ -331,7 +337,7 @@ export function useWorkspace({
       await refreshTree();
     } catch (err) {
       console.error("Failed to delete file:", err);
-      showToast(`Failed to delete: ${err}`);
+      showToast(`Failed to delete: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
