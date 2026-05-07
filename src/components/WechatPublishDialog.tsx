@@ -42,7 +42,13 @@ export function WechatPublishDialog({
   const appIdRef = useRef<HTMLInputElement>(null);
 
   const dismissedRef = useRef(false);
+  // Reset the dismissed flag on every mount so React 19's strict-mode
+  // double-invoke (mount → cleanup → mount in dev) doesn't leave the ref
+  // permanently `true`. Without the reset, every async path that early-
+  // returns on `dismissedRef.current` short-circuits — including the
+  // success-phase transition after a publish completes.
   useEffect(() => {
+    dismissedRef.current = false;
     return () => {
       dismissedRef.current = true;
     };
