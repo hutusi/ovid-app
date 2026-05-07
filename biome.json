@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["src/**"]
+    "includes": ["src/**", "!src/lib/commands/generated/**"]
   },
   "formatter": {
     "enabled": true,

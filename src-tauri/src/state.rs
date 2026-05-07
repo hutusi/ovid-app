@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Instant, SystemTime};
+use ts_rs::TS;
 
 // Holds workspace paths so file commands can validate against them.
 pub(crate) struct WorkspaceState {
@@ -25,19 +26,22 @@ pub(crate) struct WechatTokenCache {
     pub(crate) expires_at: Instant,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct WechatCredStatus {
     pub(crate) app_id: Option<String>,
     pub(crate) has_secret: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct WechatPublishResult {
     pub(crate) media_id: String,
     pub(crate) updated: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, TS)]
+#[ts(export, export_to = "../../src/lib/commands/generated/")]
 pub(crate) struct WechatUploadProgress {
     pub(crate) current: usize,
     pub(crate) total: usize,
