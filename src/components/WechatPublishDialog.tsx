@@ -1,20 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { commands } from "../lib/commands";
+import type { WechatCredStatus } from "../lib/commands/generated/WechatCredStatus";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import { markdownToWechatHtml } from "../lib/wechatHtml";
 import "./Modal.css";
-
-interface WechatCredStatus {
-  app_id: string | null;
-  has_secret: boolean;
-}
-
-interface WechatPublishResult {
-  media_id: string;
-  updated: boolean;
-}
 
 interface Props {
   title: string;
@@ -77,7 +67,8 @@ export function WechatPublishDialog({
   );
 
   useEffect(() => {
-    invoke<WechatCredStatus>("get_wechat_credentials_status")
+    commands.wechat
+      .credentialsStatus()
       .then((status) => {
         setCredStatus(status);
         if (status.app_id) setAppId(status.app_id);
@@ -89,25 +80,7 @@ export function WechatPublishDialog({
   useEffect(() => {
     if (phase !== "publishing") return;
     setUploadProgress(null);
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    listen<{ current: number; total: number }>("wechat-upload-progress", (event) => {
-      if (!cancelled) setUploadProgress(event.payload);
-    })
-      .then((fn) => {
-        if (cancelled) {
-          fn();
-        } else {
-          unlisten = fn;
-        }
-      })
-      .catch((err) => {
-        console.error("wechat-upload-progress listener error:", err);
-      });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
+    return commands.wechat.onUploadProgress(setUploadProgress);
   }, [phase]);
 
   async function handleSaveCredentials() {
@@ -116,7 +89,7 @@ export function WechatPublishDialog({
       return;
     }
     try {
-      await invoke("set_wechat_credentials", {
+      await commands.wechat.setCredentials({
         appId: appId.trim(),
         appSecret: appSecret.trim(),
       });
@@ -124,7 +97,7 @@ export function WechatPublishDialog({
       setCredError("");
       setPhase("ready");
     } catch (err) {
-      setCredError(String(err));
+      setCredError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -132,7 +105,7 @@ export function WechatPublishDialog({
     setPhase("publishing");
     try {
       const { html } = markdownToWechatHtml(markdown);
-      const result = await invoke<WechatPublishResult>("wechat_publish_draft", {
+      const result = await commands.wechat.publishDraft({
         title: draftTitle,
         author: draftAuthor,
         digest: draftDigest || null,
@@ -153,14 +126,14 @@ export function WechatPublishDialog({
       setPhase("success");
     } catch (err) {
       if (dismissedRef.current) return;
-      setErrorMsg(String(err));
+      setErrorMsg(err instanceof Error ? err.message : String(err));
       setPhase("error");
     }
   }
 
   async function handleClearCredentials() {
     try {
-      await invoke("clear_wechat_credentials");
+      await commands.wechat.clearCredentials();
       setCredStatus(null);
       setAppId("");
       setAppSecret("");
@@ -168,7 +141,7 @@ export function WechatPublishDialog({
       setPhase("credentials");
       setTimeout(() => appIdRef.current?.focus(), 0);
     } catch (err) {
-      setCredError(String(err));
+      setCredError(err instanceof Error ? err.message : String(err));
     }
   }
 
