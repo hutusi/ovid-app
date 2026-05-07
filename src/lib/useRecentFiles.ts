@@ -28,13 +28,24 @@ export function rewriteRecentPaths(
   oldPath: string,
   newPath: string
 ): RecentFile[] {
-  const newName = newPath.split("/").pop();
+  const oldBase = oldPath.split("/").pop();
+  const newBase = newPath.split("/").pop();
   return files.map((file) => {
     if (file.path === oldPath) {
-      return { ...file, path: newPath, name: newName ?? file.name };
+      return { ...file, path: newPath, name: newBase ?? file.name };
     }
     if (file.path.startsWith(`${oldPath}/`)) {
-      return { ...file, path: `${newPath}${file.path.slice(oldPath.length)}` };
+      // Folder-backed recents (collapseIndexNodes) carry the parent folder's
+      // name as their label. When the folder itself is renamed, rewrite the
+      // label too — otherwise the entry shows the old folder name forever.
+      // A non-index descendant (file.name === filename, not folder name) is
+      // left alone since its label is its own filename, not the folder's.
+      const renamedLabel = file.name === oldBase && newBase ? newBase : file.name;
+      return {
+        ...file,
+        path: `${newPath}${file.path.slice(oldPath.length)}`,
+        name: renamedLabel,
+      };
     }
     return file;
   });

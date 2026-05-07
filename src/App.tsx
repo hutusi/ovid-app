@@ -67,7 +67,11 @@ function App() {
   // covering selection, tabs, and recents in one channel.
   const sessionCallbacksRef = useRef<{
     onPathCreated: (node: FileNode) => Promise<void>;
-    onPathRenamed: (oldPath: string, newPath: string) => void;
+    onPathRenamed: (
+      oldPath: string,
+      newPath: string,
+      lookup?: (path: string) => FileNode | undefined
+    ) => void;
     onPathRemoved: (path: string) => Promise<void>;
   }>({
     onPathCreated: async () => {},
@@ -131,8 +135,8 @@ function App() {
     flushPendingSave,
     resetFileState,
     onPathCreated: (node) => sessionCallbacksRef.current.onPathCreated(node),
-    onPathRenamed: (oldPath, newPath) =>
-      sessionCallbacksRef.current.onPathRenamed(oldPath, newPath),
+    onPathRenamed: (oldPath, newPath, lookup) =>
+      sessionCallbacksRef.current.onPathRenamed(oldPath, newPath, lookup),
     onPathRemoved: (path) => sessionCallbacksRef.current.onPathRemoved(path),
   });
 

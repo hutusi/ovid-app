@@ -35,7 +35,20 @@ interface UseWorkspaceOptions {
    * for editing, pushes to recents, opens its tab — in one consistent step.
    */
   onPathCreated?: (node: FileNode) => Promise<void> | void;
-  onPathRenamed?: (oldPath: string, newPath: string) => void;
+  /**
+   * Called after a successful rename, with a `lookup` closure scoped to the
+   * just-walked tree. The session needs the closure to resolve the renamed
+   * file's new node *with full metadata* (containerDirPath, title,
+   * contentType) — `flatFiles` is a useMemo on tree state and doesn't
+   * recompute until the next render, so a lookup against it from the same
+   * tick would miss the just-renamed node and fall back to a synthetic node
+   * stripped of metadata.
+   */
+  onPathRenamed?: (
+    oldPath: string,
+    newPath: string,
+    lookup: (path: string) => FileNode | undefined
+  ) => void;
   onPathRemoved?: (path: string) => Promise<void> | void;
 }
 
@@ -193,8 +206,13 @@ export function useWorkspace({
     const { oldPath, newPath } = buildPostTargetPath(node, newName);
     try {
       await commands.files.rename({ oldPath, newPath });
-      onPathRenamed?.(oldPath, newPath);
-      await refreshTree();
+      // Refresh first so the lookup we hand to the session sees the renamed
+      // node with full metadata. Calling onPathRenamed before refreshTree
+      // (the previous order) made the session resolve the new path against
+      // a stale tree and fall back to a synthetic node missing
+      // containerDirPath / title / contentType.
+      const updated = await refreshTree();
+      onPathRenamed?.(oldPath, newPath, (path) => findNode(updated, path));
     } catch (err) {
       console.error("Failed to rename file:", err);
       showToast(`Failed to rename: ${err instanceof Error ? err.message : String(err)}`);

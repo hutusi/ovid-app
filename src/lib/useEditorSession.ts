@@ -133,15 +133,22 @@ export function useEditorSession({
   /** Called by `useWorkspace.handleRename` / `handleDuplicate` (when the
    *  duplicate replaces the original) after a successful filesystem rename.
    *  Updates tabs, recents, and the active selection so the editor stays
-   *  pointed at the same logical file at its new path. */
+   *  pointed at the same logical file at its new path.
+   *
+   *  `lookup` is an optional closure scoped to the just-walked workspace
+   *  tree. The caller should supply it whenever possible — without it, the
+   *  selection-replacement node is resolved against `flatFiles`, which is a
+   *  useMemo on tree state and won't have re-computed by the time the
+   *  callback fires (same tick as the `setTree` call). The fallback
+   *  produces a synthetic node missing `containerDirPath`, `title`, etc. */
   const notifyPathRenamed = useCallback(
-    (oldPath: string, newPath: string) => {
+    (oldPath: string, newPath: string, lookup?: (path: string) => FileNode | undefined) => {
       tabs.renameTab(oldPath, newPath);
       recents.renameRecent(oldPath, newPath);
 
       const nextPath = selectionAfterRename(fileEditor.selectedFile, oldPath, newPath);
       if (nextPath) {
-        const nextNode = lookupNode(nextPath);
+        const nextNode = lookup?.(nextPath) ?? lookupNode(nextPath);
         fileEditor.selectedPathRef.current = nextPath;
         fileEditor.setSelectedFile(nextNode);
       }
