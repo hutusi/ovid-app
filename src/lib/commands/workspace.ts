@@ -6,17 +6,10 @@ export interface OpenWorkspaceAtPathArgs {
   path: string;
 }
 
-export interface ListWorkspaceChildrenArgs {
-  path: string;
-  allFiles?: boolean;
-}
-
 export const workspace = {
   open: () => invokeCmd<WorkspaceResult | null>("open_workspace"),
   openAtPath: (args: OpenWorkspaceAtPathArgs) =>
     invokeCmd<WorkspaceResult | null>("open_workspace_at_path", args),
-  list: () => invokeCmd<FileNode[]>("list_workspace"),
-  listChildren: (args: ListWorkspaceChildrenArgs) =>
-    invokeCmd<FileNode[]>("list_workspace_children", args),
+  tree: () => invokeCmd<FileNode[]>("list_workspace_tree"),
   getRevision: () => invokeCmd<string>("get_workspace_revision"),
 };
