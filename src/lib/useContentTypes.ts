@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { commands } from "./commands";
 import type { ContentType } from "./types";
 
 export function useContentTypes(workspaceRoot: string | null, isAmytisWorkspace: boolean) {
@@ -11,7 +11,8 @@ export function useContentTypes(workspaceRoot: string | null, isAmytisWorkspace:
       return;
     }
     let cancelled = false;
-    invoke<ContentType[]>("get_content_types")
+    commands.contentTypes
+      .get()
       .then((result) => {
         if (!cancelled) setContentTypes(result);
       })

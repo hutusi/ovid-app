@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { commands } from "../../lib/commands";
 import type { FrontmatterValue } from "../../lib/frontmatter";
 import { resolveImageExtension, resolveImageSrc, toAssetRootRelative } from "../../lib/imageUtils";
 import { EditableValue } from "./EditableValue";
@@ -49,7 +49,7 @@ async function uploadImageBytes(file: File, filePath: string | undefined): Promi
   const ext = resolveImageExtension(file);
   const buf = await file.arrayBuffer();
   const bytes = Array.from(new Uint8Array(buf));
-  return invoke<string>("save_asset_from_bytes", {
+  return commands.assets.saveFromBytes({
     bytes,
     extension: ext,
     activeFilePath: filePath,
@@ -108,7 +108,7 @@ export function CoverImageField({
   async function handleChooseFile() {
     setBusy(true);
     try {
-      const srcPath = await invoke<string | null>("pick_image_file");
+      const srcPath = await commands.assets.pickImage();
       if (!srcPath) return;
 
       const rootRelative = toAssetRootRelative(srcPath, assetRoot);
@@ -117,7 +117,7 @@ export function CoverImageField({
         return;
       }
 
-      const relPath = await invoke<string>("save_asset", {
+      const relPath = await commands.assets.save({
         srcPath,
         activeFilePath: filePath,
       });

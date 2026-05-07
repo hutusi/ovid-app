@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { MutableRefObject } from "react";
 import { useCallback, useRef, useState } from "react";
+import { commands } from "./commands";
 import { type FlatFile, flattenTree } from "./fileSearch";
 import {
   createAmytisFrontmatter,
@@ -14,7 +14,7 @@ import { createPostFromExistingContent } from "./postTemplate";
 import type { FileNode } from "./types";
 import { syncRecentDelete, syncRecentRename } from "./useRecentFiles";
 
-export interface WorkspaceResult {
+interface WorkspaceResult {
   name: string;
   rootPath: string;
   treeRoot: string;
@@ -96,9 +96,9 @@ export function useWorkspace({
   const refreshTree = useCallback(async (): Promise<FileNode[]> => {
     const requestId = ++refreshIdRef.current;
     try {
-      const updated = await measureAsync("list_workspace.invoke", () =>
-        invoke<FileNode[]>("list_workspace")
-      );
+      const updated = (await measureAsync("list_workspace.invoke", () =>
+        commands.workspace.list()
+      )) as FileNode[];
       if (requestId !== refreshIdRef.current) return updated;
       setTree(updated);
       setFlatFiles(flattenTree(updated));
@@ -116,9 +116,9 @@ export function useWorkspace({
 
       const request = (async () => {
         try {
-          const children = await measureAsync("list_workspace_children.invoke", () =>
-            invoke<FileNode[]>("list_workspace_children", { path: dirPath })
-          );
+          const children = (await measureAsync("list_workspace_children.invoke", () =>
+            commands.workspace.listChildren({ path: dirPath })
+          )) as FileNode[];
           setTree((current) => mergeDirectoryChildren(current, dirPath, children));
           return children;
         } catch (err) {
@@ -160,11 +160,11 @@ export function useWorkspace({
     async (path: string) => {
       await flushPendingSave();
       try {
-        const result = await measureAsync(
+        const result = (await measureAsync(
           "open_workspace_at_path.invoke",
-          () => invoke<WorkspaceResult | null>("open_workspace_at_path", { path }),
+          () => commands.workspace.openAtPath({ path }),
           { path }
-        );
+        )) as WorkspaceResult | null;
         if (result) {
           applyWorkspaceResult(result);
           // applyWorkspaceResult uses the shallow snapshot for fast initial render;
@@ -182,9 +182,9 @@ export function useWorkspace({
   const handleOpenWorkspace = useCallback(async () => {
     await flushPendingSave();
     try {
-      const result = await measureAsync("open_workspace.invoke", () =>
-        invoke<WorkspaceResult | null>("open_workspace")
-      );
+      const result = (await measureAsync("open_workspace.invoke", () =>
+        commands.workspace.open()
+      )) as WorkspaceResult | null;
       if (result) {
         applyWorkspaceResult(result);
         void refreshTree();
@@ -204,9 +204,9 @@ export function useWorkspace({
     const dirPath = `${workspaceRoot}/flows/${year}/${month}`;
     const filePath = `${dirPath}/${day}.md`;
     try {
-      await invoke("ensure_dir", { path: dirPath });
+      await commands.files.ensureDir({ path: dirPath });
       try {
-        await invoke("create_file", { path: filePath, content: createTodayFlowFrontmatter() });
+        await commands.files.create({ path: filePath, content: createTodayFlowFrontmatter() });
       } catch (err) {
         if (!String(err).includes("already exists")) throw err;
       }
@@ -226,7 +226,7 @@ export function useWorkspace({
       ? createTypedFrontmatter(slug, contentType)
       : createAmytisFrontmatter(slug);
     try {
-      await invoke("create_file", { path: filePath, content });
+      await commands.files.create({ path: filePath, content });
       const updated = await refreshTree();
       const newNode = findNode(updated, filePath);
       if (newNode) await handleSelectFile(newNode);
@@ -240,7 +240,7 @@ export function useWorkspace({
     await flushPendingSave();
     const { oldPath, newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
     try {
-      await invoke("rename_file", { oldPath, newPath });
+      await commands.files.rename({ oldPath, newPath });
       if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
       onPathRenamed?.(oldPath, newPath);
       const updated = await refreshTree();
@@ -270,7 +270,7 @@ export function useWorkspace({
     const { oldPath, newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
 
     try {
-      await invoke("duplicate_entry", { srcPath: oldPath, destPath: newPath });
+      await commands.files.duplicate({ srcPath: oldPath, destPath: newPath });
       const updated = await refreshTree();
       const duplicatedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
       const duplicated = findNode(updated, duplicatedPath);
@@ -294,14 +294,14 @@ export function useWorkspace({
     }
 
     try {
-      const raw = await invoke<string>("read_file", { path: node.path });
+      const raw = await commands.files.read({ path: node.path });
       const content = createPostFromExistingContent(raw);
 
       if (folderBacked) {
-        await invoke("ensure_dir", { path: newPath });
+        await commands.files.ensureDir({ path: newPath });
       }
 
-      await invoke("create_file", { path: targetPath, content });
+      await commands.files.create({ path: targetPath, content });
       const updated = await refreshTree();
       const created = findNode(updated, targetPath);
       if (created) {
@@ -324,7 +324,7 @@ export function useWorkspace({
       await flushPendingSave();
     }
     try {
-      await invoke("trash_file", { path: targetPath });
+      await commands.files.trash({ path: targetPath });
       if (workspaceRoot) syncRecentDelete(workspaceRoot, targetPath);
       onPathRemoved?.(targetPath);
       if (selectedPathRef.current === node.path) await handleCloseFile();

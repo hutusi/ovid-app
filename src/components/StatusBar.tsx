@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowDown,
   ArrowUp,
@@ -11,6 +10,7 @@ import {
   SunMedium,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { commands } from "../lib/commands";
 import { getGitSyncDisplayLabel } from "../lib/gitUi";
 import { buildMenuLabels } from "../lib/menuLabels";
 import type { SaveStatus } from "../lib/types";
@@ -242,7 +242,7 @@ export function StatusBar({
           onClick={() => {
             const next = i18n.language === "zh-CN" ? "en" : "zh-CN";
             void i18n.changeLanguage(next).then(() => {
-              void invoke("set_menu_language", { labels: buildMenuLabels(i18n.t.bind(i18n)) });
+              void commands.menu.setLanguage({ labels: buildMenuLabels(i18n.t.bind(i18n)) });
             });
           }}
           title={t("status_bar.language")}

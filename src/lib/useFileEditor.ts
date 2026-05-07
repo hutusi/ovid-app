@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { commands } from "./commands";
 import {
   type FrontmatterValue,
   joinFrontmatter,
@@ -39,7 +39,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
       const path = selectedPathRef.current;
       const markdown = pendingMarkdownRef.current;
       if (path && markdown !== null) {
-        void invoke("write_file", {
+        void commands.files.write({
           path,
           content: joinFrontmatter(frontmatterRef.current, markdown),
         });
@@ -68,7 +68,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
         measureAsync(
           perfName,
           async () => {
-            await invoke("write_file", { path, content: diskContent });
+            await commands.files.write({ path, content: diskContent });
             if (selectedPathRef.current === path) {
               lastSavedContentRef.current = diskContent;
             }
@@ -156,7 +156,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
     pendingMarkdownRef.current = null;
 
     try {
-      const raw = await invoke<string>("read_file", { path: node.path });
+      const raw = await commands.files.read({ path: node.path });
       if (selectedPathRef.current !== node.path) return;
       const { frontmatter, body } = parseFrontmatter(raw);
       frontmatterRef.current = frontmatter;
@@ -180,7 +180,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
       if (selectedPathRef.current !== node.path) return false;
 
       try {
-        const raw = await invoke<string>("read_file", { path: node.path });
+        const raw = await commands.files.read({ path: node.path });
         if (selectedPathRef.current !== node.path) return false;
         const { frontmatter, body } = parseFrontmatter(raw);
         frontmatterRef.current = frontmatter;
@@ -244,7 +244,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
       body = pendingMarkdownRef.current;
     } else {
       try {
-        const raw = await invoke<string>("read_file", { path: selectedFile.path });
+        const raw = await commands.files.read({ path: selectedFile.path });
         body = parseFrontmatter(raw).body;
       } catch (err) {
         console.error("Failed to read file body for frontmatter update:", err);
@@ -256,7 +256,7 @@ export function useFileEditor({ showToast }: { showToast: (msg: string) => void 
     const filePath = selectedFile.path;
     try {
       const fullContent = joinFrontmatter(newFrontmatter, body);
-      await invoke("write_file", { path: filePath, content: fullContent });
+      await commands.files.write({ path: filePath, content: fullContent });
       if (selectedPathRef.current === filePath) {
         lastSavedContentRef.current = fullContent;
       }

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { InputRule } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -18,6 +17,7 @@ import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "tiptap-markdown";
+import { commands } from "../lib/commands";
 import { mimeTypeToImageExtension, resolveImageExtension } from "../lib/imageUtils";
 import { normalizeMarkdownSpacing } from "../lib/markdown";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
@@ -52,9 +52,9 @@ async function pickAndInsertImage(
 ) {
   if (!editor) return;
   try {
-    const srcPath = await invoke<string | null>("pick_image_file");
+    const srcPath = await commands.assets.pickImage();
     if (!srcPath) return;
-    const relPath = await invoke<string>("save_asset", { srcPath, activeFilePath: filePath });
+    const relPath = await commands.assets.save({ srcPath, activeFilePath: filePath });
     // Split on both / and \ to handle Windows paths correctly
     const fileName = (srcPath.split(/[/\\]/).pop() ?? "image").replace(/\.[^.]+$/, "");
     editor.chain().focus().setImage({ src: relPath, alt: fileName }).run();
@@ -284,11 +284,13 @@ export function Editor({
               const ext = mimeTypeToImageExtension(file.type);
               return file.arrayBuffer().then((buf) => {
                 const bytes = Array.from(new Uint8Array(buf));
-                return invoke<string>("save_asset_from_bytes", {
-                  bytes,
-                  extension: ext,
-                  activeFilePath: filePath,
-                }).then((relPath) => ({ name: file.name || "pasted-image", relPath }));
+                return commands.assets
+                  .saveFromBytes({
+                    bytes,
+                    extension: ext,
+                    activeFilePath: filePath,
+                  })
+                  .then((relPath) => ({ name: file.name || "pasted-image", relPath }));
               });
             })
           ).then((results) => {
@@ -353,14 +355,16 @@ export function Editor({
             const ext = resolveImageExtension(file);
             return file.arrayBuffer().then((buf) => {
               const bytes = Array.from(new Uint8Array(buf));
-              return invoke<string>("save_asset_from_bytes", {
-                bytes,
-                extension: ext,
-                activeFilePath: filePath,
-              }).then((relPath) => ({
-                name: file.name.replace(/\.[^.]+$/, ""),
-                relPath,
-              }));
+              return commands.assets
+                .saveFromBytes({
+                  bytes,
+                  extension: ext,
+                  activeFilePath: filePath,
+                })
+                .then((relPath) => ({
+                  name: file.name.replace(/\.[^.]+$/, ""),
+                  relPath,
+                }));
             });
           })
         ).then((results) => {

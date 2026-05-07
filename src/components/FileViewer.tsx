@@ -1,7 +1,8 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { commands } from "../lib/commands";
 import type { FileNode } from "../lib/types";
 import "./FileViewer.css";
 
@@ -87,7 +88,8 @@ export function FileViewer({ node, onClose }: FileViewerProps) {
     setLoading(true);
     setContent(null);
     setError(null);
-    invoke<string>("read_file", { path: node.path })
+    commands.files
+      .read({ path: node.path })
       .then((c) => {
         if (!cancelled) setContent(c);
       })

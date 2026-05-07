@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SidebarMode } from "../components/Sidebar";
+import { commands } from "./commands";
 import type { FileNode } from "./types";
 
 const SIDEBAR_MODE_KEY_PREFIX = "ovid:sidebarMode";
@@ -35,10 +35,10 @@ export function useFilesMode({ workspaceRootPath, showToast, t }: UseFilesModeOp
     loadGenRef.current += 1;
     const thisGen = loadGenRef.current;
     try {
-      const nodes = await invoke<FileNode[]>("list_workspace_children", {
+      const nodes = (await commands.workspace.listChildren({
         path: workspaceRootPath,
         allFiles: true,
-      });
+      })) as FileNode[];
       if (loadGenRef.current !== thisGen) return;
       setFilesTree(nodes);
     } catch (err) {
@@ -55,10 +55,10 @@ export function useFilesMode({ workspaceRootPath, showToast, t }: UseFilesModeOp
     async (dirPath: string) => {
       const thisGen = loadGenRef.current;
       try {
-        const children = await invoke<FileNode[]>("list_workspace_children", {
+        const children = (await commands.workspace.listChildren({
           path: dirPath,
           allFiles: true,
-        });
+        })) as FileNode[];
         if (loadGenRef.current !== thisGen) return;
         setFilesTree((current) => mergeFilesTreeChildren(current, dirPath, children));
       } catch (err) {

@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { commands } from "../lib/commands";
 import { isPerfLoggingEnabled, logPerf, measureAsync, measureSync } from "../lib/perf";
 import type { SearchResult } from "../lib/types";
 import "./SearchPanel.css";
@@ -43,7 +43,7 @@ export function SearchPanel({ onOpenFile, onClose }: SearchPanelProps) {
       const query = q.trim();
       const res = await measureAsync(
         "search_workspace.invoke",
-        () => invoke<SearchResult[]>("search_workspace", { query }),
+        () => commands.search.workspace({ query }) as Promise<SearchResult[]>,
         { query }
       );
       setResults(res);
