@@ -1,5 +1,4 @@
 import { confirm } from "@tauri-apps/plugin-dialog";
-import type { MutableRefObject } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { commands } from "./commands";
 import { type FlatFile, flattenTree } from "./fileSearch";
@@ -13,7 +12,6 @@ import { buildPostTargetPath } from "./postPath";
 import { createPostFromExistingContent } from "./postTemplate";
 import { forContentMode } from "./sidebarUtils";
 import type { FileNode } from "./types";
-import { syncRecentDelete, syncRecentRename } from "./useRecentFiles";
 
 interface WorkspaceResult {
   name: string;
@@ -29,14 +27,29 @@ interface WorkspaceResult {
 interface UseWorkspaceOptions {
   showToast: (msg: string) => void;
   flushPendingSave: () => Promise<void>;
-  handleCloseFile: () => Promise<void>;
-  handleSelectFile: (node: FileNode) => Promise<void>;
-  selectedFile: FileNode | null;
-  selectedPathRef: MutableRefObject<string | null>;
-  setSelectedFile: (node: FileNode | null) => void;
   resetFileState: () => void;
-  onPathRenamed?: (oldPath: string, newPath: string) => void;
-  onPathRemoved?: (path: string) => void;
+  /**
+   * Called by the workspace lifecycle handlers (`handleNewFile`,
+   * `handleNewTodayFlow`, `handleDuplicate`, `handleNewFromExisting`) once a
+   * fresh node exists in the tree. The session opens the file — selects it
+   * for editing, pushes to recents, opens its tab — in one consistent step.
+   */
+  onPathCreated?: (node: FileNode) => Promise<void> | void;
+  /**
+   * Called after a successful rename, with a `lookup` closure scoped to the
+   * just-walked tree. The session needs the closure to resolve the renamed
+   * file's new node *with full metadata* (containerDirPath, title,
+   * contentType) — `flatFiles` is a useMemo on tree state and doesn't
+   * recompute until the next render, so a lookup against it from the same
+   * tick would miss the just-renamed node and fall back to a synthetic node
+   * stripped of metadata.
+   */
+  onPathRenamed?: (
+    oldPath: string,
+    newPath: string,
+    lookup: (path: string) => FileNode | undefined
+  ) => void;
+  onPathRemoved?: (path: string) => Promise<void> | void;
 }
 
 function findNode(nodes: FileNode[], path: string): FileNode | undefined {
@@ -52,12 +65,8 @@ function findNode(nodes: FileNode[], path: string): FileNode | undefined {
 export function useWorkspace({
   showToast,
   flushPendingSave,
-  handleCloseFile,
-  handleSelectFile,
-  selectedFile,
-  selectedPathRef,
-  setSelectedFile,
   resetFileState,
+  onPathCreated,
   onPathRenamed,
   onPathRemoved,
 }: UseWorkspaceOptions) {
@@ -168,12 +177,12 @@ export function useWorkspace({
       }
       const updated = await refreshTree();
       const node = findNode(updated, filePath);
-      if (node) await handleSelectFile(node);
+      if (node) await onPathCreated?.(node);
     } catch (err) {
       console.error("Failed to open today's flow:", err);
       showToast(`Failed to open today's flow: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }, [workspaceRoot, refreshTree, handleSelectFile, showToast]);
+  }, [workspaceRoot, refreshTree, onPathCreated, showToast]);
 
   async function handleNewFile(dirPath: string, filename: string, contentType?: string) {
     const slug = filename.replace(/\.md$/, "");
@@ -185,7 +194,7 @@ export function useWorkspace({
       await commands.files.create({ path: filePath, content });
       const updated = await refreshTree();
       const newNode = findNode(updated, filePath);
-      if (newNode) await handleSelectFile(newNode);
+      if (newNode) await onPathCreated?.(newNode);
     } catch (err) {
       console.error("Failed to create file:", err);
       showToast(`Failed to create file: ${err instanceof Error ? err.message : String(err)}`);
@@ -194,27 +203,16 @@ export function useWorkspace({
 
   async function handleRename(node: FileNode, newName: string) {
     await flushPendingSave();
-    const { oldPath, newPath, folderBacked, entryFileName } = buildPostTargetPath(node, newName);
+    const { oldPath, newPath } = buildPostTargetPath(node, newName);
     try {
       await commands.files.rename({ oldPath, newPath });
-      if (workspaceRoot) syncRecentRename(workspaceRoot, oldPath, newPath);
-      onPathRenamed?.(oldPath, newPath);
+      // Refresh first so the lookup we hand to the session sees the renamed
+      // node with full metadata. Calling onPathRenamed before refreshTree
+      // (the previous order) made the session resolve the new path against
+      // a stale tree and fall back to a synthetic node missing
+      // containerDirPath / title / contentType.
       const updated = await refreshTree();
-      if (selectedFile?.path === node.path) {
-        const selectedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
-        const renamed = findNode(updated, selectedPath);
-        if (renamed) {
-          selectedPathRef.current = selectedPath;
-          setSelectedFile(renamed);
-        }
-      } else if (selectedFile?.path.startsWith(`${oldPath}/`)) {
-        const selectedPath = newPath + selectedFile.path.slice(oldPath.length);
-        const renamed = findNode(updated, selectedPath);
-        if (renamed) {
-          selectedPathRef.current = selectedPath;
-          setSelectedFile(renamed);
-        }
-      }
+      onPathRenamed?.(oldPath, newPath, (path) => findNode(updated, path));
     } catch (err) {
       console.error("Failed to rename file:", err);
       showToast(`Failed to rename: ${err instanceof Error ? err.message : String(err)}`);
@@ -231,7 +229,7 @@ export function useWorkspace({
       const duplicatedPath = folderBacked ? `${newPath}/${entryFileName}` : newPath;
       const duplicated = findNode(updated, duplicatedPath);
       if (duplicated) {
-        await handleSelectFile(duplicated);
+        await onPathCreated?.(duplicated);
       }
     } catch (err) {
       console.error("Failed to duplicate file:", err);
@@ -261,7 +259,7 @@ export function useWorkspace({
       const updated = await refreshTree();
       const created = findNode(updated, targetPath);
       if (created) {
-        await handleSelectFile(created);
+        await onPathCreated?.(created);
       }
     } catch (err) {
       console.error("Failed to create post from existing:", err);
@@ -278,14 +276,13 @@ export function useWorkspace({
       kind: "warning",
     });
     if (!confirmed) return;
-    if (selectedPathRef.current === node.path) {
-      await flushPendingSave();
-    }
+    // Always flush — the editor session decides whether the deleted file is
+    // the active one and closes it via onPathRemoved. flushPendingSave is a
+    // no-op when nothing is pending, so unconditional is safe.
+    await flushPendingSave();
     try {
       await commands.files.trash({ path: targetPath });
-      if (workspaceRoot) syncRecentDelete(workspaceRoot, targetPath);
-      onPathRemoved?.(targetPath);
-      if (selectedPathRef.current === node.path) await handleCloseFile();
+      await onPathRemoved?.(targetPath);
       await refreshTree();
     } catch (err) {
       console.error("Failed to delete file:", err);

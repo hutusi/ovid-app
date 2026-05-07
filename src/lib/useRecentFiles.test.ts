@@ -1,113 +1,78 @@
-import { describe, expect, it, mock } from "bun:test";
-import { STORAGE_KEY, syncRecentDelete, syncRecentRename } from "./useRecentFiles";
+import { describe, expect, it } from "bun:test";
+import { filterRemovedRecentPaths, rewriteRecentPaths } from "./useRecentFiles";
 
-function makeStorage(getItem: ReturnType<typeof mock>, setItem: ReturnType<typeof mock>): Storage {
-  return {
-    length: 0,
-    clear() {},
-    getItem,
-    key() {
-      return null;
-    },
-    removeItem() {},
-    setItem,
-  };
-}
-
-describe("syncRecentRename", () => {
+describe("rewriteRecentPaths", () => {
   it("rewrites exact recent paths for renamed files", () => {
-    const getItem = mock(() =>
-      JSON.stringify([{ path: "/workspace/content/posts/hello.md", name: "hello.md" }])
+    const result = rewriteRecentPaths(
+      [{ path: "/workspace/content/posts/hello.md", name: "hello.md" }],
+      "/workspace/content/posts/hello.md",
+      "/workspace/content/posts/renamed.md"
     );
-    const setItem = mock(() => {});
-    const originalStorage = globalThis.localStorage;
-    try {
-      globalThis.localStorage = makeStorage(getItem, setItem);
-
-      syncRecentRename(
-        "/workspace/content",
-        "/workspace/content/posts/hello.md",
-        "/workspace/content/posts/renamed.md"
-      );
-
-      expect(setItem).toHaveBeenCalledWith(
-        `${STORAGE_KEY}:/workspace/content`,
-        JSON.stringify([{ path: "/workspace/content/posts/renamed.md", name: "renamed.md" }])
-      );
-    } finally {
-      globalThis.localStorage = originalStorage;
-    }
+    expect(result).toEqual([{ path: "/workspace/content/posts/renamed.md", name: "renamed.md" }]);
   });
 
-  it("rewrites nested recent paths for renamed folders", () => {
-    const getItem = mock(() =>
-      JSON.stringify([{ path: "/workspace/content/posts/hello/index.md", name: "hello" }])
+  it("rewrites nested recent paths AND the label for folder-backed posts", () => {
+    // Folder-backed recents (from collapseIndexNodes) carry the parent
+    // folder's name as their label; renaming the folder must update both.
+    const result = rewriteRecentPaths(
+      [{ path: "/workspace/content/posts/hello/index.md", name: "hello" }],
+      "/workspace/content/posts/hello",
+      "/workspace/content/posts/renamed"
     );
-    const setItem = mock(() => {});
-    const originalStorage = globalThis.localStorage;
-    try {
-      globalThis.localStorage = makeStorage(getItem, setItem);
+    expect(result).toEqual([
+      { path: "/workspace/content/posts/renamed/index.md", name: "renamed" },
+    ]);
+  });
 
-      syncRecentRename(
-        "/workspace/content",
-        "/workspace/content/posts/hello",
-        "/workspace/content/posts/renamed"
-      );
+  it("leaves descendant labels alone when they're not the folder's name", () => {
+    // A non-index file inside a renamed folder should keep its own filename
+    // as its label — only the path needs rewriting.
+    const result = rewriteRecentPaths(
+      [{ path: "/workspace/content/posts/hello/draft.md", name: "draft.md" }],
+      "/workspace/content/posts/hello",
+      "/workspace/content/posts/renamed"
+    );
+    expect(result).toEqual([
+      { path: "/workspace/content/posts/renamed/draft.md", name: "draft.md" },
+    ]);
+  });
 
-      expect(setItem).toHaveBeenCalledWith(
-        `${STORAGE_KEY}:/workspace/content`,
-        JSON.stringify([{ path: "/workspace/content/posts/renamed/index.md", name: "hello" }])
-      );
-    } finally {
-      globalThis.localStorage = originalStorage;
-    }
+  it("leaves unrelated entries untouched", () => {
+    const entries = [
+      { path: "/workspace/content/posts/keep.md", name: "keep.md" },
+      { path: "/workspace/content/posts/hello.md", name: "hello.md" },
+    ];
+    const result = rewriteRecentPaths(
+      entries,
+      "/workspace/content/posts/hello.md",
+      "/workspace/content/posts/renamed.md"
+    );
+    expect(result[0]).toEqual(entries[0]);
+    expect(result[1].path).toBe("/workspace/content/posts/renamed.md");
   });
 });
 
-describe("syncRecentDelete", () => {
+describe("filterRemovedRecentPaths", () => {
   it("removes an exact deleted file path from recents", () => {
-    const getItem = mock(() =>
-      JSON.stringify([
+    const result = filterRemovedRecentPaths(
+      [
         { path: "/workspace/content/posts/hello.md", name: "hello.md" },
         { path: "/workspace/content/posts/keep.md", name: "keep.md" },
-      ])
+      ],
+      "/workspace/content/posts/hello.md"
     );
-    const setItem = mock(() => {});
-    const originalStorage = globalThis.localStorage;
-    try {
-      globalThis.localStorage = makeStorage(getItem, setItem);
-
-      syncRecentDelete("/workspace/content", "/workspace/content/posts/keep.md");
-
-      expect(setItem).toHaveBeenCalledWith(
-        `${STORAGE_KEY}:/workspace/content`,
-        JSON.stringify([{ path: "/workspace/content/posts/hello.md", name: "hello.md" }])
-      );
-    } finally {
-      globalThis.localStorage = originalStorage;
-    }
+    expect(result).toEqual([{ path: "/workspace/content/posts/keep.md", name: "keep.md" }]);
   });
 
-  it("removes deleted files and folder descendants from recents", () => {
-    const getItem = mock(() =>
-      JSON.stringify([
+  it("removes deleted folder descendants from recents", () => {
+    const result = filterRemovedRecentPaths(
+      [
         { path: "/workspace/content/posts/hello/index.md", name: "hello" },
+        { path: "/workspace/content/posts/hello/extra.md", name: "extra.md" },
         { path: "/workspace/content/posts/keep.md", name: "keep.md" },
-      ])
+      ],
+      "/workspace/content/posts/hello"
     );
-    const setItem = mock(() => {});
-    const originalStorage = globalThis.localStorage;
-    try {
-      globalThis.localStorage = makeStorage(getItem, setItem);
-
-      syncRecentDelete("/workspace/content", "/workspace/content/posts/hello");
-
-      expect(setItem).toHaveBeenCalledWith(
-        `${STORAGE_KEY}:/workspace/content`,
-        JSON.stringify([{ path: "/workspace/content/posts/keep.md", name: "keep.md" }])
-      );
-    } finally {
-      globalThis.localStorage = originalStorage;
-    }
+    expect(result).toEqual([{ path: "/workspace/content/posts/keep.md", name: "keep.md" }]);
   });
 });

@@ -7,7 +7,6 @@ import { getFileViewKind } from "./components/FileViewer";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { loadLastRecentFilePath } from "./lib/appRestore";
-import { makeFileNodeFromPath } from "./lib/fileNode";
 import { parseFrontmatter } from "./lib/frontmatter";
 import { getGitBranchTitle } from "./lib/gitUi";
 import { getPathDisplayLabel } from "./lib/postPath";
@@ -15,6 +14,7 @@ import { forContentMode, forFilesMode } from "./lib/sidebarUtils";
 import type { FileNode, ModalState } from "./lib/types";
 import { useContentTypes } from "./lib/useContentTypes";
 import { useEditorPreferences } from "./lib/useEditorPreferences";
+import { useEditorSession } from "./lib/useEditorSession";
 import { useFileEditor } from "./lib/useFileEditor";
 import { useFilesMode } from "./lib/useFilesMode";
 import { useGit } from "./lib/useGit";
@@ -23,8 +23,6 @@ import { useGitRefreshOnSave } from "./lib/useGitRefreshOnSave";
 import { useGitUiController } from "./lib/useGitUiController";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 import { useMenuActions } from "./lib/useMenuActions";
-import { useOpenTabs } from "./lib/useOpenTabs";
-import { useRecentFiles } from "./lib/useRecentFiles";
 import { useRecentWorkspaces } from "./lib/useRecentWorkspaces";
 import { useTheme } from "./lib/useTheme";
 import { useToast } from "./lib/useToast";
@@ -62,10 +60,24 @@ function App() {
   const [coverImageVisible, setCoverImageVisible] = useState(false);
   const pendingAutoOpenPath = useRef<string | null>(null);
   const editorViewStateRef = useRef<Record<string, EditorViewState>>({});
-  const tabSyncRef = useRef<{
-    renameTab: (oldPath: string, newPath: string) => void;
-    removeTab: (path: string) => void;
-  }>({ renameTab: () => {}, removeTab: () => {} });
+  // Editor session methods are wired into useWorkspace's path-mutation
+  // callbacks via this ref. The ref is populated after useEditorSession
+  // returns (further down) so the callbacks dispatch through the latest
+  // session instance — same shape as the previous tabSyncRef pattern but
+  // covering selection, tabs, and recents in one channel.
+  const sessionCallbacksRef = useRef<{
+    onPathCreated: (node: FileNode) => Promise<void>;
+    onPathRenamed: (
+      oldPath: string,
+      newPath: string,
+      lookup?: (path: string) => FileNode | undefined
+    ) => void;
+    onPathRemoved: (path: string) => Promise<void>;
+  }>({
+    onPathCreated: async () => {},
+    onPathRenamed: () => {},
+    onPathRemoved: async () => {},
+  });
 
   const { toasts, showToast } = useToast();
   const { prefs, updatePrefs } = useEditorPreferences();
@@ -121,22 +133,36 @@ function App() {
   } = useWorkspace({
     showToast,
     flushPendingSave,
-    handleCloseFile,
-    handleSelectFile,
-    selectedFile,
-    selectedPathRef,
-    setSelectedFile,
     resetFileState,
-    onPathRenamed: (oldPath, newPath) => tabSyncRef.current.renameTab(oldPath, newPath),
-    onPathRemoved: (path) => tabSyncRef.current.removeTab(path),
+    onPathCreated: (node) => sessionCallbacksRef.current.onPathCreated(node),
+    onPathRenamed: (oldPath, newPath, lookup) =>
+      sessionCallbacksRef.current.onPathRenamed(oldPath, newPath, lookup),
+    onPathRemoved: (path) => sessionCallbacksRef.current.onPathRemoved(path),
   });
 
-  const { recentFiles, pushRecent, resetRecent } = useRecentFiles(workspaceRoot);
-  const { tabs, openTab, closeTab, reorderTabs, renameTab, removeTab } =
-    useOpenTabs(workspaceRootPath);
-  useEffect(() => {
-    tabSyncRef.current = { renameTab, removeTab };
-  }, [renameTab, removeTab]);
+  const editorSession = useEditorSession({
+    fileEditor: {
+      selectedFile,
+      selectedPathRef,
+      setSelectedFile,
+      handleSelectFile,
+      handleCloseFile,
+    },
+    workspaceRoot,
+    workspaceRootPath,
+    flatFiles,
+  });
+  const { tabs, closeTab, reorderTabs, recentFiles, openFile, openByPath, closeActive } =
+    editorSession;
+
+  // Wire the session's path-mutation methods up to useWorkspace via the ref.
+  // The ref is reassigned every render so the workspace handlers always
+  // dispatch through the latest editor-session closures.
+  sessionCallbacksRef.current = {
+    onPathCreated: editorSession.openFile,
+    onPathRenamed: editorSession.notifyPathRenamed,
+    onPathRemoved: editorSession.notifyPathRemoved,
+  };
 
   const { sidebarMode, fileViewerNode, setFileViewerNode, handleToggleSidebarMode } = useFilesMode({
     workspaceRootPath,
@@ -155,30 +181,22 @@ function App() {
     });
   }, [sidebarMode, tree, workspaceRoot, workspaceRootPath]);
 
-  // Canonical open-by-path: looks up the full FileNode from the complete flat index
-  // (never from the hierarchical tree, which can become incomplete after sidebar interactions),
-  // then selects, records, and tabs the file in one consistent step.
+  // openByPath / openFile / closeActive live inside useEditorSession; here we
+  // only have to clear the FileViewer (a separate, files-mode UI concern) and
+  // delegate. Two-line wrappers rather than re-implementing the orchestration.
   const openFileByPath = useCallback(
     (path: string) => {
-      const node = flatFiles.find((f) => f.node.path === path)?.node ?? makeFileNodeFromPath(path);
-      if (node.isDirectory) return;
       setFileViewerNode(null);
-      void handleSelectFile(node);
-      pushRecent(node);
-      openTab(path);
+      void openByPath(path);
     },
-    [flatFiles, handleSelectFile, pushRecent, openTab, setFileViewerNode]
+    [openByPath, setFileViewerNode]
   );
 
-  function handleSidebarSelect(node: import("./lib/types").FileNode) {
+  function handleSidebarSelect(node: FileNode) {
     const isMarkdown = node.extension === ".md" || node.extension === ".mdx";
     if (sidebarMode === "content" || isMarkdown) {
       setFileViewerNode(null);
-      void handleSelectFile(node);
-      if (!node.isDirectory) {
-        pushRecent(node);
-        openTab(node.path);
-      }
+      void openFile(node);
       return;
     }
     const kind = getFileViewKind(node);
@@ -195,28 +213,8 @@ function App() {
       setFileViewerNode(null);
       return;
     }
-    if (selectedFile && tabs.includes(selectedFile.path)) {
-      const { neighbor } = closeTab(selectedFile.path);
-      if (neighbor) {
-        const node =
-          flatFiles.find((f) => f.node.path === neighbor)?.node ?? makeFileNodeFromPath(neighbor);
-        void handleSelectFile(node);
-        pushRecent(node);
-        return;
-      }
-    }
-    void handleCloseFile();
-  }, [
-    fileViewerNode,
-    setFileViewerNode,
-    selectedFile,
-    tabs,
-    closeTab,
-    flatFiles,
-    handleSelectFile,
-    pushRecent,
-    handleCloseFile,
-  ]);
+    closeActive();
+  }, [fileViewerNode, setFileViewerNode, closeActive]);
 
   const handleEditorViewStateChange = useCallback(
     (viewState: EditorViewState) => {
@@ -308,11 +306,6 @@ function App() {
     getRemoteBranches,
     getRemoteInfo,
   });
-
-  // Sync recent files list when workspace changes
-  useEffect(() => {
-    if (workspaceRoot) resetRecent(workspaceRoot);
-  }, [workspaceRoot, resetRecent]);
 
   // Track recently opened workspaces
   useEffect(() => {
@@ -520,10 +513,8 @@ function App() {
   }
 
   function handleSelectFromTab(path: string) {
-    const node = flatFiles.find((f) => f.node.path === path)?.node ?? makeFileNodeFromPath(path);
     setFileViewerNode(null);
-    void handleSelectFile(node);
-    pushRecent(node);
+    void openByPath(path);
   }
 
   function handleCloseTab(path: string) {
