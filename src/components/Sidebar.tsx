@@ -4,20 +4,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isPerfLoggingEnabled, logPerf, measureSync } from "../lib/perf";
 import {
-  buildExpandedStorageKey,
-  findAncestorPaths,
-  forceExpandAncestors,
-  getNodeExpanded,
-  parseExpandedPaths,
-  shouldDefaultExpand,
-} from "../lib/sidebarExpansion";
-import {
   filterTree,
   getSidebarDisplayName,
   needsPageDivider,
   rollupGitStatus,
 } from "../lib/sidebarUtils";
 import type { FileNode, GitStatus } from "../lib/types";
+import { useSidebarExpansion } from "../lib/useSidebarExpansion";
 import { ContentTypeIcon } from "./ContentTypeIcon";
 import "./Sidebar.css";
 
@@ -255,10 +248,11 @@ export function Sidebar({
   const renderStartedAtRef = useRef(0);
   renderStartedAtRef.current = performance.now();
   const [filterQuery, setFilterQuery] = useState("");
-  const expandedStorageKey = useMemo(() => buildExpandedStorageKey(workspaceKey), [workspaceKey]);
-  const expandedStorageKeyRef = useRef(expandedStorageKey);
-  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
-  const [isExpandedStateLoaded, setIsExpandedStateLoaded] = useState(false);
+  const { isExpanded: isNodeExpanded, toggleExpanded: handleToggleExpand } = useSidebarExpansion({
+    workspaceKey,
+    tree,
+    selectedPath,
+  });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     const parsed = stored ? Number(stored) : SIDEBAR_DEFAULT;
@@ -286,20 +280,6 @@ export function Sidebar({
     };
   }, []);
 
-  const selectedAncestorPaths = useMemo(
-    () =>
-      measureSync("sidebar.findAncestorPaths", () => findAncestorPaths(tree, selectedPath), {
-        treeNodes: tree.length,
-        hasSelection: Boolean(selectedPath),
-      }),
-    [tree, selectedPath]
-  );
-
-  const selectedAncestorKey = useMemo(
-    () => [...selectedAncestorPaths].sort().join("\0"),
-    [selectedAncestorPaths]
-  );
-
   // The tree prop arrives already projected (forContentMode / forFilesMode
   // applied at the App level), so this layer only needs to apply the search-
   // box query filter. filterTree preserves caller-provided ordering.
@@ -324,39 +304,6 @@ export function Sidebar({
       visible: visible ? 1 : 0,
     });
   }, [renderedNodes.length, filterQuery.length, visible]);
-
-  useEffect(() => {
-    expandedStorageKeyRef.current = expandedStorageKey;
-    const stored = localStorage.getItem(expandedStorageKey);
-    const next = parseExpandedPaths(stored);
-    setExpandedPaths(next.expandedPaths);
-    setIsExpandedStateLoaded(true);
-  }, [expandedStorageKey]);
-
-  useEffect(() => {
-    if (!isExpandedStateLoaded) return;
-    localStorage.setItem(expandedStorageKeyRef.current, JSON.stringify(expandedPaths));
-  }, [expandedPaths, isExpandedStateLoaded]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedPath is intentionally included so sibling-file navigation (same ancestorKey, different path) re-triggers ancestor expansion
-  useEffect(() => {
-    if (!isExpandedStateLoaded) return;
-    if (!selectedAncestorKey) return;
-    const ancestors = new Set(selectedAncestorKey.split("\0"));
-    setExpandedPaths((current) => forceExpandAncestors(current, ancestors));
-  }, [selectedPath, selectedAncestorKey, isExpandedStateLoaded]);
-
-  function isNodeExpanded(node: FileNode, depth: number): boolean {
-    return getNodeExpanded(node.path, depth, expandedPaths);
-  }
-
-  function handleToggleExpand(path: string, depth: number) {
-    setExpandedPaths((current) => {
-      const next = { ...current };
-      next[path] = !(current[path] ?? shouldDefaultExpand(depth));
-      return next;
-    });
-  }
 
   function handleResizeMouseDown(e: React.MouseEvent) {
     e.preventDefault();

@@ -46,7 +46,7 @@ Three-zone layout managed by `src/App.tsx`:
 └─────────────────────────────────────────────────┘
 ```
 
-**`src/App.tsx`** — Root component; composes top-level state from custom hooks (`useWorkspace`, `useFileEditor`, `useGit`, `useGitUiController`, `useFilesMode`, `useWorkspaceRevisionPoll`, `useGitFocusFetch`, `useMenuActions`, `useKeyboardShortcuts`, `useGitRefreshOnSave`, `useTheme`, `useToast`, `useEditorPreferences`, `useWordCountGoal`, `useRecentFiles`, `useRecentWorkspaces`, `useOpenTabs`, `useContentTypes`) and owns local UI flags (sidebar/properties visibility, zen/typewriter mode, dialog open states). Render output is composed from four top-level components: `Sidebar`/`SearchPanel` (left column), `EditorPane` (editor + properties), `StatusBar`, and `AppDialogs` (all overlays). `handleSidebarSelect` routes non-markdown selections to `FileViewer`; `closeActiveTabOrFile` closes the FileViewer first when it is active. `openFileByPath` is the canonical single entry point for opening a file by path from any surface (switcher, search, recents, auto-reopen, tab bar); it clears `fileViewerNode`, looks up the node in `flatFiles` (with a synthetic-node fallback), then calls `handleSelectFile` + `pushRecent` + `openTab` in one step.
+**`src/App.tsx`** — Root component; composes top-level state from custom hooks (`useWorkspace`, `useFileEditor`, `useEditorSession`, `useGit`, `useGitUiController`, `useFilesMode`, `useWorkspaceRevisionPoll`, `useGitFocusFetch`, `useMenuActions`, `useKeyboardShortcuts`, `useGitRefreshOnSave`, `useTheme`, `useToast`, `useEditorPreferences`, `useWordCountGoal`, `useRecentWorkspaces`, `useContentTypes`) and owns local UI flags (sidebar/properties visibility, zen/typewriter mode, dialog open states). Render output is composed from four top-level components: `Sidebar`/`SearchPanel` (left column), `EditorPane` (editor + properties), `StatusBar`, and `AppDialogs` (all overlays). `handleSidebarSelect` routes non-markdown selections to `FileViewer`; `closeActiveTabOrFile` closes the FileViewer first when it is active. `openFileByPath` is a thin wrapper that clears `fileViewerNode` and delegates to `useEditorSession.openByPath` — the session enforces the "select + push recent + open tab" invariant so callers don't have to assemble it.
 
 **`src/components/`** — UI components (list is representative, not exhaustive)
 - `EditorPane.tsx` — Editor column + PropertiesPanel composite; owns the lazy `Editor` import and its preload effect; renders `TabBar`, cover-image banner, and the `FileViewer`/`Editor`/`EmptyState` trio. Exports `EditorViewState` type used by `App.tsx`.
@@ -55,12 +55,12 @@ Three-zone layout managed by `src/App.tsx`:
 - `BubbleMenu.tsx` — Floating formatting toolbar (Bold, Italic, Strike, Code, Link) shown on text selection
 - `FindReplaceBar.tsx` — Find & replace bar (`Cmd+H`); live match highlighting, navigate, replace one/all
 - `TableControls.tsx` — Floating table toolbar (add/delete rows and columns) shown when cursor is in a table
-- `Sidebar.tsx` — Dual-mode file tree with a segmented Content / Files toggle. Content mode shows only `.md` / `.mdx` files (with `collapseIndexNodes` and `sortTree`). Files mode shows the full project tree (via `filterNoiseDirs` + `sortTreeAlpha`); non-markdown files show a generic icon and reduced context menu. Mode is persisted per workspace in `localStorage`.
+- `Sidebar.tsx` — Dual-mode file tree with a segmented Content / Files toggle. Content mode shows only `.md` / `.mdx` files (folder-backed posts collapsed via `collapseIndexNodes`, sorted by content-type priority). Files mode shows the full project tree (alpha-sorted, dirs first); non-markdown files show a generic icon and reduced context menu. The mode-specific projection is applied in `App.tsx` via `forContentMode` / `forFilesMode` selectors over the canonical workspace tree, so `Sidebar.tsx` is mode-unaware — it just renders whatever tree it's given. Mode is persisted per workspace in `localStorage`.
 - `TabBar.tsx` — Open-file tab strip above the editor; drag-to-reorder, middle-click or close button to close, hidden in zen mode and only rendered with 2+ tabs
 - `StatusBar.tsx` — Filename, word count, dark mode toggle, zen/typewriter toggles
 - `PropertiesPanel.tsx` — Collapsible bar above editor for frontmatter metadata; always shown for any open markdown file; displays an empty state with add-field prompts when the file has no frontmatter
 - `SearchPanel.tsx` — Full-text search panel (replaces sidebar); queries run in Rust; draft files are displayed with reduced opacity to match sidebar and switcher styling
-- `FileSwitcher.tsx` — `Cmd+P` command palette; receives `files: FlatFile[]` (the independent flat index from `useWorkspace`) rather than the hierarchical tree, so lazy sidebar loads never make discovery incomplete
+- `FileSwitcher.tsx` — `Cmd+P` command palette; receives `files: FlatFile[]` (the markdown-only projection from `useWorkspace`'s `forContentMode` selector) rather than the hierarchical tree, so it always sees the full set of openable files regardless of sidebar mode
 - Git UI: `GitSyncPopover.tsx`, `BranchSwitcher.tsx`, `NewBranchDialog.tsx`, `RenameBranchDialog.tsx`, `DeleteBranchDialog.tsx`, `CommitDialog.tsx` — surface the Tauri git commands; coordinated by `useGitUiController`
 - File lifecycle: `NewFileDialog.tsx`, `RenamePathDialog.tsx` — create/rename via Tauri commands
 - `UpdateDialog.tsx` — surfaces Tauri updater state
@@ -75,27 +75,29 @@ Three-zone layout managed by `src/App.tsx`:
 - `ui/input.tsx` — Plain input wrapper used by Sidebar filter and SearchPanel
 
 Sidebar/session behavior:
-- **Dual mode** — Content mode shows only markdown files; Files mode shows the full project tree rooted at `workspace_root` (not `tree_root`). Mode is toggled via a segmented two-button control and persisted per workspace.
+- **Single canonical tree, two views.** `useWorkspace` owns one recursively-walked tree from `workspace_root` (the Rust `walk_tree` filters noise dirs like `node_modules`/`.git`/build outputs at source). The sidebar projects it through `forContentMode` (scope into `content/`, drop dotfiles + non-markdown, prune empty dirs, collapse + sort) or `forFilesMode` (alpha-sort) at render time. Mutations refresh both views simultaneously — no more parallel `filesTree` going stale.
 - Folders containing only `index.md` or `index.mdx` are presented as a single content item in the sidebar and file switcher (via `collapseIndexNodes`); the node carries `containerDirPath` and a small badge indicator. Status bar path and rename dialog use the actual file path, not the folder name.
-- Sidebar expansion is selective: shallow folders open by default, deeper branches fold by default, and manual collapse overrides auto-expansion
+- Sidebar expansion is selective: shallow folders open by default, deeper branches fold by default, and manual collapse overrides auto-expansion. There is no lazy directory loading — the canonical walk is recursive and the noise-dir filter keeps it bounded.
 - On launch, the app auto-reopens the last workspace and attempts to restore the most recently opened file in that workspace
 
 **`src/lib/`** — hooks and helpers (representative, not exhaustive)
 
 State hooks (composed in `App.tsx`):
-- `useWorkspace.ts` — workspace open/close, file tree, current path; also maintains `flatFiles: FlatFile[]` — an independent flat index updated only from full `list_workspace` walks (never from lazy `loadDirectoryChildren` calls) so `Cmd+P` and `openFileByPath` always have the complete file list
-- `useFileEditor.ts` — current file content, dirty tracking, save coordination
+- `useWorkspace.ts` — workspace open/close, the canonical recursively-walked tree (from `workspace_root`, with noise dirs filtered Rust-side), `flatFiles: FlatFile[]` (markdown-only projection used by `Cmd+P` and `openFileByPath`), and the file-lifecycle handlers (`handleNewFile`, `handleRename`, `handleDelete`, etc.). Lifecycle handlers fire `onPathCreated` / `onPathRenamed` / `onPathRemoved` callbacks so the editor session stays in sync without `useWorkspace` knowing about tabs, recents, or selection.
+- `useFileEditor.ts` — current file content, dirty tracking, auto-save coordination, frontmatter parse. Owns the save path; composed *into* `useEditorSession` rather than imported directly by `App.tsx`-orchestration code.
+- `useEditorSession.ts` — the answer to "which file is the user editing right now, and what is its history?". Composes `useFileEditor` (passed in to break the dependency cycle with `useWorkspace`), `useOpenTabs`, and `useRecentFiles`. Owns `openFile(node)` / `openByPath(path)` (select + push recent + open tab as one step), `closeActive` (close tab and advance to neighbour, or close editor entirely), `notifyPathRenamed(old, new, lookup?)` and `notifyPathRemoved(path)` (keep tabs + recents + selection in lockstep on filesystem mutations). The pure helpers `selectionAfterRename` and `selectionShouldCloseAfterRemove` are exported for testing.
 - `useGit.ts` — git state (branch, status, remotes); polls via Tauri commands
 - `useGitUiController.ts` — coordinates git dialogs (commit, branch CRUD, sync popover)
-- `useFilesMode.ts` — owns `sidebarMode`, `fileViewerNode`, and `filesTree` state; persists mode per workspace in `localStorage`; loads the full files tree when switching to Files mode
+- `useFilesMode.ts` — owns `sidebarMode` and `fileViewerNode` only; persists mode per workspace in `localStorage`. The Files-mode tree itself is no longer a separate piece of state — it's a selector over `useWorkspace.tree`.
 - `useWorkspaceRevisionPoll.ts` — polls `get_workspace_revision` every 2 s; reloads the tree and optionally the active file when the workspace changes on disk
 - `useGitFocusFetch.ts` — triggers a background `git fetch` when the app window regains focus, subject to a cooldown
 - `useKeyboardShortcuts.ts` — wires all global `keydown` shortcuts to app-level state and actions; takes overlay-open flags as inputs so shortcuts are suppressed when any dialog is open
 - `useGitRefreshOnSave.ts` — debounces a git-status refresh on the `unsaved → saved` transition; owns the debounce timer and previous-status refs internally
 - `useMenuActions.ts` — subscribes to the native `menu-action` Tauri event and dispatches each action to the appropriate handler; also owns `handleWechatCopy`
 - `useContentTypes.ts` — Amytis content type discovery (only when workspace is Amytis)
-- `useRecentFiles.ts` / `useRecentWorkspaces.ts` — per-workspace and global MRU lists
-- `useOpenTabs.ts` — per-workspace open-file tab list (cap 8) with localStorage persistence; `useWorkspace` keeps it in sync via `onPathRenamed`/`onPathRemoved` callbacks
+- `useOpenTabs.ts` — per-workspace open-file tab list (cap 8) with localStorage persistence. Composed inside `useEditorSession`; not consumed directly from `App.tsx`.
+- `useRecentFiles.ts` — per-workspace MRU list. Exposes `pushRecent` / `renameRecent` / `removeRecent` / `clearRecent` so in-memory state and localStorage stay in sync after path mutations. Composed inside `useEditorSession`.
+- `useRecentWorkspaces.ts` — global MRU of opened workspaces.
 - `useEditorPreferences.ts`, `useWordCountGoal.ts` — user preferences in `localStorage`
 - `useToast.ts` — toast queue surfaced by `App.tsx`
 - `useTheme.ts` — system/manual dark mode; syncs to `localStorage`; applies `data-theme` on `<html>`
@@ -106,9 +108,17 @@ Pure helpers:
 - `fileNode.ts` — `makeFileNodeFromPath`: construct a minimal `FileNode` from a plain path string (used when the full tree index is unavailable)
 - `frontmatter.ts` / `frontmatterSchema.ts` — `parseFrontmatter` / `joinFrontmatter` (raw round-trip), `parseYamlFrontmatter` (js-yaml), and Amytis-aware schema lookups
 - `appRestore.ts` — last-workspace and last-file restoration on launch
-- `sidebarUtils.ts` — `collapseIndexNodes` (fold index-only dirs into a single node), `filterNoiseDirs` (strip `node_modules`, `dist`, `.git`, etc. for Files mode), `sortTreeAlpha` (dirs-first alpha sort for Files mode), `sortTree` / `sortNodes` (content-type priority sort for Content mode), `rollupGitStatus`, `filterTree`, `getSidebarDisplayName`, `needsPageDivider`
-- `fileSearch.ts` — `FlatFile` type, `flattenTree` (flattens a `FileNode[]` into `FlatFile[]`, applying `collapseIndexNodes` and skipping unloaded branches), `score` / `compareFiles` (fuzzy ranking with recency tie-breaking) used by `FileSwitcher`; `sidebarExpansion.ts` — `findAncestorPaths` derives ancestor directory paths from path segments (not tree traversal) so sidebar reveal works even when branches have `children: null` from lazy loading; `markdown.ts`, `codeBlockLanguages.ts`, `imageUtils.ts`, `postPath.ts`, `gitAutoFetch.ts`, `gitUi.ts`, `utils.ts`, `perf.ts`
-- `wechatHtml.ts` — Five exported functions: `markdownToWechatHtml(markdown)` converts Markdown to inline-styled HTML (headless Tiptap → `applyWechatStyles` → `sanitizeForWechat`; strips math with a `hasMath` flag; requires browser DOM); `sanitizeForWechat(html)` strips `data-*`/`aria-*`/`id` attributes, removes non-absolute `href` values, replaces `<input type="checkbox">` with ☑/☐, and unwraps `<label>` elements (WeChat rejects all of these); `extractExcerpt(markdown, maxLen?)` strips markdown syntax and returns the first non-empty line truncated to `maxLen` (default 54); `hasMathBlocks(markdown)` returns true if the markdown contains any `$$...$$` or `$...$` LaTeX expressions; `countLocalImages(markdown)` counts markdown images whose `src` is a local path (not `http/https/data:`). The last four are DOM-free and covered by `wechatHtml.test.ts`. Internal helper `replaceNewlinesWithBr` walks text nodes inside `<pre><code>` and replaces `\n` with `<br>` elements — WeChat strips `white-space` from inline styles so literal newlines would otherwise collapse to spaces.
+- `sidebarUtils.ts` — `forContentMode(tree, { workspaceRoot, treeRoot })` and `forFilesMode(tree)` are the two top-level mode projections applied in `App.tsx`. Internal helpers: `collapseIndexNodes`, `sortTree`/`sortNodes` (content-type priority), `sortTreeAlpha` (dirs-first alpha), `rollupGitStatus`, `filterTree` (sidebar query filter), `getSidebarDisplayName`, `needsPageDivider`. Noise-dir filtering moved to the Rust walk; there is no `filterNoiseDirs` here anymore.
+- `fileSearch.ts` — `FlatFile` type, `flattenTree` (flattens a `FileNode[]` into `FlatFile[]`, applying `collapseIndexNodes`), `score` / `compareFiles` (fuzzy ranking with recency tie-breaking) used by `FileSwitcher`. `sidebarExpansion.ts` — `findAncestorPaths` derives ancestor directory paths from path segments. Other helpers: `markdown.ts`, `codeBlockLanguages.ts`, `imageUtils.ts`, `postPath.ts`, `gitAutoFetch.ts`, `gitUi.ts`, `utils.ts`, `perf.ts`
+- `wechatHtml.ts` — Pure-string Markdown → WeChat-styled HTML pipeline backed by `markdown-it` (the same parser `tiptap-markdown` wraps internally). Five exports: `markdownToWechatHtml(markdown)` returns `{ html, hasMath }` — runs through a `markdown-it` instance whose custom renderer rules emit pre-styled HTML directly (no separate styling pass, no DOM, no Tiptap mount). Math (`$$...$$` and `$...$`) is stripped before parsing; `markdown-it-task-lists` handles `[ ]` / `[x]` and a single regex pass converts the resulting `<input type="checkbox">` to ☑/☐. `extractExcerpt(markdown, maxLen?)` strips markdown syntax and returns the first non-empty line truncated to `maxLen` (default 54). `hasMathBlocks(markdown)` returns true for any LaTeX block. `countLocalImages(markdown)` counts markdown images whose `src` isn't `http`/`https`/`data:`/`asset:`/`blob:`. The whole module is DOM-free and tested end-to-end via `wechatHtml.test.ts` (51 fixture tests covering headings, lists, code with newline preservation, tables with column alignment, ordered-list `start`, links with relative-href stripping, images, math, task lists, composition, and HTML-escape semantics).
+
+**`src/lib/commands/`** — Typed seam over Tauri's `invoke()`. Every Rust command is reached via `commands.<domain>.<fn>()`; **nothing outside this directory imports `invoke` directly**. Files:
+- `internal.ts` — `invokeCmd<T>(name, args?)` normalises Tauri's `string`-rejection into `Error` instances so callers can rely on `err.message`. `listenEvent<T>(name, handler)` returns a sync teardown for `useEffect` cleanup, hiding the async race in Tauri's `listen()`.
+- `index.ts` — re-exports `commands` with one namespace per domain.
+- `app.ts`, `assets.ts`, `contentTypes.ts`, `files.ts`, `git.ts`, `menu.ts`, `search.ts`, `wechat.ts`, `workspace.ts` — domain wrappers. Argument types are hand-typed in TS (camelCase, matching Tauri's auto-conversion of snake_case Rust params); return types are imported from `./generated/`.
+- `generated/` — TypeScript types derived from Rust structs via `ts-rs`. Regenerated by `cargo test`; checked in. `bun run validate` includes `git diff --exit-code src/lib/commands/generated` so drift fails CI.
+
+When adding a new Tauri command: derive `TS` on the Rust return struct (with `#[ts(export, export_to = "../../src/lib/commands/generated/")]`), add the wrapper function in the appropriate domain file, hand-type the Args interface mirroring the Rust fn signature. Drift between Rust args and TS args fails loudly at runtime (Tauri rejects unknown fields); drift between Rust returns and TS returns is caught by the validate guard.
 
 **`src/theme.ts`** — Static theme constants consumed by components alongside the `useTheme` hook.
 
@@ -129,17 +139,18 @@ Pure helpers:
 
 **`src-tauri/`** — Rust backend (Tauri 2). Code is split by domain: `state.rs` (shared `WorkspaceState` / `WechatState` / cache types), `paths.rs` (path validation + atomic write helpers), `perf.rs`, `workspace/` (`FileNode`, tree walking, frontmatter cache, workspace commands), `files.rs` (read/write/create/rename/trash), `search.rs`, `content_types.rs`, `git/` (commands, parsers, error classifiers, push/branch arg builders), `assets.rs`, `wechat/` (creds, token, upload, publish), `menu.rs` (`AboutState` + menu building), `app.rs`. `lib.rs` is a thin coordinator: it declares modules, owns `run()`, and registers every Tauri command via `tauri::generate_handler!`. For workspace-scoped file operations, path arguments are validated against the open workspace root before filesystem reads/writes.
 
+Cross-language types: every Rust struct that crosses the IPC seam derives `ts_rs::TS` and exports its TypeScript shape into `src/lib/commands/generated/` on `cargo test`. The generated dir is checked in; `bun run validate` fails CI when it drifts from the Rust source. The frontend never references the Rust struct names directly — it imports the generated `.ts` files via the `commands/<domain>.ts` wrappers.
+
 Workspace and file lifecycle:
-- `open_workspace` (folder picker) / `open_workspace_at_path` — async, tokio oneshot; uses `list_dir_shallow` for a fast initial render, then the frontend fires a background `list_workspace` call to complete the flat index
-- `list_workspace`, `list_workspace_children` — initial tree and lazy directory expansion; `list_workspace_children` accepts `allFiles: Option<bool>`: when `false` (Content mode) it validates against `tree_root` and filters non-markdown/dotfiles; when `true` (Files mode) it validates against `workspace_root` and includes all files including dotfiles
+- `open_workspace` (folder picker) / `open_workspace_at_path` — async, tokio oneshot; performs the canonical recursive `walk_tree` from `workspace_root` and returns the full tree in one round trip
+- `list_workspace_tree` — re-walks the canonical tree from `workspace_root` and returns the full `FileNode[]`. Called by the frontend after every mutation and on the periodic revision poll. Replaces the previous `list_workspace` (content-only walk) and `list_workspace_children` (shallow lazy-load); the prior content-only / all-files split lives on the frontend as pure selectors (`forContentMode` / `forFilesMode`), not as Rust API variants.
 - `read_file`, `write_file` — `read_file` validates against `workspace_root` (not `tree_root`) so files outside the Amytis `content/` subtree can be previewed; `write_file` uses atomic temp-file + rename
 - `create_file`, `create_dir`, `ensure_dir` — new files/folders inside the workspace
 - `rename_file`, `duplicate_entry`, `trash_file` — rename, copy, and OS-trash operations
 - `save_asset`, `save_asset_from_bytes`, `pick_image_file` — image asset import: `save_asset` copies a file-path source (drag-and-drop), `save_asset_from_bytes` writes raw bytes (clipboard paste); both save to the active file's sibling `images/` directory, falling back to `<workspace_root>/images/`
 
-Private helpers (not Tauri commands):
-- `list_dir_shallow(path, all_files, cache)` — shallow directory listing; when `all_files=false` skips dotfiles and directories with no markdown descendants; when `all_files=true` includes all files and dotfiles
-- `has_markdown_descendant(path)` — recursively checks if a directory contains any `.md`/`.mdx` file; skips dotfiles and symlinks to avoid infinite loops
+Private helper (not a Tauri command):
+- `walk_tree(path, cache)` — recursive walk producing every file, every directory, dotfiles included. Noise directories (`.git`, `node_modules`, `target`, `dist`, `build`, `.next`, `.nuxt`, `vendor`, `.cache`, `__pycache__`, `.tox`, `.venv`, `out`, `.turbo`, `.vercel`, `.parcel-cache`, …) are filtered at this layer, so callers don't have to. Mode filtering (markdown-only for content mode) lives in TS selectors.
 
 Search and content metadata:
 - `search_workspace` — full-text search; ranked results
@@ -221,6 +232,8 @@ These rules encode hard-won lessons about what works in Tauri's WebView. Violati
 - **Bun** as runtime and package manager — consistent with the TUI sibling project
 - **No shared code** with the TUI (`ovid`) — different runtime APIs; reference TUI for domain logic only
 - File I/O goes through **Tauri FS plugin** (`@tauri-apps/plugin-fs`) or Rust commands — never direct Node/Bun APIs
+- **Typed seam over `invoke()`** — the frontend never calls `invoke` directly; everything goes through `commands.<domain>.<fn>()` in `src/lib/commands/`. Return types are generated from Rust via `ts-rs`. The single catalog is the only place that knows about stringly-typed command names.
+- **`useEditorSession` owns the open-file lifecycle** — the editor session (current file + tabs + recents + selection) is a single hook composing `useFileEditor` / `useOpenTabs` / `useRecentFiles`. `useWorkspace` notifies the session via `onPathCreated` / `onPathRenamed` / `onPathRemoved` callbacks; it never reaches into editor state directly.
 - **Global UI state in `App.tsx`** — workspace and editor state live in `App.tsx`; theme state is managed by the `useTheme` hook; no external state library (no Zustand, Redux, etc.)
 - **No persistent toolbar** — no fixed toolbar above the editor; the bubble menu appears transiently on text selection and disappears after use; keyboard-first design remains the primary affordance
 - **Tailwind-first design tokens** — all color and font tokens live in `@theme` in `global.css`; generates both CSS variables (`var(--color-surface)`) and utility classes (`bg-surface`) simultaneously; dark mode overrides in `[data-theme="dark"]`; never add a `@theme inline` bridge layer
@@ -245,7 +258,7 @@ Supported languages: **English** (`en`) and **Simplified Chinese** (`zh-CN`). La
 
 **CSS-only text** (the H1-duplicate warning in `editor.css`): `content: var(--h1-warning-text, "…fallback…")`. `src/lib/i18n.ts` sets `--h1-warning-text` on `<html>` via `JSON.stringify(i18n.t("editor.h1_warning"))` after init and on every `languageChanged` event.
 
-**Rust native menus**: the frontend calls `invoke("set_menu_language", { labels })` after i18n initialises and again on language toggle. `labels` is a `Record<string, string>` built by `buildMenuLabels(t)` in `src/lib/menuLabels.ts`. On startup (before the WebView loads), `initial_menu_labels()` in `src-tauri/src/menu.rs` uses `sys-locale` to read the OS locale and parses `src/locales/*.json` (embedded via `include_str!`) to seed the menu in the right language from frame one.
+**Rust native menus**: the frontend calls `commands.menu.setLanguage({ labels })` after i18n initialises and again on language toggle. `labels` is a `Record<string, string>` built by `buildMenuLabels(t)` in `src/lib/menuLabels.ts`. On startup (before the WebView loads), `initial_menu_labels()` in `src-tauri/src/menu.rs` uses `sys-locale` to read the OS locale and parses `src/locales/*.json` (embedded via `include_str!`) to seed the menu in the right language from frame one.
 
 **Adding a translation key**:
 1. Add the key to **both** `en.json` and `zh-CN.json` under the appropriate section.
@@ -255,7 +268,7 @@ Supported languages: **English** (`en`) and **Simplified Chinese** (`zh-CN`). La
 
 ## Error Handling
 
-- Tauri Rust commands return `Result<T, String>` — errors surface as rejected promises in the frontend
+- Tauri Rust commands return `Result<T, String>` — errors surface as rejected promises in the frontend. The `commands` wrapper layer in `src/lib/commands/internal.ts` normalises rejections to `Error` instances (`err.message` always populated), so catch blocks should use `err instanceof Error ? err.message : String(err)` rather than `String(err)` (the latter produces `"Error: msg"` after normalisation).
 - Display errors via the toast system (`showToast` in `App.tsx`) — never `console.error` for user-visible failures; `ErrorBoundary` wraps the editor and surfaces render errors instead of blank screen
 - Path validation happens in Rust (`read_file` / `write_file` reject paths outside workspace root)
 
